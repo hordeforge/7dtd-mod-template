@@ -19,8 +19,8 @@ experimental.
 ## Quick start
 
 ```bash
-gh repo clone hordeforge/7dtd-mod-template ~/code/hordeforge/7dtd-mod-template
-cd ~/code/hordeforge/7dtd-mod-template
+gh repo clone hordeforge/7dtd-mod-template
+cd 7dtd-mod-template
 cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ./new-mod.sh mymod.conf
 ```

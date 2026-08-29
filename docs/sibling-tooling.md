@@ -8,7 +8,7 @@ when the capability is general. The offline gate
 *content* for the banned tool calls, so a renamed copy fails too.
 
 Default checkouts live under the directory named by `HORDEFORGE_ROOT` in the
-mod's `.local.env` (conventionally `~/code/hordeforge/<repo>`). If a needed
+mod's `.local.env`. If a needed
 sibling is missing:
 
 ```bash
