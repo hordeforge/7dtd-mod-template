@@ -120,6 +120,7 @@ rejected at runtime, and a matching UnityFS header is *not* acceptance
 evidence. Acceptance is a fresh client loading the bundle. If a build fails
 a shamway gate, fix the cause — never downgrade the gate.
 
+<!-- ANVIL:CSHARP-BEGIN -->
 ## Runtime settings are TOML
 
 This mod's own tunables live in `Config/__MOD_NAME__.toml`, read by the
@@ -129,6 +130,7 @@ save, reset-then-apply, broken save keeps current values, console
 `settings|set|reload`). Add a setting in `ModSettings.cs` (its header
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
+<!-- ANVIL:CSHARP-END -->
 
 ## Local path inventory
 

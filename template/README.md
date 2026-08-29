@@ -28,9 +28,11 @@ patch-target validation, `steamcmd` for the dedicated-server lane.
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.
 
+<!-- ANVIL:CSHARP-BEGIN -->
 Runtime settings live in `Config/__MOD_NAME__.toml` in the installed mod
 folder; saving it applies without a restart, and the in-game/telnet
 command `__MOD_NAME_LOWER__` lists, changes, and reloads them.
+<!-- ANVIL:CSHARP-END -->
 
 ## Docs
 

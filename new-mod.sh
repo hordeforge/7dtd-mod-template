@@ -106,6 +106,7 @@ else
 	rm -rf "$MOD_DIR/src"
 	# no DLL, so nothing reads the TOML settings file or its contract gate
 	rm -f "$MOD_DIR/Config/__MOD_NAME__.toml" "$MOD_DIR/scripts/test_settings_reload.py"
+	sed -i '/<!-- ANVIL:CSHARP-BEGIN -->/,/<!-- ANVIL:CSHARP-END -->/d' "$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 	skip_eac="false"
 fi
 if [[ "$assets" == "yes" ]]; then
@@ -116,6 +117,7 @@ else
 	sed -i '/^# ANVIL:ASSETS-BEGIN$/,/^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
 fi
 sed -i '/^# ANVIL:ASSETS-BEGIN$/d; /^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
+sed -i '/<!-- ANVIL:CSHARP-BEGIN -->/d; /<!-- ANVIL:CSHARP-END -->/d' "$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 
 # token substitution across every tracked text file (python: purpose text
 # may contain any character sed's delimiter escaping would mangle)
