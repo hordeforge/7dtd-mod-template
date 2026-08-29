@@ -56,12 +56,7 @@ MOD_DIR="$target_dir/$name"
 
 # --- hordeforge tool checkouts -------------------------------------------
 if [[ -z "$hordeforge_root" ]]; then
-	if [[ -d "$HOME/code/hordeforge" ]]; then
-		hordeforge_root="$HOME/code/hordeforge"
-		echo "Using existing hordeforge checkout dir: $hordeforge_root"
-	else
-		ask hordeforge_root "Directory for hordeforge tool checkouts (created if missing)"
-	fi
+	ask hordeforge_root "Directory holding (or to hold) the hordeforge tool checkouts"
 fi
 hordeforge_root="${hordeforge_root/#\~/$HOME}"
 
@@ -155,10 +150,9 @@ for base, dirs, files in os.walk(mod_dir):
 PYEOF
 
 # --- machine-local .local.env --------------------------------------------
+# per-repo roots are always derived from hordeforge_root, cloned yet or not
 for repo_var in PLAYTEST_ROOT:7dtd-playtest CONNECT_ROOT:7dtd-fastconnect ASSET_PIPELINE_ROOT:7dtd-asset-pipeline; do
-	var="${repo_var%%:*}"
-	repo_dir="$hordeforge_root/${repo_var#*:}"
-	[[ -d "$repo_dir" ]] && printf -v "$var" '%s' "$repo_dir" || printf -v "$var" ''
+	printf -v "${repo_var%%:*}" '%s' "$hordeforge_root/${repo_var#*:}"
 done
 cat > "$MOD_DIR/.local.env" <<LOCALEOF
 # Machine-local path inventory (never commit; format: .local.env.example).
