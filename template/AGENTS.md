@@ -107,7 +107,9 @@ relative path of this repo.
 ## Asset bundles (when this mod ships them)
 
 The bundle is built by **shamway** (`hordeforge/7dtd-asset-pipeline`); this
-mod owns only its assets, generators, and provenance. Start with
+mod owns only its assets, generators, and provenance. Texture, audio, and
+text bundles are synthesized with **no Unity editor at all**; only meshes,
+prefabs, and materials need the game-matched editor (`UNITY_EDITOR`). Start with
 `shamway init` (it generates `.shamway.toml` and the pipeline's own
 `tools/shamway/AGENTS.md` contract), orient with `shamway status --json`,
 and gate every rebuild with `make validate-assets` **before** any client

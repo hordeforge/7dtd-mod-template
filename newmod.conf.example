@@ -18,4 +18,5 @@ clone="yes"          # no: skip cloning missing hordeforge tool repos
 hordeforge_root=""   # directory holding the hordeforge tool checkouts; prompted if empty
 game_dir=""          # 7DTD client install; auto-detected from the default Steam path
 server_dir=""        # optional dedicated-server install
-unity_editor=""      # optional; only for asset-bundle builds
+unity_editor=""      # optional; only for bundles with meshes/prefabs/materials —
+                     # shamway synthesizes texture/audio/text bundles with no editor
