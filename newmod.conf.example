@@ -1,0 +1,21 @@
+# Anvil scaffold config — shell key=value. Copy, fill in, then:
+#   ./new-mod.sh myconfig.conf
+# Any config filename works (nothing is hardcoded); keep one-off configs
+# out of git via the *.local.conf ignore pattern, or commit reusable
+# presets. Missing required keys are prompted for interactively.
+
+# Required
+name=""              # modlet id: alphanumeric, becomes the directory and ModInfo Name
+author=""
+purpose=""           # what the mod is for — a sentence or paragraph; seeded into README/design/TODO
+target_dir=""        # the mod directory is created at <target_dir>/<name>
+
+# Optional
+display_name=""      # defaults to name
+csharp="no"          # yes: include the net48 Harmony DLL project (sets SkipWithAntiCheat)
+assets="no"          # yes: include assets-src/ and the shamway Makefile targets
+clone="yes"          # no: skip cloning missing hordeforge tool repos
+hordeforge_root=""   # defaults to ~/code/hordeforge when it exists, else prompted
+game_dir=""          # 7DTD client install; auto-detected from the default Steam path
+server_dir=""        # optional dedicated-server install
+unity_editor=""      # optional; only for asset-bundle builds

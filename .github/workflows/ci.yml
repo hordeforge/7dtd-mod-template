@@ -1,0 +1,34 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scaffold-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scaffold a throwaway mod
+        run: |
+          cat > ci-smoke.conf <<CONF
+          name="CiSmoke"
+          author="ci"
+          purpose="Throwaway CI smoke mod proving the template scaffolds into a working modlet."
+          target_dir="$RUNNER_TEMP/anvil-smoke"
+          csharp="yes"
+          assets="no"
+          clone="no"
+          hordeforge_root="$RUNNER_TEMP/hordeforge"
+          CONF
+          ./new-mod.sh ci-smoke.conf
+      - name: Offline gates
+        run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" test
+      - name: Shellcheck
+        run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-shell
+      - name: Package layout (no game install -> XML-only package)
+        run: |
+          cd "$RUNNER_TEMP/anvil-smoke/CiSmoke"
+          rm -rf src   # DLL build needs a game install; prove the packaging path without it
+          make package
+          unzip -l dist/CiSmoke.zip | grep -q "CiSmoke/ModInfo.xml"

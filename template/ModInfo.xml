@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+	<Name value="__MOD_NAME__" />
+	<DisplayName value="__MOD_DISPLAY_NAME__" />
+	<Description value="__MOD_PURPOSE_SHORT__" />
+	<Author value="__MOD_AUTHOR__" />
+	<Version value="0.1.0.0" />
+	<Website value="" />
+	<SkipWithAntiCheat value="__SKIP_WITH_ANTI_CHEAT__" />
+</xml>
