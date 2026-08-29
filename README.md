@@ -88,6 +88,12 @@ core.
   (`make install-server` / `deploy-server` / `server-smoke`: SteamCMD
   provision with a mod-owned EAC-off serverconfig, deploy, bounded boot,
   log proof the mod loaded).
+- **TOML runtime settings** (C# mods): `Config/<Name>.toml` read by the
+  DLL from the installed mod folder through a shipped fail-loud TOML
+  subset parser — hot-reloaded on save (debounced UnityUpdate watch,
+  reset-to-defaults-then-apply, broken save keeps current values), with a
+  console command (`settings|set|reload`) sharing one value grammar, and
+  an `Applied` event for synced values or a future settings UI.
 - **Docs-as-memory**: `TODO.md` task queue with claim markers,
   `docs/design.md` / `docs/architecture.md` / `docs/adr/` decision records,
   and an `AGENTS.md` (+ `CLAUDE.md` importing it) carrying the working

@@ -98,10 +98,14 @@ cp -R "$ANVIL/docs/." "$MOD_DIR/docs/reference/"
 
 if [[ "$csharp" == "yes" ]]; then
 	mv "$MOD_DIR/src/__MOD_NAME__/__MOD_NAME__.csproj" "$MOD_DIR/src/__MOD_NAME__/$name.csproj"
+	mv "$MOD_DIR/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs" "$MOD_DIR/src/__MOD_NAME__/ConsoleCmd$name.cs"
 	mv "$MOD_DIR/src/__MOD_NAME__" "$MOD_DIR/src/$name"
+	mv "$MOD_DIR/Config/__MOD_NAME__.toml" "$MOD_DIR/Config/$name.toml"
 	skip_eac="true"
 else
 	rm -rf "$MOD_DIR/src"
+	# no DLL, so nothing reads the TOML settings file or its contract gate
+	rm -f "$MOD_DIR/Config/__MOD_NAME__.toml" "$MOD_DIR/scripts/test_settings_reload.py"
 	skip_eac="false"
 fi
 if [[ "$assets" == "yes" ]]; then

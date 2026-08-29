@@ -55,6 +55,38 @@ public class SomeGameClass_SomeMethod_Patch
 A mod's DLL typically has a `ModApi`-implementing entry class that Harmony's
 `PatchAll()` is invoked from on mod load.
 
+## Mod settings file (runtime config the mod reads itself)
+
+The hordeforge default for a mod's own tunables is a **TOML file the DLL
+reads itself**: `Config/<Mod>.toml` in the installed mod folder, resolved
+from the path the game hands you (`_modInstance.Path` in `InitMod`) — never
+a hardcoded path or the working directory. The engine's XML patcher never
+sees it (the patcher only opens `Config/` files named after vanilla files),
+and net48 has no TOML library, so the template ships a fail-loud TOML
+subset parser (`TomlSettings.cs`: bare keys, booleans, numbers, strings,
+arrays; tables and dotted keys rejected).
+
+The scaffolded wiring (`ModSettings.cs` + the mod's console command)
+carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
+
+- applied at `InitMod`; a missing file is the normal fresh-install case
+  (defaults stand, one log line says so)
+- **saving the file applies without a restart**: a mtime/length watch
+  polled from `ModEvents.UnityUpdate`, debounced so a half-written save is
+  not read; `<mod> reload` re-reads immediately
+- a reload **resets to shipped defaults, then applies the file**; a broken
+  save keeps the current values and logs the error
+- the console command's `set` shares one name/value grammar with the file
+  via `ModSettings.TrySet`, and changes the session only until the file is
+  re-read
+- `ModSettings.Applied` fires after each apply — the hook for anything
+  that must react to changed values (synced CVars, a future settings UI)
+
+In multiplayer the **server's copy is authoritative** for server-side
+behavior; when clients need the values, sync them explicitly (AtomicDoomsday
+pushes them through player CVars — its ADR 0012 pattern).
+`scripts/test_settings_reload.py` holds the source-level contract offline.
+
 ## When you actually need this vs. XML
 
 Prefer XML (`xml-patching.md`) whenever the desired behavior is expressible
