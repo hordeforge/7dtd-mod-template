@@ -18,7 +18,9 @@ clone="yes"          # no: skip cloning missing hordeforge tool repos
 hordeforge_root=""   # directory holding the hordeforge tool checkouts; prompted if empty
 game_dir=""          # 7DTD client install; auto-detected from the default Steam path
 server_dir=""        # optional dedicated-server install
-unity_editor=""      # path to the game-matched Unity editor EXECUTABLE
-                     # (.../Hub/Editor/<version>/Editor/Unity). Usually NOT needed:
-                     # leave empty unless the mod ships meshes/prefabs/materials —
-                     # shamway builds texture/audio/text bundles with no editor
+unity_editor=""      # FULLY optional; leave empty. Path to the game-matched Unity
+                     # editor EXECUTABLE (.../Hub/Editor/<version>/Editor/Unity),
+                     # used only if you opt into shamway's bundle_source="unity"
+                     # lane — its default synthesized lane builds complete bundles
+                     # (textures, audio, text, meshes, materials, prefabs) with
+                     # no editor at all
