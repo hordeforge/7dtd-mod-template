@@ -116,14 +116,33 @@ rejected at runtime, and a matching UnityFS header is *not* acceptance
 evidence. Acceptance is a fresh client loading the bundle. If a build fails
 a shamway gate, fix the cause — never downgrade the gate.
 
-## Local game-install configuration
+## Local path inventory
 
 All machine-specific paths live in the ignored `.local.env` (format:
-`.local.env.example`); see `docs/reference/environment.md`. Before any task
-that reads local game files: read `.local.env`; if the needed key is
-missing or invalid, **ask the user for the path** — never guess or reuse
-one from docs or history. The game install is **read-only reference**:
-read `Data/Config/*.xml` freely, never write under the install directory.
+`.local.env.example`); see `docs/reference/environment.md`. **Read it
+before searching the host** for tools or installations, and when a user
+supplies a machine path — or setup discovers one — record it there
+immediately. Keep the complete inventory together, including these keys
+when their targets exist:
+
+```dotenv
+SEVEN_DAYS_TO_DIE_DIR="/absolute/client/install"
+SEVEN_DAYS_TO_DIE_SERVER_DIR="/absolute/dedicated/server/install"
+HORDEFORGE_ROOT="/absolute/dir/of/hordeforge/checkouts"
+PLAYTEST_ROOT="/absolute/checkout/7dtd-playtest"
+CONNECT_ROOT="/absolute/checkout/7dtd-fastconnect"
+ASSET_PIPELINE_ROOT="/absolute/checkout/7dtd-asset-pipeline"
+DOTNET_ROOT="/absolute/dotnet/sdk"
+ILSPYCMD="/absolute/ilspycmd"
+UNITY_EDITOR="/absolute/Unity"
+```
+
+Never commit the file or copy its absolute values into tracked files;
+`scripts/test_local_path_inventory.py` enforces the documented keys and the
+ignore rule. If a needed key is missing or invalid, **ask the user for the
+path** — never guess or reuse one from docs or history. The game install is
+**read-only reference**: read `Data/Config/*.xml` freely, never write under
+the install directory.
 
 ## Repo layout
 

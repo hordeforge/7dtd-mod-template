@@ -155,12 +155,22 @@ for base, dirs, files in os.walk(mod_dir):
 PYEOF
 
 # --- machine-local .local.env --------------------------------------------
+for repo_var in PLAYTEST_ROOT:7dtd-playtest CONNECT_ROOT:7dtd-fastconnect ASSET_PIPELINE_ROOT:7dtd-asset-pipeline; do
+	var="${repo_var%%:*}"
+	repo_dir="$hordeforge_root/${repo_var#*:}"
+	[[ -d "$repo_dir" ]] && printf -v "$var" '%s' "$repo_dir" || printf -v "$var" ''
+done
 cat > "$MOD_DIR/.local.env" <<LOCALEOF
-# Machine-local paths (never commit; format: .local.env.example).
+# Machine-local path inventory (never commit; format: .local.env.example).
 SEVEN_DAYS_TO_DIE_DIR="$game_dir"
 SEVEN_DAYS_TO_DIE_SERVER_DIR="$server_dir"
-UNITY_EDITOR="$unity_editor"
 HORDEFORGE_ROOT="$hordeforge_root"
+PLAYTEST_ROOT="$PLAYTEST_ROOT"
+CONNECT_ROOT="$CONNECT_ROOT"
+ASSET_PIPELINE_ROOT="$ASSET_PIPELINE_ROOT"
+DOTNET_ROOT=""
+ILSPYCMD="$(command -v ilspycmd || true)"
+UNITY_EDITOR="$unity_editor"
 LOCALEOF
 
 # --- git ------------------------------------------------------------------
