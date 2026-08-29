@@ -16,12 +16,18 @@ Scope is standard 7DTD mods only. ZDTD mods are templated separately;
 WASM-plugin mods (`hordeforge/7dtd-wasm`) are out of scope while that ABI is
 experimental.
 
-## Scaffolding a new mod
+## Quick start
 
 ```bash
-cp newmod.conf.example mymod.conf   # fill in name, purpose, paths
+gh repo clone hordeforge/7dtd-mod-template ~/code/hordeforge/7dtd-mod-template
+cd ~/code/hordeforge/7dtd-mod-template
+cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ./new-mod.sh mymod.conf
 ```
+
+Then, in the generated mod: `make test` and `make lint-shell` are green out
+of the box; `make build` / `make package` produce the deployable modlet
+(build needs the game install recorded in `.local.env`).
 
 One run does the whole setup:
 
@@ -41,9 +47,6 @@ One run does the whole setup:
 The config file is always passed as an argument — nothing is hardcoded, so
 several configs can coexist (a committed `configs/` presets directory is the
 natural later addition). Missing keys are prompted for interactively.
-
-The generated mod passes its own `make test` and `make lint-shell` out of
-the box; `make build` needs a configured game install in `.local.env`.
 
 ## Layout
 
