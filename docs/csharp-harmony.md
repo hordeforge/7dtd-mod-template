@@ -87,6 +87,30 @@ behavior; when clients need the values, sync them explicitly (AtomicDoomsday
 pushes them through player CVars — its ADR 0012 pattern).
 `scripts/test_settings_reload.py` holds the source-level contract offline.
 
+### Comments are the settings UI
+
+Wrench (`hordeforge/7dtd-mod-settings`) renders every installed mod's
+`Config/<Mod>.toml` in the game's options menu and edits it in place, so
+the file's comments are player-facing:
+
+- The **contiguous comment block directly above a key** is that key's
+  help text (a blank line detaches it; a comment trailing a value on the
+  same line belongs to no key).
+- The block may **end** with one structured line declaring the value's
+  choices, which Wrench turns into a typed control:
+
+  ```toml
+  # ui: flags TokenA,TokenB,TokenC     -> checkboxes + an "all" master
+  #    (writes true for all, false for none, else the checked array)
+  # ui: enum a,b,c                     -> single choice
+  # ui: range 0..1                     -> numeric bounds
+  ```
+
+  The mod's own `TrySet` stays the validator; the annotation only shapes
+  the control. Without one, Wrench falls back to a raw-value text field
+  (plus a flip button on booleans), so annotations are optional per key.
+  Convention owner: Wrench's `docs/design.md`.
+
 ## When you actually need this vs. XML
 
 Prefer XML (`xml-patching.md`) whenever the desired behavior is expressible

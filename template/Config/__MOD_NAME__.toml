@@ -9,6 +9,11 @@
 # (a warning in the log) and leave the default in place. Supported values:
 # booleans, integers, floats, "strings", and arrays of those. Tables and
 # dotted keys are rejected.
+#
+# The comment block directly above a key is that key's help text in the
+# in-game Mod Settings screen (Wrench, hordeforge/7dtd-mod-settings), and
+# may end with one `# ui: flags|enum|range ...` line to get checkboxes,
+# a single choice, or numeric bounds instead of a raw text field.
 
 # Example setting; replace with this mod's real options (each one needs
 # its ModSettings.cs counterpart — see that file's header comment).

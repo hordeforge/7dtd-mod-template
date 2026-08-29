@@ -130,6 +130,15 @@ save, reset-then-apply, broken save keeps current values, console
 `settings|set|reload`). Add a setting in `ModSettings.cs` (its header
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
+
+The TOML's comments are player-facing: Wrench
+(`hordeforge/7dtd-mod-settings`) renders this file in the options menu,
+shows the comment block directly above each key as its help text, and an
+optional final `# ui: flags|enum|range ...` line in that block turns the
+raw text field into checkboxes/choices/bounds — see "Comments are the
+settings UI" in `docs/reference/csharp-harmony.md`. Write each key's
+comment as help a player will read, and keep any `# ui:` token list in
+sync with the values `TrySet` accepts.
 <!-- ANVIL:CSHARP-END -->
 
 ## Local path inventory
