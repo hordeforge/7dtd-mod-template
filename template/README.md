@@ -34,6 +34,21 @@ folder; saving it applies without a restart, and the in-game/telnet
 command `__MOD_NAME_LOWER__` lists, changes, and reloads them.
 <!-- ANVIL:CSHARP-END -->
 
+## Live playtest
+
+Live suites, when this mod has them, go through
+[hordeforge/7dtd-playtest](https://github.com/hordeforge/7dtd-playtest).
+One invocation is one concern: one suite id.
+
+```bash
+make playtest SUITE=<one-id>
+```
+
+Do not comma-list unrelated ids on `SUITE=` / `PLAYTEST_SUITE`. Several
+features are several invocations. A prefab in the camera (`*_look`) and
+a block on a voxel (`*_block_*`) are never one run. See `AGENTS.md`
+"One concern per playtest run" and the playtest README.
+
 ## Docs
 
 - [`TODO.md`](TODO.md) — what's next
