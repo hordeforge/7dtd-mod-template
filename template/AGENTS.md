@@ -226,6 +226,19 @@ feature's suite. A particle system that is already part of a built prefab
 is not a second suite. Unrelated features are separate invocations (a
 matrix), not one comma-list. `scripts/test_one_concern.py` gates this.
 
+When this mod has live suites, run **one id** per invocation through
+hordeforge/7dtd-playtest (see that repo's README "one concern"):
+
+```bash
+make playtest SUITE=<one-id>
+```
+
+Several unrelated features: separate invocations, not
+`SUITE=a,b`. `PLAYTEST_SUITE` comma-lists are refused unless declared
+as consecutive steps of one feature (`--concern-suites` /
+`PLAYTEST_CONCERN_SUITES`, exact same tokens). A `*_look` suite and a
+`*_block_*` suite cannot share a list even if declared.
+
 ## Git workflow
 
 This is a standalone hordeforge repository and the clone may be shared by
