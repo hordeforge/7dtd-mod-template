@@ -211,9 +211,20 @@ Live behavior: deploy per `docs/reference/environment.md` and check the
 game log — a clean log alone does not prove an XPath matched; verify in
 game. Live suites, when this mod grows them, go through
 `hordeforge/7dtd-playtest` (an `IScenarioProvider` + thin wrapper), never a
-private launcher — and a case belongs to the suite whose feature it proves,
-never dropped into another feature's fixture (shared world/inventory state
-makes a borrowed case change every case after it).
+private launcher.
+
+## One concern per playtest run
+
+Written 2026-08-30.
+
+A case belongs to the suite whose feature it proves, never dropped into
+another feature's fixture (shared world/inventory state makes a borrowed
+case change every case after it). Do not comma-list unrelated suites on
+`PLAYTEST_SUITE`; the harness refuses an undeclared list. Consecutive
+actions of one feature (equip, then use, then capture) belong in that
+feature's suite. A particle system that is already part of a built prefab
+is not a second suite. Unrelated features are separate invocations (a
+matrix), not one comma-list. `scripts/test_one_concern.py` gates this.
 
 ## Git workflow
 
