@@ -84,10 +84,10 @@ def parent_of(node: ET.Element) -> tuple[str | None, set[str]]:
     return None, set()
 
 
-def resolve(
+def walk(
     name: str, *pools: dict[str, ET.Element]
-) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
-    """(scalar properties, class blocks) after walking the whole Extends chain.
+) -> list[tuple[ET.Element, set[str]]]:
+    """The `(entry, excluded names)` chain `name` inherits through, outermost first.
 
     Pools are searched in order, so the mod's own entries shadow nothing and
     a mod item extending a vanilla one resolves through the vanilla pool.
@@ -109,6 +109,10 @@ def resolve(
     A typo'd parent is left to `make validate-xml` and the installed game to
     report: the pools here are only what the mod's own patch files declare, so
     a vanilla parent this tree never read is indistinguishable from a typo.
+
+    The chain is what a cycle check needs and all a caller that wants the
+    resolved values needs before building them, so the two cannot disagree
+    about what a cycle is.
     """
     chain: list[tuple[ET.Element, set[str]]] = []
     path: list[str] = []
@@ -127,7 +131,17 @@ def resolve(
         if parent_name in visited:
             raise ExtendsCycle(" -> ".join([*path, parent_name]))
         current = parent_name
+    return chain
 
+
+def resolve(
+    name: str, *pools: dict[str, ET.Element]
+) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    """(scalar properties, class blocks) after walking the whole Extends chain.
+
+    See `walk` for the chain's semantics; this reads the properties off it.
+    """
+    chain = walk(name, *pools)
     scalars: dict[str, str] = {}
     classes: dict[str, dict[str, str]] = {}
     for node, excluded in reversed(chain):
@@ -139,3 +153,24 @@ def resolve(
         scalars.update(own_scalars(node))
         classes.update(own_classes(node))
     return scalars, classes
+
+
+def closed_chains(*pools: dict[str, ET.Element]) -> list[str]:
+    """One `'name: chain'` line per entry whose Extends walk closes a cycle.
+
+    A caller checking a whole pool for cycles asked the same question of
+    every entry in it, and `resolve` answered it by materializing the
+    resolved properties of every chain, which that caller then discarded.
+    The cycle is a property of the walk alone, so this walks and reports it
+    without building the property sets behind it.
+    """
+    closed = []
+    names: dict[str, None] = {}
+    for pool in pools:
+        names.update(dict.fromkeys(pool))
+    for name in names:
+        try:
+            walk(name, *pools)
+        except ExtendsCycle as cycle:
+            closed.append(f"{name}: {cycle}")
+    return closed

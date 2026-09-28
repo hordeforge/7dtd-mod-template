@@ -59,31 +59,31 @@ def _postpones_annotations(tree: ast.Module) -> bool:
     )
 
 
-def _annotation_nodes(tree: ast.Module) -> list[ast.expr]:
+def _annotation_nodes(nodes: list[ast.AST]) -> list[ast.expr]:
     """Every node the interpreter evaluates as an annotation at def time."""
-    nodes: list[ast.expr] = []
-    for node in ast.walk(tree):
+    annotations: list[ast.expr] = []
+    for node in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             args = node.args
             for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs,
                         args.vararg, args.kwarg):
                 if arg is not None and arg.annotation is not None:
-                    nodes.append(arg.annotation)
+                    annotations.append(arg.annotation)
             if node.returns is not None:
-                nodes.append(node.returns)
+                annotations.append(node.returns)
         elif isinstance(node, ast.AnnAssign):
-            nodes.append(node.annotation)
-    return nodes
+            annotations.append(node.annotation)
+    return annotations
 
 
-def _unions_outside_postponed(tree: ast.Module) -> list[int]:
+def _unions_outside_postponed(tree: ast.Module, nodes: list[ast.AST]) -> list[int]:
     """Linenumbers of `X | Y` in an annotation of a module that does not
     postpone them."""
     if _postpones_annotations(tree):
         return []
     return sorted({
         node.lineno
-        for annotation in _annotation_nodes(tree)
+        for annotation in _annotation_nodes(nodes)
         for node in ast.walk(annotation)
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr)
     })
@@ -113,9 +113,12 @@ def findings(source: str) -> list[str]:
     """The defect classes in *source*, as 'lineno: kind'."""
     tree = ast.parse(source)
     found: list[tuple[int, str]] = []
-    for lineno in _unions_outside_postponed(tree):
+    # One traversal, shared by every detector below: each of them walked the
+    # whole tree itself, so a file was traversed once per check over it.
+    nodes = list(ast.walk(tree))
+    for lineno in _unions_outside_postponed(tree, nodes):
         found.append((lineno, "PEP 604 union without postponed annotations"))
-    for node in ast.walk(tree):
+    for node in nodes:
         for field in ("body", "orelse", "finalbody"):
             block = getattr(node, field, None)
             if isinstance(block, list):

@@ -19,6 +19,7 @@ Deterministic, offline, no game install needed:
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import sys
@@ -39,24 +40,35 @@ NON_PATCH_CONFIG_XML: dict[str, str] = {}
 SKIP_DIRS = {".git", "dist", "bin", "obj", "__pycache__"}
 
 
-def all_files() -> list[str]:
-    """Every tracked-tree file, relative and sorted, whatever its extension."""
-    found = []
+@functools.cache
+def tree_files() -> tuple[list[str], list[str]]:
+    """(every file, the XML among them), relative and sorted.
+
+    One walk, both lists, walked once: the gate needs the whole tree for the
+    stray localization check and the XML subset for everything else, so
+    walking the mod separately per list, and again for the `Extends` pass,
+    traversed a small tree three times to answer one question.
+    """
+    found: list[str] = []
+    xml: list[str] = []
     for base, dirs, files in os.walk(MOD_DIR):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for f in sorted(files):
-            found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
-    return found
+            rel = os.path.relpath(os.path.join(base, f), MOD_DIR)
+            found.append(rel)
+            if f.endswith(".xml"):
+                xml.append(rel)
+    return found, xml
+
+
+def all_files() -> list[str]:
+    """Every tracked-tree file, relative and sorted, whatever its extension."""
+    return tree_files()[0]
 
 
 def xml_files() -> list[str]:
-    found = []
-    for base, dirs, files in os.walk(MOD_DIR):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        for f in sorted(files):
-            if f.endswith(".xml"):
-                found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
-    return found
+    """Every tracked-tree `*.xml`, relative and sorted."""
+    return tree_files()[1]
 
 
 def check_release_version(version: str) -> None:
@@ -79,6 +91,28 @@ def check_release_version(version: str) -> None:
           first.endswith(" " + version), f"{first!r} does not end with {version!r}")
 
 
+# relative path -> (parsed root, the error that stopped it, or None)
+PARSED: dict[str, tuple[ET.Element | None, str | None]] = {}
+
+
+def parsed_root(rel: str) -> tuple[ET.Element | None, str | None]:
+    """`(root, parse error)` for a tracked XML file, parsed at most once.
+
+    Memoized per relative path: ModInfo.xml is read by the field checks, by
+    the changelog check and by `declared_version`, and each Config patch file
+    is parsed once for its root tag and again for the `Extends` walk, so the
+    same document was built from disk two or three times per run.
+    """
+    if rel not in PARSED:
+        try:
+            PARSED[rel] = (ET.parse(os.path.join(MOD_DIR, rel)).getroot(), None)
+        except ET.ParseError as err:
+            PARSED[rel] = (None, str(err))
+        except OSError as err:
+            PARSED[rel] = (None, str(err))
+    return PARSED[rel]
+
+
 def check_release_notes() -> None:
     """The mod keeps a changelog with a home for unreleased work.
 
@@ -96,13 +130,14 @@ def check_release_notes() -> None:
         text = handle.read()
     check("changelog-has-unreleased-section",
           "## [Unreleased]" in text, "add a '## [Unreleased]' section")
-    section = re.search(rf"^## \[{re.escape(declared_version())}\](.*)$", text, re.M)
+    version = declared_version()
+    section = re.search(rf"^## \[{re.escape(version)}\](.*)$", text, re.M)
     check("changelog-declares-the-declared-version", bool(section),
-          f"no released section for version {declared_version()}")
+          f"no released section for version {version}")
     if section:
         check("changelog-dates-the-declared-version",
               bool(re.fullmatch(r"- \d{4}-\d{2}-\d{2}", section.group(1).strip())),
-              f"released section reads '## [{declared_version()}]' with no date")
+              f"released section reads '## [{version}]' with no date")
 
 
 def check_extends_cycles() -> None:
@@ -117,9 +152,8 @@ def check_extends_cycles() -> None:
     for rel in xml_files():
         if not rel.startswith("Config" + os.sep):
             continue
-        try:
-            root = ET.parse(os.path.join(MOD_DIR, rel)).getroot()
-        except ET.ParseError:
+        root, _error = parsed_root(rel)
+        if root is None:
             # xml-parses already reported this file with the parse error.
             continue
         pool = {
@@ -127,12 +161,7 @@ def check_extends_cycles() -> None:
             for node in root.iter()
             if node.get("name") and xml_extends.parent_of(node)[0]
         }
-        closed = []
-        for name in pool:
-            try:
-                xml_extends.resolve(name, pool)
-            except xml_extends.ExtendsCycle as cycle:
-                closed.append(f"{name}: {cycle}")
+        closed = xml_extends.closed_chains(pool)
         check("no-extends-cycle:" + rel, not closed, "; ".join(closed))
 
 
@@ -140,22 +169,25 @@ def declared_version() -> str:
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     if not os.path.isfile(modinfo):
         return ""
-    for field in ET.parse(modinfo).getroot():
+    root, _error = parsed_root("ModInfo.xml")
+    if root is None:
+        return ""
+    for field in root:
         if field.tag == "Version":
             return (field.get("value") or "").strip()
     return ""
 
 
 def main() -> int:
-    files = xml_files()
+    every, files = tree_files()
     roots: dict[str, str] = {}
     for rel in files:
-        try:
-            roots[rel] = ET.parse(os.path.join(MOD_DIR, rel)).getroot().tag
-        except ET.ParseError as err:
+        root, error = parsed_root(rel)
+        if root is None:
             roots[rel] = ""
-            check("xml-parses:" + rel, False, str(err))
+            check("xml-parses:" + rel, False, error or "")
             continue
+        roots[rel] = root.tag
         check("xml-parses:" + rel, True)
 
     for rel in files:
@@ -176,7 +208,7 @@ def main() -> int:
     check("modinfo-exists", os.path.isfile(modinfo))
     if os.path.isfile(modinfo) and roots.get("ModInfo.xml"):
         values = {p.tag: (p.get("value") or "").strip()
-                  for p in ET.parse(modinfo).getroot()}
+                  for p in parsed_root("ModInfo.xml")[0]}
         for field in ("Name", "DisplayName", "Description", "Author", "Version"):
             check("modinfo-field:" + field, bool(values.get(field)), "empty or missing")
         dirname = os.path.basename(MOD_DIR)
@@ -195,7 +227,7 @@ def main() -> int:
           not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
           "move it to Config/Localization.csv; the engine ignores a root-level file")
     stray_localization = sorted(
-        rel_f for rel_f in all_files() if os.path.basename(rel_f) == "Localization.txt")
+        rel_f for rel_f in every if os.path.basename(rel_f) == "Localization.txt")
     check("no-localization-txt",
           not stray_localization,
           "V3 uses Localization.csv; " + repr(stray_localization))

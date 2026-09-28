@@ -20,6 +20,7 @@ as a renamed method. Names beginning with `__` are Harmony's own injections
 from __future__ import annotations
 
 import argparse
+import functools
 import os
 import re
 import shutil
@@ -40,6 +41,12 @@ CLASS_DECLARATION = re.compile(r"^\s*(?:static\s+|internal\s+|public\s+|sealed\s
 TYPEOF = re.compile(r"typeof\(\s*([\w.]+)\s*\)")
 QUOTED = re.compile(r'"([^"]+)"')
 PATCH_METHOD = re.compile(r"^\s*(?:[A-Za-z_]\w*\s+)*static\s+(?!class\b)")
+# The explicit argument-type array of `[HarmonyPatch(typeof(X), "M",
+# new Type[] { typeof(A), typeof(B) })]`. Compiled here, not inside
+# parse_attribute: the attribute is parsed once per patch method in the mod,
+# and a per-call compile is a pattern cache lookup and a rebuild of the same
+# string on every one of them.
+ARGUMENT_TYPE_ARRAY = re.compile(r"new\s+Type\[\]\s*\{(?P<items>.*)\}", re.DOTALL)
 
 # A decompile of one engine type must not hang the gate; the timeout surfaces
 # as a failed check for that target, not as a killed run.
@@ -111,7 +118,7 @@ def parse_attribute(arguments: str) -> tuple[str | None, str | None, list[str] |
     types = TYPEOF.findall(arguments)
     quoted = QUOTED.findall(arguments)
 
-    array = re.search(r"new\s+Type\[\]\s*\{(?P<items>.*)\}", arguments, re.DOTALL)
+    array = ARGUMENT_TYPE_ARRAY.search(arguments)
     argument_types = TYPEOF.findall(array.group("items")) if array else None
 
     declaring_type = None
@@ -133,10 +140,19 @@ def injected_parameters(lines: list[str], attribute_line: int) -> list[str]:
     if index >= len(lines):
         return []
 
+    # The parentheses are counted as the lines are added rather than
+    # recounted on the accumulated text: a signature spread over several
+    # lines made every pass rescan everything joined so far, so a patch
+    # method with a long wrapped parameter list cost a scan per line.
     signature = ""
+    depth = 0
+    opened = False
     while index < len(lines):
-        signature += lines[index]
-        if signature.count("(") and signature.count("(") == signature.count(")"):
+        line = lines[index]
+        signature += line
+        opened = opened or "(" in line
+        depth += line.count("(") - line.count(")")
+        if opened and depth == 0:
             break
         index += 1
 
@@ -196,12 +212,14 @@ def argument_list(signature: str) -> list[str] | None:
         elif character in CLOSERS:
             depth -= 1
             if depth == 0:
-                return split_top_level(signature, start + 1, index)
+                # The masked copy is handed on rather than masked a second
+                # time: masking is a pass over the whole signature, and every
+                # parameter list walked it twice for one answer.
+                return split_top_level(signature, masked, start + 1, index)
     return None
 
 
-def split_top_level(signature: str, start: int, end: int) -> list[str]:
-    masked = mask_literals(signature)
+def split_top_level(signature: str, masked: str, start: int, end: int) -> list[str]:
     depth = 0
     entries: list[str] = []
     cursor = start
@@ -347,6 +365,10 @@ def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> li
     return cache[type_name]
 
 
+# A version directory name split into digit and non-digit runs.
+VERSION_RUN = re.compile(r"\d+|\D+")
+
+
 def editor_version_key(path: Path) -> tuple:
     """Newest editor first, comparing version segments as numbers.
 
@@ -357,7 +379,7 @@ def editor_version_key(path: Path) -> tuple:
     """
     tokens: list[tuple[int, int, str]] = []
     for part in path.parts:
-        for run in re.findall(r"\d+|\D+", part):
+        for run in VERSION_RUN.findall(part):
             tokens.append((0, int(run), "") if run.isdigit() else (1, 0, run))
     return (tokens, path.parts)
 
@@ -420,6 +442,17 @@ def ensure_ilspy_runtime() -> str | None:
     return output or "unknown ilspycmd runtime error"
 
 
+@functools.cache
+def declaration_pattern(method: str) -> re.Pattern[str]:
+    """The compiled declaration pattern for one method name.
+
+    Cached because the pattern embeds the method name, and a mod whose
+    patches target a dozen methods compiled the same shape a dozen times
+    while scanning one decompiled body per name.
+    """
+    return re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
+
+
 def declared_signatures(body: list[str], method: str) -> list[str]:
     """Signature lines for `method` declared directly on the decompiled type.
 
@@ -427,7 +460,7 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     type's member or a local function, neither of which `AccessTools`
     .DeclaredMethod would return.
     """
-    pattern = re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
+    pattern = declaration_pattern(method)
     return [line.strip() for line in body
             if pattern.match(line) and not line.strip().startswith("[")]
 

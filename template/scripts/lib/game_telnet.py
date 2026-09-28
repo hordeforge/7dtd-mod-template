@@ -227,7 +227,7 @@ class GameTelnet:
         recover a session whose reads have already failed.
         """
         end = time.monotonic() + seconds
-        collected = ""
+        chunks: list[str] = []
         if self._sock is not None:
             self._sock.settimeout(0.3)
             while time.monotonic() < end:
@@ -237,13 +237,17 @@ class GameTelnet:
                     self.closed_by_server = True
                     break
                 if chunk:
-                    collected += chunk
+                    # Collected, not concatenated: `collected += chunk` copies
+                    # everything read so far on every chunk, so draining a long
+                    # command's output cost a quadratic number of character
+                    # copies before the first byte was returned.
+                    chunks.append(chunk)
                     end = time.monotonic() + seconds
                 else:
                     time.sleep(0.05)
             if self._sock is not None and not self.closed_by_server:
                 self._sock.settimeout(self.timeout)
-        return collected
+        return "".join(chunks)
 
     def _readable(self) -> bool:
         if self._sock is None:
@@ -253,20 +257,27 @@ class GameTelnet:
     def _read_until_any(self, markers: tuple[str, ...], timeout: float,
                         required: bool = True) -> str:
         deadline = time.monotonic() + timeout
-        seen = ""
         # Each read is searched from just before the previous one ended, which
         # is all a marker spanning a recv() boundary needs; re-searching the
         # whole buffer on every chunk is quadratic in however much the server
-        # printed before the marker turned up.
+        # printed before the marker turned up. The chunks are held in a list
+        # for the same reason: appending to one string recopies everything
+        # read so far per chunk.
         overlap = max(len(marker) for marker in markers) - 1
+        chunks: list[str] = []
+        tail = ""
         while time.monotonic() < deadline:
             if self._readable():
-                before = len(seen)
-                seen += self._recv()
-                if any(marker in seen[max(0, before - overlap):] for marker in markers):
-                    return seen
+                chunk = self._recv()
+                if chunk:
+                    chunks.append(chunk)
+                    window = tail + chunk
+                    if any(marker in window for marker in markers):
+                        return "".join(chunks)
+                    tail = window[-overlap:] if overlap else ""
             else:
                 time.sleep(0.05)
+        seen = "".join(chunks)
         if not required:
             return seen
         wanted = ", ".join(repr(marker) for marker in markers)
