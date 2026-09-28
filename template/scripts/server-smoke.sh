@@ -13,7 +13,6 @@ RUN_FOR_SECONDS="${SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS:-90}"
 KEEP_LOGS="${SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS:-5}"
 SERVER_BIN="$SERVER_DIR/7DaysToDieServer.x86_64"
 LOG_DIR="$SERVER_DIR/logs"
-LOG_FILE="$LOG_DIR/__MOD_NAME_LOWER__-server-smoke-$(date -u +%Y%m%d-%H%M%S).log"
 
 if ! [[ "$RUN_FOR_SECONDS" =~ ^[0-9]+$ ]] || (( RUN_FOR_SECONDS < 1 )); then
 	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS must be a positive integer." >&2
@@ -42,6 +41,10 @@ fi
 
 "$SCRIPT_DIR/deploy-server.sh"
 mkdir -p "$LOG_DIR"
+# Named after the deploy, not before it: a run that takes longer than a second
+# to reach the server would otherwise pick the name a later run is about to
+# claim.
+LOG_FILE="$(smoke_log_path "$LOG_DIR" "__MOD_NAME_LOWER__-server-smoke-")"
 
 echo "Launching dedicated server for ${RUN_FOR_SECONDS}s."
 set +e

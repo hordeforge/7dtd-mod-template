@@ -32,16 +32,9 @@ PREVIOUS="$SERVER_DIR/.deploy-stage/__MOD_NAME__.previous"
 mkdir -p "$SERVER_DIR/.deploy-stage"
 rm -rf "$STAGE" "$PREVIOUS"
 cp -R "$SOURCE" "$STAGE"
-if [[ -d "$TARGET" ]]; then
-	mv "$TARGET" "$PREVIOUS"
-fi
-if ! mv "$STAGE" "$TARGET"; then
-	if [[ -d "$PREVIOUS" ]]; then
-		mv "$PREVIOUS" "$TARGET"
-	fi
-	echo "ERROR: deploy failed; a previously deployed mod has been put back." >&2
-	exit 1
-fi
-rm -rf "$PREVIOUS"
+# swap_into_place restores the previous copy when the run is interrupted between
+# its two moves, which is the one window a rerun does not cover: the run that
+# was interrupted is the one that has to leave the deployment intact.
+swap_into_place "$STAGE" "$TARGET" "$PREVIOUS"
 
 echo "OK: deployed $SOURCE to $TARGET"

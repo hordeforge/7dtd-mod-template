@@ -52,6 +52,24 @@ def prune(log_dir: str, keep: str) -> str:
     return done.stderr
 
 
+def log_names(log_dir: str, prefix: str, runs: int) -> list[str]:
+    """Ask the real function for names, the way consecutive runs do, and take each."""
+    names = []
+    for _ in range(runs):
+        done = subprocess.run(
+            ["bash", "-c", 'source "$1"; smoke_log_path "$2" "$3"',
+             "bash", SERVER_COMMON, log_dir, prefix],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        if done.returncode != 0:
+            print(done.stderr, file=sys.stderr)
+            return names
+        name = os.path.basename(done.stdout.strip())
+        touch(log_dir, name)
+        names.append(name)
+    return names
+
+
 def touch(directory: str, name: str) -> str:
     path = os.path.join(directory, name)
     with open(path, "w", encoding="utf-8") as handle:
@@ -116,6 +134,23 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as log_dir:
         stderr = prune(log_dir, "3")
         check("an empty log directory is not an error", stderr == "", stderr)
+
+    # Two runs inside one second are the collision the names have to survive.
+    # Nothing here freezes the clock: whatever second the calls land in, the
+    # second call must not reuse the first one's name, and a reverse name sort
+    # must still read the later run as the newer one.
+    with tempfile.TemporaryDirectory() as log_dir:
+        names = log_names(log_dir, prefix, 2)
+        check("two runs in a row are given two different log names",
+              len(names) == 2 and names[0] != names[1], str(names))
+        check("each name is the smoke-log name the pruner collects",
+              all(n.startswith(prefix) and n.endswith(".log") for n in names), str(names))
+        check("a reverse name sort reads the later run as the newer one",
+              sorted(names, reverse=True) == [names[1], names[0]], str(names))
+
+        prune(log_dir, "1")
+        check("the quota keeps the later of the two colliding runs",
+              listing(log_dir) == [names[1]], str(listing(log_dir)))
 
     return report()
 

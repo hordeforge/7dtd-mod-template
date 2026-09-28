@@ -129,6 +129,73 @@ resolve_steamcmd() {
 	fi
 }
 
+# smoke_log_path <log-dir> <prefix>
+#
+# Print a log name no earlier run has used. A stamp one second wide repeats:
+# a rerun inside the same second opens the previous run's name with `>` and
+# replaces the evidence that run left, and the two runs then count as one
+# against the quota prune_smoke_logs keeps. The stamp keeps its width, so the
+# name sort stays a time sort; the _2, _3 suffixes only ever sit inside one
+# second, and `_` sorts above `.`, so the reverse name sort the pruning does
+# reads the later of the two as the newer one, which is the order it wants.
+smoke_log_path() {
+	local log_dir="$1" prefix="$2" stamp candidate n
+	stamp="$(date -u +%Y%m%d-%H%M%S)"
+	candidate="$log_dir/$prefix$stamp.log"
+	n=1
+	while [[ -e "$candidate" ]]; do
+		n=$((n + 1))
+		candidate="$log_dir/$prefix${stamp}_$n.log"
+	done
+	printf '%s\n' "$candidate"
+}
+
+# swap_into_place <source> <target> <previous>
+#
+# Put <source> where <target> is, holding the copy that is already there until
+# the new one is in place. The two moves cannot be one: between them the target
+# does not exist, and a Ctrl-C, a SIGTERM or a failed second move in that
+# window leaves the deployment gone rather than half-updated. So the previous
+# copy goes back where it was on any exit before the swap completes, and only
+# the new copy survives. <previous> is removed once the swap is done; a
+# leftover under Mods/ would be a second mod the game loads.
+swap_into_place() {
+	local source="$1" target="$2" previous="$3"
+	local held=0 swapped=0
+
+	put_previous_back() {
+		if (( held )) && [[ -d "$previous" && ! -e "$target" ]]; then
+			mv "$previous" "$target" || true
+		fi
+		held=0
+	}
+	# `swapped` rather than a plain clear: the restore has to be inert once the
+	# new copy is in place, or the EXIT trap would take the deployment down on
+	# the way out.
+	trap '(( swapped )) || put_previous_back' EXIT
+	trap 'put_previous_back; exit 129' HUP
+	trap 'put_previous_back; exit 130' INT
+	trap 'put_previous_back; exit 143' TERM
+
+	if [[ -d "$target" ]]; then
+		# Set before the move, not after: a signal delivered while the move is
+		# running is exactly the case the restore exists for, and by then the
+		# target may already be the one name that is missing.
+		held=1
+		mv "$target" "$previous"
+	fi
+	if ! mv "$source" "$target"; then
+		put_previous_back
+		echo "ERROR: could not put $source in place at $target; a previously deployed copy has been put back." >&2
+		return 1
+	fi
+	# Read by the trap strings above, which shellcheck does not parse as code.
+	# shellcheck disable=SC2034
+	swapped=1
+	trap - EXIT HUP INT TERM
+	rm -rf "$previous"
+}
+
 # prune_smoke_logs <log-dir> <keep>
 #
 # Keep the newest <keep> server-smoke logs and drop the rest. A smoke log is

@@ -116,6 +116,14 @@ modlet's contract rather than add to it.
   shape; a closed stdin, which used to kill the script on `read`'s status,
   now says which key went unanswered and that nothing was written. An empty
   `target_dir` or `hordeforge_root` takes the current directory.
+- An interrupted `make deploy-server` leaves the previously deployed mod in
+  place. The swap held the old copy aside and moved the new one in with
+  nothing between the two moves, so a Ctrl-C, a SIGTERM or a failed second
+  move in that window took the deployment down with it; the swap is
+  `swap_into_place` now, and it puts the previous copy back on any exit
+  before it completes.
+- A smoke rerun inside the same second no longer overwrites the log of the
+  run before it, and the two no longer count as one against the log quota.
 - `make lint-py` passes on a current ruff. Three test scripts carried
   `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
   scaffold; the two that did need it now put their path constants after the

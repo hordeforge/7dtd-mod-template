@@ -316,8 +316,24 @@ deployed mod loaded rather than two. `make server-smoke` writes one log per
 run and prunes to `SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS` after the boot, so the
 directory cannot grow with repeated runs.
 `scripts/test_configure_server_config.py` (the derived config: a rerun is
-byte-identical, a failed run writes nothing and leaves no residue) and
-`scripts/test_smoke_log_pruning.py` (the log quota) hold that.
+byte-identical, a failed run writes nothing and leaves no residue),
+`scripts/test_smoke_log_pruning.py` (the log quota) and
+`scripts/test_deploy_swap.py` (the deploy swap) hold that.
+
+Corrected 2026-09-28: the deploy swap moved the deployed copy aside and then
+moved the new one in, with nothing between the two moves: a Ctrl-C, a SIGTERM
+or a failed second move in that window left no deployed mod at all, and a
+rerun is not the recovery the interrupted run can count on. The swap is now
+`swap_into_place` in `scripts/server-common.sh`, which puts the previous copy
+back on any exit before it completes.
+`scripts/test_deploy_swap.py` drives it, including a signal delivered between
+the two moves.
+
+Corrected 2026-09-28: a smoke log was named after the second it started, so
+a rerun inside one second opened the previous run's log with `>` and replaced
+it, and the two runs then counted as one against the quota. The name comes
+from `smoke_log_path` instead, which never reuses one, and it is taken after
+the deploy so a slow run cannot hand its name to a later one.
 
 A target that fails on a second run, or that a rerun performs twice, is a
 defect in the target: fix the script, not the caller's cleanup.
