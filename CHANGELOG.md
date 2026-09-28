@@ -44,7 +44,9 @@ modlet's contract rather than add to it.
 - A `Makefile` at the template repo root: `make check` runs the whole CI
   workflow locally, step for step, after a `make preflight` that names any
   missing host tool. It proves a change to `new-mod.sh` or `template/` without
-  a contributor having to reconstruct the CI job by hand.
+  a contributor having to reconstruct the CI job by hand. The last CI step is
+  the reproducible package, and `make check` runs it too, on the tree the
+  package step leaves.
 - The host floors the scripts assume are declared and checked:
   `scripts/lib/require-bash.sh` fails with one message on the bash 3.2 that
   macOS still ships as its system bash, where `mapfile -d`, `wait -n` and
@@ -85,8 +87,20 @@ modlet's contract rather than add to it.
 - **An `Extends` cycle raises `ExtendsCycle` instead of resolving.** A mod
   whose config closes an `Extends` chain (`a` extends `b`, `b` extends `a`)
   used to have the chain cut silently, which reported a broken patch as a
-  working one; it now fails the gate with the chain named. An entry that
-  extends *itself* still resolves, as the engine reads it.
+  working one; `make test` now walks the mod's own `Config/` with the shared
+  model and fails with the chain named. An entry that extends *itself* still
+  resolves, as the engine reads it.
+- `make lint-py` and `make lint-shell` share one body, `scripts/lib/lint-gate.sh`
+  (and the offline gates share `scripts/lib/gate.py`), so the two lint targets
+  cannot drift on which files they cover or how they report. A mod carrying its
+  own copy of either should take the shared one.
+- `deploy-server.sh` stages into a `.deploy-stage` directory and swaps it into
+  place, rolling back when the swap fails, so a failed deploy no longer leaves
+  a half-written server. `server-common.sh` refuses a
+  `SEVEN_DAYS_TO_DIE_SERVER_DIR` less than two levels deep, where a wrong path
+  would have deployed over the wrong tree. **Breaking for a mod whose
+  `.local.env` sets that key to a shallower path:** it has to name the game's
+  server directory.
 - One `.local.env` reader for the shell lanes (`load_local_env` in
   `scripts/server-common.sh`), with a Python counterpart in
   `scripts/lib/local_env.py` for the targets written in Python. It tolerates
@@ -160,6 +174,25 @@ modlet's contract rather than add to it.
   Python 3.9 floor `ruff.toml` pins instead of raising `TypeError` on
   `str | None`; `test_python_defects.py` fails any script that reintroduces a
   PEP 604 union without the future import.
+- Text is intact at the boundaries that used to mangle it: the telnet client
+  decodes incrementally, so a multi-byte character split across two reads is no
+  longer three `U+FFFD`; the local-env and patch-verifier readers take
+  `utf-8-sig`; `ilspycmd` output is decoded as UTF-8 rather than the caller's
+  locale, which raised `UnicodeDecodeError` under `LC_ALL=C`; and `new-mod.sh`
+  truncates an over-long `ModInfo.xml` description on a character boundary
+  rather than mid-codepoint. `test_telnet_text_decoding.py` gates it.
+- The derived `serverconfig.xml` is written atomically, so a run interrupted
+  mid-write no longer leaves a file the next run refuses to parse, and a
+  `serverconfig.xml` that will not parse exits 1 with the error instead of a
+  traceback.
+- The Python entry points document themselves: `configure-server-config.py`,
+  `validate-xml-targets.py`, `verify-patched-config.py` and
+  `verify-patch-targets.py` take `--help`, say what each exit status means, and
+  send diagnostics to stderr, so a failing lane is distinguishable from a
+  passing one by its status alone.
+- `make preflight` warns when the local ruff differs from the `RUFF_VERSION` CI
+  pins, because a rule the mod's `ruff.toml` selects can resolve differently
+  there and a green local run is then not the CI verdict.
 
 ## [0.1.0] - 2026-09-11
 

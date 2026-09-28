@@ -29,6 +29,7 @@ from types import ModuleType
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
+import gate
 import xml_extends
 from gate import check
 from gate import main as report
@@ -38,8 +39,12 @@ SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 
 def load_validator() -> ModuleType:
     """The hyphenated script name is not importable; load it by path."""
+    return load_script("validate_xml_targets", "validate-xml-targets.py")
+
+
+def load_script(module_name: str, filename: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(
-        "validate_xml_targets", os.path.join(SCRIPTS, "validate-xml-targets.py")
+        module_name, os.path.join(SCRIPTS, filename)
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -174,9 +179,59 @@ def extends_model() -> None:
           missing == ({}, {}), repr(missing))
 
 
+def run_extends_gate(mod_dir: str) -> str:
+    """Run the shipped static gate's Extends check over `mod_dir`; its stderr."""
+    static = load_script("test_static_checks", "test_static_checks.py")
+    static.MOD_DIR = mod_dir
+    err = io.StringIO()
+    recorded = len(gate.FAILURES)
+    with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+        static.check_extends_cycles()
+    # The negative control fails that gate on purpose. Its failure is this
+    # test's assertion, not this process's verdict, and `FAILURES` is
+    # process-wide, so it is dropped again here.
+    del gate.FAILURES[recorded:]
+    return err.getvalue()
+
+
+def cyclic_patch_is_named() -> None:
+    """The shipped gate, run over a mod tree that really closes a chain.
+
+    The model raising `ExtendsCycle` says nothing until a gate walks the mod's
+    own Config files with it, so this drives `test_static_checks.py` over a
+    fixture tree: the negative control has to fail with the chain named, and
+    the same tree with the cycle opened has to pass.
+    """
+    root = tempfile.mkdtemp(prefix="test-extends-cycle-")
+    try:
+        cyclic = os.path.join(root, "cyclic")
+        write(os.path.join(cyclic, "Config", "items.xml"),
+              '<configs><append xpath="/items">'
+              '<item name="a"><property name="Extends" value="b"/></item>'
+              '<item name="b"><property name="Extends" value="a"/></item>'
+              '</append></configs>')
+        failure = run_extends_gate(cyclic)
+        check("a closed Extends chain in a mod patch fails the gate, named",
+              "no-extends-cycle:Config" + os.sep + "items.xml" in failure
+              and "a -> b -> a" in failure, repr(failure))
+
+        opened = os.path.join(root, "opened")
+        write(os.path.join(opened, "Config", "items.xml"),
+              '<configs><append xpath="/items">'
+              '<item name="a"><property name="Extends" value="b"/>'
+              '<property name="Tier" value="1"/></item>'
+              '<item name="b"><property name="Tier" value="2"/></item>'
+              '</append></configs>')
+        check("an open Extends chain in a mod patch passes the gate",
+              not run_extends_gate(opened), repr(run_extends_gate(opened)))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main() -> int:
     nested_patches_are_checked()
     extends_model()
+    cyclic_patch_is_named()
     return report()
 
 

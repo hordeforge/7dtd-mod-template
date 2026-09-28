@@ -11,6 +11,7 @@ Deterministic, offline, no game install needed:
   directory name
 - the declared version is well-formed, agrees with the release readme, and
   has a section in CHANGELOG.md
+- no mod-authored `Extends` cycle closes in the mod's own Config patches
 - localization ships at Config/Localization.csv, never the mod root (the
   engine only loads mod localization from <mod>/Config/)
 - no pre-V3 XUi shapes: no Config/XUi/ directory, no `{binding}` syntax
@@ -24,6 +25,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import xml_extends
 from gate import check
 from gate import main as report
 
@@ -96,6 +98,37 @@ def check_release_notes() -> None:
           f"no released section for version {declared_version()}")
 
 
+def check_extends_cycles() -> None:
+    """A closed `Extends` chain in the mod's own patches is a config defect.
+
+    A patch where `a` extends `b` and `b` extends `a` resolves to nothing at
+    load, and every other gate reports it as a clean run, so the chain has to
+    be named here. The walk is the shared model in `scripts/lib/xml_extends.py`,
+    so this gate and the model cannot disagree about what a cycle is; an entry
+    extending itself still resolves, as the engine reads it.
+    """
+    for rel in xml_files():
+        if not rel.startswith("Config" + os.sep):
+            continue
+        try:
+            root = ET.parse(os.path.join(MOD_DIR, rel)).getroot()
+        except ET.ParseError:
+            # xml-parses already reported this file with the parse error.
+            continue
+        pool = {
+            node.get("name"): node
+            for node in root.iter()
+            if node.get("name") and xml_extends.parent_of(node)[0]
+        }
+        closed = []
+        for name in pool:
+            try:
+                xml_extends.resolve(name, pool)
+            except xml_extends.ExtendsCycle as cycle:
+                closed.append(f"{name}: {cycle}")
+        check("no-extends-cycle:" + rel, not closed, "; ".join(closed))
+
+
 def declared_version() -> str:
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     if not os.path.isfile(modinfo):
@@ -129,6 +162,8 @@ def main() -> int:
         check("configs-root-exception-exists:" + rel,
               os.path.isfile(os.path.join(MOD_DIR, rel)),
               "stale exception entry; remove it")
+
+    check_extends_cycles()
 
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     check("modinfo-exists", os.path.isfile(modinfo))

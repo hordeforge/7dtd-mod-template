@@ -71,6 +71,10 @@ check: preflight scaffold
 	rm -rf "$(SMOKE_MOD)/src"
 	$(MAKE) -C "$(SMOKE_MOD)" package
 	unzip -l "$(SMOKE_MOD)/dist/CiSmoke.zip" | grep -q "CiSmoke/ModInfo.xml"
+	# The last CI step, in the tree the step above leaves: no src/, so this
+	# proves the archive the packaging path really builds is byte-identical
+	# across a foreign path, locale, and timezone.
+	$(MAKE) -C "$(SMOKE_MOD)" verify-reproducible
 	@echo "OK -> every CI step passed locally."
 
 clean:
