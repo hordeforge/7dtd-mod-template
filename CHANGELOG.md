@@ -55,6 +55,15 @@ modlet's contract rather than add to it.
 
 ### Changed
 
+- The console-command permission gate finds commands by their
+  `ConsoleCmdAbstract` base type anywhere under `src/`, so a command
+  declared in a file other than `ConsoleCmd<Mod>.cs` is held to the same
+  contract as the settings command, and a second class in a file is held
+  separately from the first. A stated level must also resolve to a number,
+  and any command that writes the settings is held to the admin level in
+  the server process. **Breaking for a mod that has added a command:** it
+  now needs its own stated, resolvable level, which is the level it should
+  have been stating.
 - **An `Extends` cycle raises `ExtendsCycle` instead of resolving.** A mod
   whose config closes an `Extends` chain (`a` extends `b`, `b` extends `a`)
   used to have the chain cut silently, which reported a broken patch as a

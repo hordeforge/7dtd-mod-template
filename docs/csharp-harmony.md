@@ -124,8 +124,12 @@ anything it writes, not the server's. A command that reads or writes
 server-authoritative state is `false`.
 
 Both are held at the source level by
-`scripts/test_console_command_permissions.py`; the live behavior is proven in
-game. The engine's side is catalogued in
+`scripts/test_console_command_permissions.py`: it finds commands by their
+base type anywhere under `src/` (not by file name, so a class in an
+unexpected file is not a class nobody checked), requires each one to state
+a level that resolves to a number, and holds any command that writes the
+settings to the admin level in the server process. The live behavior is
+proven in game. The engine's side is catalogued in
 `hordeforge/7dtd-engine-research` `docs/admin/console-commands.md`.
 
 ### Comments are the settings UI

@@ -153,8 +153,13 @@ The command is admin-only (`DefaultPermissionLevel => 0`) and server-side
 (`IsExecuteOnClient => false`): it edits the server's copy of the settings,
 so a client-executable one would edit the caller's instead. Any new
 `ConsoleCmdAbstract` class states its own level rather than inheriting the
-game base class's — `scripts/test_console_command_permissions.py` holds
-both, and "Who may run a console command" in
+game base class's, states it as a number the gate can resolve, and if it
+writes the settings (`ModSettings.TrySet`, `ModSettings.ReloadNow`) holds
+that admin-and-server-side contract wherever it is declared.
+`scripts/test_console_command_permissions.py` holds all of it, finding
+commands by their base type anywhere under `src/` rather than by file
+name, so a class in an unexpected file is not a class nobody checked.
+"Who may run a console command" in
 `docs/reference/csharp-harmony.md` has the engine's side.
 
 The TOML's comments are player-facing: Wrench
