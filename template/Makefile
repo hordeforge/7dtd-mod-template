@@ -7,7 +7,10 @@ ROOT := $(CURDIR)
 # a recipe that dies mid-way must not leave a half-written target behind
 .DELETE_ON_ERROR:
 
-.PHONY: help build package verify-reproducible test lint-shell lint-py validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
+.PHONY: help build package verify-reproducible test lint-shell lint-py validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean playtest
+# ANVIL:ASSETS-BEGIN
+.PHONY: build-assets validate-assets
+# ANVIL:ASSETS-END
 
 help:
 	@echo "Offline gates (no game install needed; run these before every commit):"

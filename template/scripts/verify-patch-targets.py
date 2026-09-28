@@ -19,13 +19,13 @@ as a renamed method. Names beginning with `__` are Harmony's own injections
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import TextIO
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import local_env
@@ -70,29 +70,23 @@ def is_method_signature(line: str) -> bool:
     return assignment < 0 or parenthesis < assignment
 
 
-def usage(stream: TextIO = sys.stdout) -> None:
-    print("USAGE", file=stream)
-    print("  verify-patch-targets.py [--game-dir PATH]", file=stream)
-    print(file=stream)
-    print("OPTIONS", file=stream)
-    print("  --game-dir PATH  client install to check against; the environment's", file=stream)
-    print("                    SEVEN_DAYS_TO_DIE_DIR and .local.env are the default", file=stream)
-    print(file=stream)
-    print("Decompile each Harmony patch target's declaring type out of the", file=stream)
-    print("selected 7 Days To Die client and confirm the patched method is", file=stream)
-    print("still declared there with the expected signature.", file=stream)
-    print(file=stream)
-    print("REQUIRES", file=stream)
-    print("  ilspycmd    dotnet tool install -g ilspycmd", file=stream)
-    print(file=stream)
-    print("EXAMPLES", file=stream)
-    print("  scripts/verify-patch-targets.py", file=stream)
-    print("  scripts/verify-patch-targets.py --game-dir /path/to/7dtd", file=stream)
-    print(file=stream)
-    print("EXIT STATUS", file=stream)
-    print("  0  every target checks out (or there is nothing to verify)", file=stream)
-    print("  1  a target failed, or the toolchain/game install is unusable", file=stream)
-    print("  2  the command line was wrong", file=stream)
+DESCRIPTION = """\
+Decompile each Harmony patch target's declaring type out of the selected
+7 Days To Die client and confirm the patched method is still declared there
+with the expected signature.
+
+REQUIRES
+  ilspycmd    dotnet tool install -g ilspycmd
+
+EXAMPLES
+  scripts/verify-patch-targets.py
+  scripts/verify-patch-targets.py --game-dir /path/to/7dtd
+
+EXIT STATUS
+  0  every target checks out (or there is nothing to verify)
+  1  a target failed, or the toolchain/game install is unusable
+  2  the command line was wrong\
+"""
 
 
 class Target:
@@ -464,45 +458,29 @@ def parameter_types(signature: str) -> list[str]:
     return types
 
 
-GAME_DIR_FLAG = "--game-dir"
-
-
 def parse_args(argv: list[str]) -> Path | None:
     """The --game-dir value, or None to take it from the environment.
 
     None means "not given", so the caller falls back to .local.env. A
     command line this script does not accept is a usage error (exit 2):
     silently ignoring a misspelled flag would check a game install the
-    caller never named.
+    caller never named. `append` rather than the default last-wins, so two
+    --game-dir values are rejected instead of one of them going unread.
     """
-    given: list[str] = []
-    index = 0
-    while index < len(argv):
-        arg = argv[index]
-        if arg in ("--help", "-h"):
-            usage()
-            raise SystemExit(0)
-        if arg == GAME_DIR_FLAG:
-            index += 1
-            if index >= len(argv):
-                print(f"ERROR: {GAME_DIR_FLAG} needs a path argument.", file=sys.stderr)
-                usage(sys.stderr)
-                raise SystemExit(2)
-            given.append(argv[index])
-        elif arg.startswith(GAME_DIR_FLAG + "="):
-            given.append(arg.split("=", 1)[1])
-        else:
-            print(f"ERROR: unknown argument: {arg}", file=sys.stderr)
-            usage(sys.stderr)
-            raise SystemExit(2)
-        index += 1
-    if len(given) > 1:
-        print(f"ERROR: {GAME_DIR_FLAG} given more than once.", file=sys.stderr)
-        usage(sys.stderr)
-        raise SystemExit(2)
-    if not given:
-        return None
-    return Path(given[0])
+    parser = argparse.ArgumentParser(
+        prog=Path(__file__).name,
+        description=DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--game-dir", type=Path, metavar="PATH", action="append", default=None,
+        help="client install to check against; the environment's SEVEN_DAYS_TO_DIE_DIR"
+             " and .local.env are the default",
+    )
+    given = parser.parse_args(argv).game_dir
+    if given and len(given) > 1:
+        parser.error("--game-dir given more than once.")
+    return given[0] if given else None
 
 
 def main(argv: list[str]) -> int:

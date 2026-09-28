@@ -285,19 +285,14 @@ fi
 if [[ "$assets" == "yes" ]]; then
 	mkdir -p "$MOD_DIR/assets-src"
 	note "run 'shamway init' in the mod to set up the asset pipeline (.shamway.toml + its AGENTS contract)"
-else
-	# strip the shamway targets from the Makefile, and the prose that tells an
-	# agent to run them from the docs, so neither names a target that is gone
-	sed -i '/^# ANVIL:ASSETS-BEGIN$/,/^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
-	sed -i '/<!-- ANVIL:ASSETS-BEGIN -->/,/<!-- ANVIL:ASSETS-END -->/d' \
-		"$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 fi
 
-# The optional-feature blocks this template marks go in the same python pass
-# as the token substitution below: `sed -i` is GNU-only, and BSD sed (macOS)
-# demands a backup-suffix argument, taking the scaffolder down on any non-GNU
-# host. The markers always go; the block between them only when the feature it
-# documents is off.
+# The optional-feature blocks this template marks (the shamway targets and the
+# prose that tells an agent to run them, the C# settings contract) are stripped
+# in the same python pass as the token substitution: `sed -i` is GNU-only, and
+# BSD sed (macOS) demands a backup-suffix argument, taking the scaffolder down
+# on any non-GNU host. The markers always go; the block between them only when
+# the feature it documents is off.
 export ANVIL_NAME="$name" ANVIL_DISPLAY="$display_name" ANVIL_AUTHOR="$author" \
 	ANVIL_PURPOSE="$purpose" ANVIL_SKIP_EAC="$skip_eac" \
 	ANVIL_CSHARP="$csharp" ANVIL_ASSETS="$assets"
@@ -404,33 +399,42 @@ xml_tokens = {token: html.escape(value, quote=True)
               for token, value in tokens.items()}
 
 CSHARP = ("<!-- ANVIL:CSHARP-BEGIN -->", "<!-- ANVIL:CSHARP-END -->")
-ASSETS = ("# ANVIL:ASSETS-BEGIN", "# ANVIL:ASSETS-END")
-# file -> (markers, drop the block between them too?)
+ASSETS_MAKE = ("# ANVIL:ASSETS-BEGIN", "# ANVIL:ASSETS-END")
+ASSETS_HTML = ("<!-- ANVIL:ASSETS-BEGIN -->", "<!-- ANVIL:ASSETS-END -->")
+# file -> {marker pair: the feature it documents}. A block whose feature is off
+# loses everything between the markers, so neither the Makefile nor the prose
+# names a target that is gone; the two marker lines go either way. A pair may
+# appear more than once in one file: the Makefile marks the asset help text
+# and the asset .PHONY line separately.
 marked = {
-    "Makefile": (ASSETS, os.environ["ANVIL_ASSETS"] != "yes"),
-    "README.md": (CSHARP, os.environ["ANVIL_CSHARP"] != "yes"),
-    "AGENTS.md": (CSHARP, os.environ["ANVIL_CSHARP"] != "yes"),
+    "Makefile": {ASSETS_MAKE: "assets"},
+    "README.md": {CSHARP: "csharp"},
+    "AGENTS.md": {CSHARP: "csharp", ASSETS_HTML: "assets"},
 }
 
-def strip_block(text, begin, end):
-    """Drop every whole-line begin..end block; an unterminated one runs to EOF."""
-    lines = text.splitlines(keepends=True)
-    kept, inside = [], False
-    for line in lines:
+def strip_marked(text, blocks):
+    """Take the marker lines out of `text`, and a block whose feature is off.
+
+    One pass over the lines, whatever the blocks: a marker opens a block and
+    the next marker of the same pair closes it, and a block never closed runs
+    to the end of the file. A block whose feature is on is entered too, and
+    only its content kept, or its closing marker would survive into the mod.
+    Both are whole-line matches, so a marker inside a paragraph of prose is
+    not one.
+    """
+    drop_when_off = {markers[0]: os.environ["ANVIL_" + feature.upper()] != "yes"
+                     for markers, feature in blocks.items()}
+    closers = {markers[1] for markers in blocks}
+    kept, inside, dropping = [], False, False
+    for line in text.splitlines(keepends=True):
         marker = line.strip()
-        if not inside and marker == begin:
-            inside = True
-        elif inside and marker == end:
-            inside = False
-        elif not inside:
+        if not inside and marker in drop_when_off:
+            inside, dropping = True, drop_when_off[marker]
+        elif inside and marker in closers:
+            inside = dropping = False
+        elif not inside or not dropping:
             kept.append(line)
     return "".join(kept)
-
-def strip_markers(text, begin, end):
-    markers = {begin, end}
-    return "".join(
-        line for line in text.splitlines(keepends=True) if line.strip() not in markers
-    )
 
 for base, dirs, files in os.walk(mod_dir):
     dirs[:] = [d for d in dirs if d != ".git"]
@@ -444,12 +448,7 @@ for base, dirs, files in os.walk(mod_dir):
                 text = handle.read()
         except (UnicodeDecodeError, OSError):
             continue
-        out = text
-        if base == mod_dir and f in marked:
-            (begin, end), drop_block = marked[f]
-            if drop_block:
-                out = strip_block(out, begin, end)
-            out = strip_markers(out, begin, end)
+        out = strip_marked(text, marked[f]) if base == mod_dir and f in marked else text
         # ModInfo.xml is the one file here whose values land in an XML
         # attribute, where a bare `&`, `<` or `"` ends the attribute and
         # leaves the file the game cannot parse. Every other consumer (a C#

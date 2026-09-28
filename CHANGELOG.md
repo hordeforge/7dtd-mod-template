@@ -28,6 +28,9 @@ shape above, so the search cannot quietly stop matching.
   (`make scaffold`, then `make test TF=<substring>` inside the smoke mod),
   what a pull request has to carry, and how `RUFF_VERSION` is bumped
   (Dependabot does not cover it; `actions/checkout` is bumped by tag commit).
+- `scripts/verify-patch-targets.py` parses its own command line with
+  `argparse`, as `verify-patched-config.py` already did, instead of a
+  hand-rolled `usage()` and argument loop that reimplemented it.
 - `ci/check-smoke-mod.py` pins what the scaffolder makes of the smoke
   config's text: the ModInfo fields a reader of `ci/smoke.conf` expects, the
   full purpose still reaching the mod, and the Harmony id the author name
@@ -188,6 +191,16 @@ shape above, so the search cannot quietly stop matching.
 - `configure-server-config.py` printed a lowercase two-line `usage:` on
   stderr, where every other entry point prints the same `USAGE` /
   `OPTIONS` / `EXIT STATUS` block its siblings do.
+- The scaffolder's optional-feature markers never reach the generated mod.
+  A block kept because its feature is on kept its closing marker too, so a
+  mod scaffolded with assets off shipped two `ANVIL:ASSETS` lines in its
+  `AGENTS.md`; a mod scaffolded with C# off did the same with the
+  `ANVIL:CSHARP` pair in `README.md` and `AGENTS.md`. The stripping of those
+  blocks and the token substitution are one pass now, and
+  `ci/check-smoke-mod.py` fails when any marker survives.
+- A mod without asset bundles no longer declares `build-assets` and
+  `validate-assets` phony while defining neither, so `make build-assets` in
+  one reported success and did nothing.
 - `validate-xml-targets.py` caught only `SyntaxError` around
   `ElementTree`'s `find`, which answers `text()` and a bare `()` with a
   `KeyError` and an unclosed predicate with a `TypeError`. Both are the same

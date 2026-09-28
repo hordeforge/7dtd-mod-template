@@ -139,6 +139,25 @@ def main() -> int:
     check("harmony-id-is-the-expected-ascii-string",
           harmony == "com.cimuller.cismoke", repr(harmony))
 
+    # The scaffolder's optional-feature markers are its own bookkeeping, and
+    # every one of them is gone from the mod: what a marker delimits is either
+    # stripped or kept, but the delimiters themselves never ship. The smoke
+    # config turns off one feature and leaves the other on, so both halves of
+    # that are in this tree at once, and the half that keeps its block is the
+    # half whose closing marker can survive it.
+    survivor = ""
+    for base, dirs, files in os.walk(mod_dir):
+        dirs[:] = [d for d in dirs if d != ".git"]
+        for f in files:
+            path = os.path.join(base, f)
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                if "ANVIL:" in handle.read():
+                    survivor = os.path.relpath(path, mod_dir)
+                    break
+        if survivor:
+            break
+    check("no-scaffolder-marker-survives-the-substitution", not survivor, survivor)
+
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0
 
