@@ -161,11 +161,14 @@ The command is admin-only (`DefaultPermissionLevel => 0`) and server-side
 so a client-executable one would edit the caller's instead. Any new
 `ConsoleCmdAbstract` class states its own level rather than inheriting the
 game base class's, states it as a number the gate can resolve, and if it
-writes the settings (`ModSettings.TrySet`, `ModSettings.ReloadNow`) holds
-that admin-and-server-side contract wherever it is declared.
+calls a settings member that changes state holds that admin-and-server-side
+contract wherever it is declared.
 `scripts/test_console_command_permissions.py` holds all of it, finding
 commands by their base type anywhere under `src/` rather than by file
-name, so a class in an unexpected file is not a class nobody checked.
+name, so a class in an unexpected file is not a class nobody checked, and
+through any intermediate base the mod declares, so a command the engine
+registers is never one the gate cannot see. Only the settings members it
+names read-only are exempt, so a new one is admin-bound by default.
 "Who may run a console command" in
 `docs/reference/csharp-harmony.md` has the engine's side.
 

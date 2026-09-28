@@ -127,10 +127,14 @@ server-authoritative state is `false`.
 Both are held at the source level by
 `scripts/test_console_command_permissions.py`: it finds commands by their
 base type anywhere under `src/` (not by file name, so a class in an
-unexpected file is not a class nobody checked), requires each one to state
-a level that resolves to a number, and holds any command that writes the
-settings to the admin level in the server process. The live behavior is
-proven in game. The engine's side is catalogued in
+unexpected file is not a class nobody checked) and through any intermediate
+base the mod declares itself, since the engine registers such a command all
+the same; requires each one to state a level that resolves to a number; and
+holds any command that calls a settings member which changes state to the
+admin level in the server process. That last rule is a denylist read
+backwards: only the members named read-only (`Describe`) are exempt, so a
+settings method added later is admin-bound until someone says otherwise. The
+live behavior is proven in game. The engine's side is catalogued in
 `hordeforge/7dtd-engine-research` `docs/admin/console-commands.md`.
 
 ### Comments are the settings UI
