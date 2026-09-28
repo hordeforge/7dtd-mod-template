@@ -1,0 +1,17 @@
+# Line endings for the scaffolder repo itself. template/.gitattributes holds
+# the same policy for a scaffolded mod, kept there so the mod stays
+# self-contained when extracted out of this repo.
+#
+# Without this, a Windows clone with the default core.autocrlf=true checks out
+# new-mod.sh as CRLF and the kernel stops matching its `#!/usr/bin/env bash`
+# shebang: "bad interpreter: /usr/bin/env bash^M".
+* text=auto
+
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+*.mk text eol=lf
+*.cs text eol=lf
+*.conf text eol=lf
+*.md text eol=lf
+*.yml text eol=lf

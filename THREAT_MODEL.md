@@ -49,7 +49,7 @@ Entry points, all with the file that creates them.
 
 - the operator-supplied conf (`new-mod.sh:31`).
 - `.local.env` from the mod root, under `set -a` (`template/scripts/build.sh:20`,
-  `template/scripts/server-common.sh:11`), written by `new-mod.sh:163-174`.
+  `template/scripts/server-common.sh:11`), written by `new-mod.sh:199-210`.
 
 **Environment variables**
 
@@ -62,8 +62,8 @@ Entry points, all with the file that creates them.
   (`server-smoke.sh:12`).
 - `OFFLINE_TEST_JOBS` (parallelism cap, `run-offline-tests.sh:51`).
 - `ANVIL_NAME`, `ANVIL_DISPLAY`, `ANVIL_AUTHOR`, `ANVIL_PURPOSE`,
-  `ANVIL_SKIP_EAC` (`new-mod.sh:124`), consumed by the embedded substitution
-  program.
+  `ANVIL_SKIP_EAC`, `ANVIL_CSHARP`, `ANVIL_ASSETS` (`new-mod.sh:121-123`),
+  consumed by the embedded substitution program.
 
 **Network**
 

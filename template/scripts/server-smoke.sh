@@ -40,19 +40,7 @@ mkdir -p "$LOG_DIR"
 # install's logs/ would grow by one file per smoke run forever. Keep the newest
 # KEEP_LOGS and drop the rest; the game's own logs are a different prefix and
 # are never touched.
-if [[ "$KEEP_LOGS" =~ ^[0-9]+$ ]]; then
-	stale=()
-	while IFS= read -r log; do
-		if [[ -n "$log" ]]; then
-			stale+=("$log")
-		fi
-	done < <(find "$LOG_DIR" -maxdepth 1 -type f \
-		-name '__MOD_NAME_LOWER__-server-smoke-*.log' -printf '%T@ %p\n' |
-		sort -rn | tail -n "+$((KEEP_LOGS + 1))" | cut -d' ' -f2-)
-	if ((${#stale[@]})); then
-		rm -f -- "${stale[@]}"
-	fi
-fi
+prune_smoke_logs "$LOG_DIR" "$KEEP_LOGS"
 
 echo "Launching dedicated server for ${RUN_FOR_SECONDS}s."
 set +e

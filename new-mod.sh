@@ -106,7 +106,6 @@ else
 	rm -rf "$MOD_DIR/src"
 	# no DLL, so nothing reads the TOML settings file or its contract gate
 	rm -f "$MOD_DIR/Config/__MOD_NAME__.toml" "$MOD_DIR/scripts/test_settings_reload.py"
-	sed -i '/<!-- ANVIL:CSHARP-BEGIN -->/,/<!-- ANVIL:CSHARP-END -->/d' "$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 	skip_eac="false"
 fi
 if [[ "$assets" == "yes" ]]; then
@@ -119,13 +118,15 @@ else
 	sed -i '/<!-- ANVIL:ASSETS-BEGIN -->/,/<!-- ANVIL:ASSETS-END -->/d' \
 		"$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 fi
-sed -i '/^# ANVIL:ASSETS-BEGIN$/d; /^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
-sed -i '/<!-- ANVIL:CSHARP-BEGIN -->/d; /<!-- ANVIL:CSHARP-END -->/d' "$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 
-# token substitution across every tracked text file (python: purpose text
-# may contain any character sed's delimiter escaping would mangle)
+# The optional-feature blocks this template marks go in the same python pass
+# as the token substitution below: `sed -i` is GNU-only, and BSD sed (macOS)
+# demands a backup-suffix argument, taking the scaffolder down on any non-GNU
+# host. The markers always go; the block between them only when the feature it
+# documents is off.
 export ANVIL_NAME="$name" ANVIL_DISPLAY="$display_name" ANVIL_AUTHOR="$author" \
-	ANVIL_PURPOSE="$purpose" ANVIL_SKIP_EAC="$skip_eac"
+	ANVIL_PURPOSE="$purpose" ANVIL_SKIP_EAC="$skip_eac" \
+	ANVIL_CSHARP="$csharp" ANVIL_ASSETS="$assets"
 python3 - "$MOD_DIR" <<'PYEOF'
 import html, os, re, sys
 mod_dir = sys.argv[1]
@@ -141,20 +142,58 @@ tokens = {
     "__MOD_PURPOSE_SHORT__": html.escape(short, quote=True),
     "__SKIP_WITH_ANTI_CHEAT__": os.environ["ANVIL_SKIP_EAC"],
 }
+
+CSHARP = ("<!-- ANVIL:CSHARP-BEGIN -->", "<!-- ANVIL:CSHARP-END -->")
+ASSETS = ("# ANVIL:ASSETS-BEGIN", "# ANVIL:ASSETS-END")
+# file -> (markers, drop the block between them too?)
+marked = {
+    "Makefile": (ASSETS, os.environ["ANVIL_ASSETS"] != "yes"),
+    "README.md": (CSHARP, os.environ["ANVIL_CSHARP"] != "yes"),
+    "AGENTS.md": (CSHARP, os.environ["ANVIL_CSHARP"] != "yes"),
+}
+
+def strip_block(text, begin, end):
+    """Drop every whole-line begin..end block; an unterminated one runs to EOF."""
+    lines = text.splitlines(keepends=True)
+    kept, inside = [], False
+    for line in lines:
+        marker = line.strip()
+        if not inside and marker == begin:
+            inside = True
+        elif inside and marker == end:
+            inside = False
+        elif not inside:
+            kept.append(line)
+    return "".join(kept)
+
+def strip_markers(text, begin, end):
+    markers = {begin, end}
+    return "".join(
+        line for line in text.splitlines(keepends=True) if line.strip() not in markers
+    )
+
 for base, dirs, files in os.walk(mod_dir):
     dirs[:] = [d for d in dirs if d != ".git"]
     for f in files:
         path = os.path.join(base, f)
         try:
-            with open(path, encoding="utf-8") as handle:
+            # newline="" on both ends: a CRLF source file must survive the
+            # round trip byte for byte, and an LF file must not be rewritten
+            # to CRLF by a Windows scaffolder.
+            with open(path, encoding="utf-8", newline="") as handle:
                 text = handle.read()
         except (UnicodeDecodeError, OSError):
             continue
         out = text
+        if base == mod_dir and f in marked:
+            (begin, end), drop_block = marked[f]
+            if drop_block:
+                out = strip_block(out, begin, end)
+            out = strip_markers(out, begin, end)
         for token, value in tokens.items():
             out = out.replace(token, value)
         if out != text:
-            with open(path, "w", encoding="utf-8") as handle:
+            with open(path, "w", encoding="utf-8", newline="") as handle:
                 handle.write(out)
 PYEOF
 
