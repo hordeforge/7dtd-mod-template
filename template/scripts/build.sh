@@ -66,6 +66,32 @@ if [[ -d "$SRC" ]]; then
 		echo "       install, including a dotnet under ~/.dotnet, shows up here)." >&2
 		exit 1
 	}
+	# The pin has to be a pin. global.json's rollForward is what decides how
+	# far the host may drift from it, so the pin is resolved here, from the
+	# mod root, and the answer is checked: a host carrying only a newer
+	# feature band then says which band was wanted instead of compiling the
+	# DLL with whatever it has and calling it the same source.
+	#
+	# `dotnet --version` is the resolver itself, so there is no second
+	# implementation of what rollForward means to drift away from the tool's.
+	sdk_pinned="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([0-9][0-9.]*\)".*/\1/p' "$ROOT/global.json")"
+	[[ -n "$sdk_pinned" ]] || {
+		echo "ERROR: no sdk.version in $ROOT/global.json, so the pinned SDK could" >&2
+		echo "       not be read and the build would silently use whatever the host" >&2
+		echo "       has newest. Restore the line." >&2
+		exit 1
+	}
+	sdk_resolved=''
+	sdk_resolved="$(cd "$ROOT" && dotnet --version 2>&1)" || {
+		echo "ERROR: no .NET SDK that global.json's pin (version $sdk_pinned," >&2
+		echo "       rollForward latestPatch) resolves to. The host has:" >&2
+		dotnet --list-sdks 2>/dev/null | sed 's/^/         /' >&2
+		echo "       dotnet said: $sdk_resolved" >&2
+		echo "       Install the pinned band, or bump global.json together with" >&2
+		echo "       LangVersion in $MOD_NAME.csproj: a different SDK compiles this" >&2
+		echo "       source to a different DLL." >&2
+		exit 1
+	}
 	# dotnet resolves global.json (the SDK pin) from the working directory,
 	# not from the project path it was handed: run from anywhere else and the
 	# pin is skipped and whatever SDK the host has newest is used instead.

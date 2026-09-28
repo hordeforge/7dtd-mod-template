@@ -66,12 +66,16 @@ scaffold: preflight
 # Step-for-step .github/workflows/ci.yml. The env is set here, not only on the
 # runner, so a local run is held to the same locale and timezone contract.
 check: preflight scaffold
+	# What the scaffolder made of the smoke config's text: XML-hostile
+	# characters, an accented author name, a CJK sentence end. CI runs this
+	# step first, before anything executes inside the mod, and so does this:
+	# the mod's own gates write their caches into it, so a check that read
+	# the tree afterwards could not tell a cache the scaffolder shipped from
+	# one the run just made.
+	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" test
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-shell
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-py
-	# what the scaffolder made of the smoke config's text: XML-hostile
-	# characters, an accented author name, a CJK sentence end
-	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
 	# the release contract of this repo's own notes, which no scaffolded mod
 	# can check: the file a tag is cut from
 	LC_ALL=C TZ=UTC python3 ci/check-changelog.py CHANGELOG.md

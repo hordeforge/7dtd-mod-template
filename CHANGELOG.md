@@ -103,6 +103,19 @@ shape above, so the search cannot quietly stop matching.
 
 ### Changed
 
+- `global.json` pins the SDK with `rollForward: latestPatch` instead of
+  `latestFeature`, so the build stays in the 8.0.1xx feature band the README
+  already claimed and a host with only a newer band installed no longer
+  compiles the DLL with whatever it has. `scripts/build.sh` resolves the pin
+  from the mod root (`dotnet --version`) and fails there naming the wanted
+  version and the ones the host has, instead of leaving it to dotnet's
+  resolver output. **Breaking for a mod scaffolded before this:** it now
+  needs an SDK in the pinned band, not any 8.0.x.
+- `make check` runs `ci/check-smoke-mod.py` right after the scaffold, which
+  is where `.github/workflows/ci.yml` runs it. The mod's own gates write
+  their caches into the mod, so a check reading the tree afterwards could
+  not tell a cache the scaffolder shipped from one the run just made.
+
 - The shipped `ruff.toml` selects seven more defect groups the tree
   already passes: `ARG`, `DTZ`, `ERA`, `G`, `PGH`, `RSE` and `TID`
   alongside the existing set, so a parameter nobody reads, a naive
@@ -201,6 +214,11 @@ shape above, so the search cannot quietly stop matching.
 - A mod without asset bundles no longer declares `build-assets` and
   `validate-assets` phony while defining neither, so `make build-assets` in
   one reported success and did nothing.
+- The scaffolder copies `template/` with a plain `cp -R`, which ignores
+  `.gitignore`, and pruned only `__pycache__`, `*.pyc` and `dist`. A
+  developer who had run the gates in the template tree shipped
+  `.ruff_cache/` (and `.shamway/`, `.local/`) inside every mod the
+  scaffolder produced. `ci/check-smoke-mod.py` now fails on any of them.
 - `validate-xml-targets.py` caught only `SyntaxError` around
   `ElementTree`'s `find`, which answers `text()` and a bare `()` with a
   `KeyError` and an unclosed predicate with a `TypeError`. Both are the same

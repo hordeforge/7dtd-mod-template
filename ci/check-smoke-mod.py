@@ -158,6 +158,19 @@ def main() -> int:
             break
     check("no-scaffolder-marker-survives-the-substitution", not survivor, survivor)
 
+    # The scaffolder copies template/ with a plain `cp -R`, which ignores
+    # .gitignore, so a cache the developer's own gates leave in the template
+    # tree would ride along into every generated mod. None of these names is
+    # source, and each one is a gitignore rule in template/ or this repo.
+    caches = []
+    for base, dirs, _files in os.walk(mod_dir):
+        dirs[:] = [d for d in dirs if d not in {".git", "dist", "obj", "bin"}]
+        caches += [os.path.relpath(os.path.join(base, d), mod_dir)
+                   for d in dirs
+                   if d in {".ruff_cache", ".shamway", "__pycache__", ".local"}]
+    check("no-build-cache-ships-inside-the-mod", not caches,
+          f"found {caches}; new-mod.sh prunes them, so one survived")
+
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0
 

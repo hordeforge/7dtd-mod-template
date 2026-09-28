@@ -263,9 +263,12 @@ fi
 mkdir -p "$MOD_DIR"
 cp -R "$ANVIL/template/." "$MOD_DIR/"
 # A plain copy ignores .gitignore, so a developer's own build output in the
-# template tree (a stale __pycache__ from running the gates, a leftover dist/)
-# would ship inside the new mod. None of it is source.
-find "$MOD_DIR" \( -name '__pycache__' -o -name '*.pyc' -o -name 'dist' \) \
+# template tree (a stale __pycache__ from running the gates, a leftover dist/,
+# the .ruff_cache ruff writes when the gate runs here) would ship inside the
+# new mod. None of it is source. The names are the gitignore rules of
+# template/ and this repo, so a cache the gates can create is one this drops.
+find "$MOD_DIR" \( -name '__pycache__' -o -name '*.pyc' -o -name 'dist' \
+	-o -name '.ruff_cache' -o -name '.shamway' -o -name '.local' \) \
 	-prune -exec rm -rf {} +
 mkdir -p "$MOD_DIR/docs/reference"
 cp -R "$ANVIL/docs/." "$MOD_DIR/docs/reference/"
