@@ -211,6 +211,17 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- `new-mod.sh` wrote `.local.env` with a heredoc whose value escaping spells a
+  quote, a dollar and a backtick, but cannot put a line break inside a quoted
+  assignment. A `game_dir`, `server_dir`, `hordeforge_root` or `unity_editor`
+  carrying one ended its `KEY="..."` line, and the rest of the value became the
+  next line of the file every server target sources. A value holding a control
+  character is refused now, before the file is written, and
+  `ci/check-scaffold-config.py` holds that.
+- `template/Makefile` expanded `$(ROOT)` unquoted in every recipe, so a mod
+  directory whose path holds a shell metacharacter ran the rest of it as a
+  command (`make clean` first). Every recipe quotes it, as this repo's own
+  Makefile already did.
 - The static gate's two memoized answers were keyed without the tree they
   were read from: the walk was cached under an empty key and each parse under
   its relative path, both of which are relative to `MOD_DIR`. A caller that

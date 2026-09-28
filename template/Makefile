@@ -53,77 +53,77 @@ help:
 # Optional substring filters: make test TF="xml layout"
 TF ?=
 test:
-	$(ROOT)/scripts/run-offline-tests.sh $(TF)
+	"$(ROOT)"/scripts/run-offline-tests.sh $(TF)
 
 # Shellcheck over every tracked shell script (full severity).
 lint-shell:
-	$(ROOT)/scripts/lint-shell.sh
+	"$(ROOT)"/scripts/lint-shell.sh
 
 # Ruff over every tracked Python script, under the mod's own ruff.toml.
 lint-py:
-	$(ROOT)/scripts/lint-py.sh
+	"$(ROOT)"/scripts/lint-py.sh
 
 # Stage the deployable modlet under dist/__MOD_NAME__/ (compiles the DLL
 # when src/ exists; needs .local.env for the game install).
 build:
-	$(ROOT)/scripts/build.sh
+	"$(ROOT)"/scripts/build.sh
 
 # Zip dist/__MOD_NAME__/ so extracting into Mods/ yields
 # Mods/__MOD_NAME__/ModInfo.xml immediately. Reproducible: sorted entry order,
 # SOURCE_DATE_EPOCH timestamps, no uid/gid extra fields.
 package: build
-	$(ROOT)/scripts/package.sh
+	"$(ROOT)"/scripts/package.sh
 
 # Zip the modlet three times — git fallback, explicit epoch, and a copy at
 # another absolute path under a foreign locale and timezone — and require the
 # three archives to be identical. The reproducibility claim in README.md and
 # AGENTS.md is checked here rather than asserted.
 verify-reproducible:
-	$(ROOT)/scripts/verify-reproducible.sh
+	"$(ROOT)"/scripts/verify-reproducible.sh
 
 # Every Config/**/*.xml xpath checked against the installed game's vanilla
 # files (needs .local.env; not part of the offline suite).
 validate-xml:
-	python3 $(ROOT)/scripts/validate-xml-targets.py
+	python3 "$(ROOT)"/scripts/validate-xml-targets.py
 
 # Prove every shipped XPath actually applied, from a loaded world's own
 # ConfigsDump (a patch matching nothing applies silently, log clean).
 verify-patched-config:
-	python3 $(ROOT)/scripts/verify-patched-config.py
+	python3 "$(ROOT)"/scripts/verify-patched-config.py
 
 # Every [HarmonyPatch] target re-checked against the installed
 # Assembly-CSharp (needs .local.env and ilspycmd).
 validate-patch-targets:
-	python3 $(ROOT)/scripts/verify-patch-targets.py
+	python3 "$(ROOT)"/scripts/verify-patch-targets.py
 
 # Dedicated-server lane (needs SEVEN_DAYS_TO_DIE_SERVER_DIR in .local.env):
 # provision via SteamCMD with a mod-owned EAC-off serverconfig, stage the
 # package into the server's Mods/, boot it briefly and prove the mod loaded.
 install-server:
-	$(ROOT)/scripts/install-server.sh
+	"$(ROOT)"/scripts/install-server.sh
 
 deploy-server:
-	$(ROOT)/scripts/deploy-server.sh
+	"$(ROOT)"/scripts/deploy-server.sh
 
 server-smoke:
-	$(ROOT)/scripts/server-smoke.sh
+	"$(ROOT)"/scripts/server-smoke.sh
 
 # One live suite through hordeforge/7dtd-playtest. One invocation is one
 # concern: SUITE takes a single id, never a comma-list of unrelated features.
 # PLAYTEST_ROOT comes from the ignored .local.env.
 SUITE ?=
 playtest:
-	$(ROOT)/scripts/playtest.sh "$(SUITE)" $(EXTRA_ARGS)
+	"$(ROOT)"/scripts/playtest.sh "$(SUITE)" $(EXTRA_ARGS)
 
 # ANVIL:ASSETS-BEGIN
 # Asset bundle build/validation via shamway (hordeforge/7dtd-asset-pipeline).
 build-assets:
-	cd $(ROOT) && shamway build
+	cd "$(ROOT)" && shamway build
 
 validate-assets:
-	cd $(ROOT) && shamway validate
-	cd $(ROOT) && shamway check-icons
+	cd "$(ROOT)" && shamway validate
+	cd "$(ROOT)" && shamway check-icons
 # ANVIL:ASSETS-END
 
 clean:
-	rm -rf $(ROOT)/dist $(ROOT)/src/__MOD_NAME__/bin $(ROOT)/src/__MOD_NAME__/obj
+	rm -rf "$(ROOT)"/dist "$(ROOT)"/src/__MOD_NAME__/bin "$(ROOT)"/src/__MOD_NAME__/obj

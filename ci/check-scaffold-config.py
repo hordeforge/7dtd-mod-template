@@ -145,6 +145,15 @@ def main() -> int:
     check("the refusal names the missing key and what it owes",
           "author" in output and "not running interactively" in output, output[-300:])
 
+    # A path holding a line break cannot be written as KEY="value" at all: the
+    # break ends that line, and every server target sources .local.env, so the
+    # rest of the value would be read as shell. Refused before the file exists.
+    status, output, mod_dir = scaffold(
+        "ConfigPathBreak", "game_dir=$'/srv/7dtd\\ntouch pwned'\n")
+    check("a path holding a line break is refused", status == 2, f"exited {status}")
+    check("a refused line break writes no mod", not os.path.exists(mod_dir), mod_dir)
+    check("the refusal names the key", "game_dir" in output, output[-300:])
+
     shutil.rmtree(WORK, ignore_errors=True)
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0

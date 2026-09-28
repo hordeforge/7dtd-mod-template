@@ -649,18 +649,42 @@ local_env_value() { # local_env_value <value>
 	v="${v//\`/\\\`}"
 	printf '%s' "$v"
 }
-cat > "$MOD_DIR/.local.env" <<LOCALEOF
-# Machine-local path inventory (never commit; format: .local.env.example).
-SEVEN_DAYS_TO_DIE_DIR="$(local_env_value "$game_dir")"
-SEVEN_DAYS_TO_DIE_SERVER_DIR="$(local_env_value "$server_dir")"
-HORDEFORGE_ROOT="$(local_env_value "$hordeforge_root")"
-PLAYTEST_ROOT="$(local_env_value "$PLAYTEST_ROOT")"
-CONNECT_ROOT="$(local_env_value "$CONNECT_ROOT")"
-ASSET_PIPELINE_ROOT="$(local_env_value "$ASSET_PIPELINE_ROOT")"
-DOTNET_ROOT=""
-ILSPYCMD="$(local_env_value "$(command -v ilspycmd || true)")"
-UNITY_EDITOR="$(local_env_value "$unity_editor")"
-LOCALEOF
+# One KEY="value" line per call, appended to local_env_lines. Every value is
+# collected before the file is opened, so a value the run refuses leaves no
+# half-written .local.env behind.
+#
+# A control character is refused, and a line break is the reason: the escaping
+# above spells a quote, a dollar and a backtick, but no escaping can put a line
+# break inside a quoted assignment. One ends the KEY="..." line, and the rest
+# of the value is then the next line of a file every server target sources
+# (`scripts/server-common.sh`), so a path the config carried is read as shell.
+# A path is the one value here that cannot hold a line break for any reason a
+# user would want, so the run stops and says so rather than writing it.
+local_env_line() { # local_env_line <key> <value> [config-key]
+	local key="$1" value="$2" from="${3:-$1}"
+	case "$value" in
+	*[[:cntrl:]]*)
+		echo "ERROR: $key (from $from) holds a control character, which a KEY=\"value\" line cannot carry." >&2
+		echo "       .local.env is sourced by the mod's targets, so a line break in a" >&2
+		echo "       path would be read as the start of another shell command." >&2
+		exit 2
+		;;
+	esac
+	local_env_lines+=("$key=\"$(local_env_value "$value")\"")
+}
+local_env_lines=(
+	'# Machine-local path inventory (never commit; format: .local.env.example).'
+)
+local_env_line SEVEN_DAYS_TO_DIE_DIR "$game_dir" game_dir
+local_env_line SEVEN_DAYS_TO_DIE_SERVER_DIR "$server_dir" server_dir
+local_env_line HORDEFORGE_ROOT "$hordeforge_root" hordeforge_root
+local_env_line PLAYTEST_ROOT "$PLAYTEST_ROOT"
+local_env_line CONNECT_ROOT "$CONNECT_ROOT"
+local_env_line ASSET_PIPELINE_ROOT "$ASSET_PIPELINE_ROOT"
+local_env_lines+=('DOTNET_ROOT=""')
+local_env_line ILSPYCMD "$(command -v ilspycmd || true)"
+local_env_line UNITY_EDITOR "$unity_editor" unity_editor
+printf '%s\n' "${local_env_lines[@]}" > "$MOD_DIR/.local.env"
 # 0600: the file names this account's home and install directories, which the
 # default 0644 would leave readable by every other account on the machine.
 chmod 600 "$MOD_DIR/.local.env"

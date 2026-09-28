@@ -111,10 +111,10 @@ for entry in "${TREE[@]}"; do
 done
 
 # `unset` inside the command substitution's subshell, not `env -u`: `env` is
-# the external binary, which cannot see a shell function, so naming `variant`
-# through it failed with "env: 'variant': No such file or directory" on every
-# host and the first pass never ran. The unset dies with the subshell, so the
-# second pass still sees the caller's value.
+# the external binary, which can only exec a program and cannot see a shell
+# function, so naming `variant` through it failed with "env: 'variant': No such
+# file or directory" on every host and the first pass never ran. The unset dies
+# with the subshell, so the second pass still sees the caller's value.
 from_git="$(
 	unset SOURCE_DATE_EPOCH
 	variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback'
