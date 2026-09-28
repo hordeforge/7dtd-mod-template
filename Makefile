@@ -101,6 +101,12 @@ check: preflight scaffold
 	# cuts inside a character, a name that draws nothing, an author name
 	# reaching the Harmony id.
 	LC_ALL=C TZ=UTC python3 ci/scaffold-text.py
+	# and the last: what a scaffold config may hold. An unknown key, a yes/no
+	# value outside yes/no/empty and a required key nobody can answer for all
+	# have to stop the run before anything is written, an empty optional key
+	# has to take its default, and every key the scaffolder writes into a new
+	# mod's .local.env has to be one the mod's own example documents.
+	LC_ALL=C TZ=UTC python3 ci/check-scaffold-config.py
 	@echo "OK -> every CI step passed locally."
 
 clean:

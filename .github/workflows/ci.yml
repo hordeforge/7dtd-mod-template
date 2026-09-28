@@ -95,3 +95,10 @@ jobs:
         # whole one; a name that draws nothing has to be refused, and an
         # author name has to fold into the Harmony id
         run: python3 ci/scaffold-text.py
+      - name: Scaffold config contract
+        # an unknown key, a yes/no value outside yes/no/empty and a required
+        # key nobody can answer for have to stop the run before anything is
+        # written; an empty optional key takes its default; and every key the
+        # scaffolder writes into a new mod's .local.env is documented by the
+        # mod's own .local.env.example
+        run: python3 ci/check-scaffold-config.py

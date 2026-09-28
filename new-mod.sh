@@ -117,11 +117,19 @@ source "$CONF"
 
 # A yes/no key with any other value takes the else branch and scaffolds a mod
 # that is quietly missing a feature, or a server that is never installed.
-for flag in csharp assets clone; do
+for flag_default in csharp:no assets:no clone:yes; do
+	flag="${flag_default%%:*}"
+	# An empty yes/no key is "not set", the reading every other optional key
+	# here gets: newmod.conf.example writes display_name="" to say "default
+	# to name", and a config that blanks a key to say so must not be refused.
+	if [[ -z "${!flag}" ]]; then
+		printf -v "$flag" '%s' "${flag_default#*:}"
+		continue
+	fi
 	case "${!flag}" in
 		yes|no) ;;
 		*)
-			echo "ERROR: $flag must be 'yes' or 'no' in $CONF, got '${!flag}'." >&2
+			echo "ERROR: $flag must be 'yes', 'no' or empty in $CONF, got '${!flag}'." >&2
 			exit 2
 			;;
 	esac

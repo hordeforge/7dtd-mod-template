@@ -4,8 +4,10 @@
 # out of git via the *.local.conf ignore pattern, or commit reusable
 # presets. Missing required keys are prompted for interactively.
 # An unknown key here is an error, and so is a yes/no key holding anything
-# other than "yes" or "no": a typo would otherwise scaffold a mod that is
-# quietly missing the feature the key asks for.
+# other than "yes", "no" or "": a typo would otherwise scaffold a mod that
+# is quietly missing the feature the key asks for. Every optional key reads
+# empty as "not set" and takes the default below, so blanking a key is how
+# you say "the default", not how you say nothing.
 
 # Required
 name=""              # modlet id: alphanumeric, becomes the directory and ModInfo Name
