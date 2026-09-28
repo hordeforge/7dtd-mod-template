@@ -127,9 +127,14 @@ fi
 # `[1-9][0-9]{0,18}` rather than `[1-9][0-9]*`: a 19-digit-plus value wraps in
 # `$(( ))` rather than failing, so a run count of 18446744073709551616 came
 # back as 0 and silently ran the whole suite serially. Past 18 digits the value
-# is not a job count, and falling through to the nproc default is the answer.
+# is not a job count, and falling through to the core-count default is the
+# answer.
 if [[ ! "$max_jobs" =~ ^[1-9][0-9]{0,18}$ ]]; then
-	max_jobs=$(nproc 2>/dev/null || printf '8')
+	# nproc is GNU coreutils and absent on the BSD userland in macOS, where
+	# sysctl is the same answer under another name. Probing for the value
+	# rather than for the OS keeps a host that ships both on the nproc path,
+	# and the fixed 8 is the floor for a host that ships neither.
+	max_jobs=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || printf '8')
 	(( max_jobs > 8 )) && max_jobs=8
 fi
 
