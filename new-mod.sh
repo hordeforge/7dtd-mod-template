@@ -51,8 +51,22 @@ ask author "Author"
 ask purpose "Purpose (what this mod is for — a sentence or paragraph)"
 ask target_dir "Directory to create the mod in"
 target_dir="${target_dir/#\~/$HOME}"
-MOD_DIR="$target_dir/$name"
-[[ -e "$MOD_DIR" ]] && { echo "ERROR: $MOD_DIR already exists." >&2; exit 2; }
+MOD_FINAL="$target_dir/$name"
+[[ -e "$MOD_FINAL" ]] && { echo "ERROR: $MOD_FINAL already exists." >&2; exit 2; }
+
+# The scaffold is built in a staging directory beside the target and moved
+# into place as the last step, so an interrupted run (a full disk, a Ctrl-C,
+# a failing git commit) leaves no half-written mod behind. A partial mod dir
+# is worse than no mod dir: every later run refuses a target that exists, so
+# one interrupted run would need a hand-rolled cleanup before any rerun could
+# work at all.
+mkdir -p "$target_dir"
+STAGE="$(mktemp -d "$target_dir/.anvil-stage-XXXXXX")"
+trap 'rm -rf "$STAGE"' EXIT INT TERM HUP
+# mktemp creates 0700; a mod dir is ordinary content and must not inherit it.
+chmod 0755 "$STAGE"
+# Every step below builds here; the last step is the move into MOD_FINAL.
+MOD_DIR="$STAGE/$name"
 
 # --- hordeforge tool checkouts -------------------------------------------
 if [[ -z "$hordeforge_root" ]]; then
@@ -234,8 +248,12 @@ fi
 git -C "$MOD_DIR" add -A
 git -C "$MOD_DIR" commit -q -m "Scaffold $name from hordeforge/7dtd-mod-template"
 
+# The mod exists at its real path only now, and whole. The stage directory is
+# left to the EXIT trap.
+mv "$MOD_DIR" "$MOD_FINAL"
+
 echo
-echo "OK -> $MOD_DIR"
-echo "Next: cd $MOD_DIR && make test && make lint-shell && make lint-py"
+echo "OK -> $MOD_FINAL"
+echo "Next: cd $MOD_FINAL && make test && make lint-shell && make lint-py"
 echo "      (make help lists every target; make build needs the game install in .local.env)"
 echo "Start with TODO.md (the purpose is seeded there); AGENTS.md has the working rules."

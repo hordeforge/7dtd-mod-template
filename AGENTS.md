@@ -43,6 +43,11 @@ must pass, and `make package` must produce a zip that extracts to
 `Mods/<Name>/ModInfo.xml`. CI runs exactly this. Never mark template work
 done on inspection alone.
 
+`new-mod.sh` is re-runnable in the same sense: it builds the mod in a staging
+directory and moves it into place as its last step, so an interrupted run
+leaves no half-written mod that the next run would refuse. Proving that means
+scaffolding, killing the run, and scaffolding again.
+
 ## Git workflow
 
 Standard hordeforge lifecycle: this clone is shared, so never

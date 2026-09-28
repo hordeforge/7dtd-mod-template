@@ -91,9 +91,10 @@ def resolve(
     mod-authored `Extends` cycle (`a` extends `b`, `b` extends `a`) is
     malformed input, and a recursive walk turned it into a RecursionError
     that killed the offline gate instead of reporting the bad patch. The
-    entry that closes the cycle raises `ExtendsCycle` naming the chain. An
-    entry that extends *itself* is not a cycle — the engine reads it as
-    "inherit nothing" — so that case still resolves.
+    entry that closes the cycle raises `ExtendsCycle` naming the chain, which
+    is the one reported outcome for a cycle. An entry that extends *itself*
+    is not a cycle, the engine reads it as "inherit nothing", so that case
+    still resolves.
     """
     chain: list[tuple[ET.Element, set[str]]] = []
     path: list[str] = []

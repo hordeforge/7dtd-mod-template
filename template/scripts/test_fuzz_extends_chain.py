@@ -16,7 +16,7 @@ check on its own:
 
 - **termination** — every chain comes back, cycles included; a cyclic
   entry is the one input with no resolved result, and it must be the named
-  `ExtendsCycle`, never a `RecursionError`;
+  `ExtendsCycle` naming the chain, never a `RecursionError`;
 - **own properties win** — a property the entry declares itself is never
   lost, whatever the chain above it does;
 - **`param1` excludes** — a name the entry's `Extends` refuses to inherit is

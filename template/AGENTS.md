@@ -255,6 +255,27 @@ game. Live suites, when this mod grows them, go through
 `hordeforge/7dtd-playtest` (an `IScenarioProvider` + thin wrapper), never a
 private launcher.
 
+## Setup and deploy targets are re-runnable
+
+A setup or deploy target runs again whenever a step failed, a lane was
+interrupted, or the same target is invoked twice in one session. It must
+converge: a rerun either reaches the same state as one run or changes nothing
+at all. Concretely, `make install-server` re-installs over an existing server
+install and derives the mod's `serverconfig` only when it is missing, so that
+config is written to a staging name and renamed into place (a write cut
+halfway would otherwise leave a truncated file that no rerun regenerates, and
+the lane would keep trusting it). `make deploy-server` stages the modlet
+outside `Mods/` and swaps it, so an interrupted copy leaves the previously
+deployed mod loaded rather than two. `make server-smoke` writes one log per
+run and prunes to `SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS` after the boot, so the
+directory cannot grow with repeated runs.
+`scripts/test_configure_server_config.py` (the derived config: a rerun is
+byte-identical, a failed run writes nothing and leaves no residue) and
+`scripts/test_smoke_log_pruning.py` (the log quota) hold that.
+
+A target that fails on a second run, or that a rerun performs twice, is a
+defect in the target: fix the script, not the caller's cleanup.
+
 ## One concern per playtest run
 
 Written 2026-08-30.
