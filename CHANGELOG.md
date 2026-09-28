@@ -52,6 +52,13 @@ modlet's contract rather than add to it.
   bash 4.4+ and Python 3.9+. **Breaking for a mod scaffolded before this:**
   that mod has no `scripts/lib/require-bash.sh`, so take it with the three
   scripts that source it.
+- `scripts/test_adr_records.py` holds the decision-record lifecycle
+  `docs/adr/README.md` states: sequential `NNNN-title.md` numbering, a status
+  from the documented vocabulary on every record (never `Proposed`, an ADR is
+  a decision made), a supersession that names the record it replaces, one
+  index row per record whose status matches, and dated
+  `Decided`/`Resolved` entries in `docs/design.md` and
+  `docs/architecture.md`.
 
 ### Changed
 

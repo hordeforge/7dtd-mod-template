@@ -117,7 +117,8 @@ core.
   well-formedness and patch conventions, packaging layout, a stdlib Python
   defect-class gate over the mod's own scripts, the rules-have-gates
   meta-gate (incident rules name their gate; every gate runs twice,
-  byte-identical), the session-id gate, and the upstream-tooling scan that
+  byte-identical), the session-id gate, the decision-record gate behind
+  `docs/adr/`, and the upstream-tooling scan that
   stops the mod re-implementing what sibling hordeforge repos own.
   `make lint-shell` is full-severity shellcheck, `make lint-py` is ruff
   over the mod's Python under the shipped `ruff.toml`.
