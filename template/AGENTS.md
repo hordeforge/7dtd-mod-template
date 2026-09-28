@@ -437,6 +437,25 @@ it, and the two runs then counted as one against the quota. The name comes
 from `smoke_log_path` instead, which never reuses one, and it is taken after
 the deploy so a slow run cannot hand its name to a later one.
 
+Corrected 2026-09-28: `smoke_log_path` tested for a free name and then
+created it, which two concurrent smoke runs interleave: both see the same
+second's name free, and the second run's `>` truncates the log the first is
+still writing. It now claims the name with an `O_EXCL` create, so the test and
+the claim are one step, and fails loudly instead of returning a name it could
+not claim.
+
+Corrected 2026-09-28: `make deploy-server` cleared its staging area before
+staging. A run killed between the swap's two moves (SIGKILL, a power loss) is
+one the swap's restore traps never see, and it leaves `.previous` as the only
+copy of the deployed mod, so that clear deleted the last good copy. The
+deploy now calls `recover_previous` first.
+
+Corrected 2026-09-28: `run-offline-tests.sh` reaped its workers and cleaned
+its temporary directory through an EXIT trap, which a signal does not run: a
+Ctrl-C or a killed `make test` left every worker running against a directory
+that was never removed. HUP, INT and TERM now stop the pool first, along with the
+test process each worker started.
+
 A target that fails on a second run, or that a rerun performs twice, is a
 defect in the target: fix the script, not the caller's cleanup.
 

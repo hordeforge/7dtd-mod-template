@@ -12,6 +12,11 @@ the function off GNU-only `find -printf` and off `stat -c`, neither of which
 exists on the BSD userland in macOS. These gates pin the outcome, so a later
 port of the sort to something else has to keep the same answer.
 
+Two smoke runs are not hypothetical: a second `make server-smoke` against the
+same server install, or one run per agent session, reaches the naming code in
+the same second. The name is therefore claimed by creating it (O_EXCL), and
+the parallel gate below is what keeps that claim honest.
+
 No server and no game install: the function only touches a temp directory.
 """
 
@@ -67,6 +72,35 @@ def log_names(log_dir: str, prefix: str, runs: int) -> list[str]:
         name = os.path.basename(done.stdout.strip())
         touch(log_dir, name)
         names.append(name)
+    return names
+
+
+# Enough callers to collide on the one-second stamp several times over.
+CONCURRENT_CLAIMERS = 8
+
+
+def claim_in_parallel(log_dir: str, prefix: str, claimers: int) -> list[str]:
+    """Start `claimers` shells at once and return the names they each claimed.
+
+    Started together, not run one after another: the collision this pins only
+    exists while they are inside the naming code together, and a check-then-act
+    version hands the same name to all of them.
+    """
+    running = [
+        subprocess.Popen(
+            ["bash", "-c", 'source "$1"; smoke_log_path "$2" "$3"',
+             "bash", SERVER_COMMON, log_dir, prefix],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        for _ in range(claimers)
+    ]
+    names = []
+    for done in running:
+        out, err = done.communicate(timeout=60)
+        if done.returncode != 0:
+            print(err, file=sys.stderr)
+        elif out.strip():
+            names.append(os.path.basename(out.strip()))
     return names
 
 
@@ -173,6 +207,34 @@ def main() -> int:
         prune(log_dir, "1")
         check("the quota keeps the later of the two colliding runs",
               listing(log_dir) == [names[1]], str(listing(log_dir)))
+
+    # Concurrent smoke runs share one logs/ directory and reach the naming
+    # code in the same second, so the claim has to be atomic rather than a
+    # test followed by a create: every caller that comes away with a name has
+    # to come away with one of its own.
+    with tempfile.TemporaryDirectory() as log_dir:
+        names = claim_in_parallel(log_dir, prefix, CONCURRENT_CLAIMERS)
+        check(f"{CONCURRENT_CLAIMERS} concurrent runs are given {CONCURRENT_CLAIMERS} "
+              "different log names",
+              len(names) == CONCURRENT_CLAIMERS and len(set(names)) == CONCURRENT_CLAIMERS,
+              str(sorted(names)))
+        check("each concurrent run's name exists and belongs to it alone",
+              all(os.path.isfile(os.path.join(log_dir, name)) for name in names)
+              and sorted(listing(log_dir)) == sorted(names),
+              str(sorted(listing(log_dir))))
+        prune(log_dir, "1")
+        check("the quota still sees every concurrent run as its own log",
+              len(listing(log_dir)) == 1, str(listing(log_dir)))
+
+    with tempfile.TemporaryDirectory() as missing:
+        done = subprocess.run(
+            ["bash", "-c", 'source "$1"; smoke_log_path "$2" "$3"',
+             "bash", SERVER_COMMON, os.path.join(missing, "logs"), prefix],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        check("a log directory that is not there fails instead of returning a name",
+              done.returncode != 0 and "does not exist" in done.stderr,
+              f"exit={done.returncode} stderr={done.stderr!r}")
 
     return report()
 

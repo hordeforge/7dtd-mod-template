@@ -178,25 +178,64 @@ server_eac_disabled() {
 	return 1
 }
 
+# How many candidate names one call tries before giving up. A smoke log is
+# reserved and then written immediately, so a collision means a run is
+# already under way, not that a hundred names are taken.
+SMOKE_LOG_NAME_ATTEMPTS=100
+
 # smoke_log_path <log-dir> <prefix>
 #
-# Print a log name no earlier run has used. A stamp one second wide repeats:
-# a rerun inside the same second opens the previous run's name with `>` and
-# replaces the evidence that run left, and the two runs then count as one
-# against the quota prune_smoke_logs keeps. The stamp keeps its width, so the
-# name sort stays a time sort; the _2, _3 suffixes only ever sit inside one
-# second, and `_` sorts above `.`, so the reverse name sort the pruning does
-# reads the later of the two as the newer one, which is the order it wants.
+# Claim a log name and print it. A stamp one second wide repeats: a rerun
+# inside the same second opens the previous run's name with `>` and replaces
+# the evidence that run left, and the two runs then count as one against the
+# quota prune_smoke_logs keeps. The stamp keeps its width, so the name sort
+# stays a time sort; the _2, _3 suffixes only ever sit inside one second, and
+# `_` sorts above `.`, so the reverse name sort the pruning does reads the
+# later of the two as the newer one, which is the order it wants.
+#
+# The name is claimed by creating it, not by testing for it. `[[ -e ]]` is a
+# check-then-act: two smoke runs reaching this line in the same second both
+# see the name free, and the second one then truncates the log the first is
+# still writing. `set -o noclobber` turns `>` into an O_EXCL open, so the test
+# and the claim are one kernel step and the loser moves to the next suffix.
+# The claimed file is empty and the caller writes the log over it, which is
+# safe for the same reason: the name belongs to whoever created it.
+#
+# Exits 1, naming the directory, when no name could be claimed: an unwritable
+# logs/ must not spin here or hand back a name that cannot be written.
 smoke_log_path() {
 	local log_dir="$1" prefix="$2" stamp candidate n
+	[[ -d "$log_dir" ]] || {
+		echo "ERROR: log directory $log_dir does not exist; mkdir it before naming a log." >&2
+		return 1
+	}
 	stamp="$(date -u +%Y%m%d-%H%M%S)"
 	candidate="$log_dir/$prefix$stamp.log"
 	n=1
-	while [[ -e "$candidate" ]]; do
+	while ! (set -o noclobber; : >"$candidate") 2>/dev/null; do
 		n=$((n + 1))
+		if (( n > SMOKE_LOG_NAME_ATTEMPTS )); then
+			echo "ERROR: could not claim a smoke log name in $log_dir after $SMOKE_LOG_NAME_ATTEMPTS tries." >&2
+			return 1
+		fi
 		candidate="$log_dir/$prefix${stamp}_$n.log"
 	done
 	printf '%s\n' "$candidate"
+}
+
+# recover_previous <target> <previous>
+#
+# Put back a deployment that a killed run left held in <previous>. The swap's
+# restore traps run for HUP, INT and TERM, so only a SIGKILL or a power loss
+# skips them, and that leaves <previous> as the only copy of the deployed mod
+# with <target> gone. A caller that clears its staging area before staging
+# would delete the last good copy there, so it recovers first. A no-op in the
+# ordinary case, where <target> is the deployment and <previous> is nothing.
+recover_previous() {
+	local target="$1" previous="$2"
+	if [[ ! -e "$target" && -d "$previous" ]]; then
+		mv "$previous" "$target"
+	fi
 }
 
 # swap_into_place <source> <target> <previous>

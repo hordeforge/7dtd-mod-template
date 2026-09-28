@@ -8,8 +8,13 @@ one. A rerun does eventually put the new copy back, but the interrupted run is
 the one that has to leave the previous deployment loaded, and a signal between
 the moves is exactly what a rerun-only answer misses.
 
-No server and no game install: `swap_into_place` is a shell function over three
-paths, driven here in a temp directory.
+A kill no trap can see, SIGKILL or a power loss, does leave the deployment
+held in the previous path, and the rerun that clears the staging area has to
+put it back before it clears. That recovery is driven here too, over the same
+three paths.
+
+No server and no game install: `swap_into_place` and `recover_previous` are
+shell functions over three paths, driven here in a temp directory.
 """
 
 from __future__ import annotations
@@ -189,6 +194,40 @@ def main() -> int:
               not os.path.exists(target), str(tree(root)))
         check("a swap whose restore also fails keeps the old copy on disk",
               os.path.isdir(previous) and read(previous) == "old", str(tree(root)))
+
+    # The kill the traps above cannot see: SIGKILL between the two moves, or
+    # a power loss. Nothing puts the deployment back at the time, so the
+    # recovery on the next run is the only thing standing between an
+    # interrupted deploy and a deleted one.
+    with tempfile.TemporaryDirectory() as root:
+        target = os.path.join(root, "Mods", "mod")
+        previous = os.path.join(root, "stage.previous")
+        os.makedirs(os.path.join(root, "Mods"))
+        populated(target, "held")
+        os.rename(target, previous)
+        check("a kill between the moves really does leave the target missing",
+              not os.path.exists(target) and os.path.isdir(previous), str(tree(root)))
+
+        recovered = subprocess.run(
+            ["bash", "-c", 'source "$1"; recover_previous "$2" "$3"',
+             "bash", SERVER_COMMON, target, previous],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        check("the next run puts the held deployment back",
+              recovered.returncode == 0 and read(target) == "held"
+              and not os.path.exists(previous),
+              f"exit={recovered.returncode} {recovered.stderr!r} {tree(root)}")
+
+    with tempfile.TemporaryDirectory() as root:
+        target = populated(os.path.join(root, "Mods", "mod"), "current")
+        previous = populated(os.path.join(root, "stage.previous"), "stale")
+        subprocess.run(
+            ["bash", "-c", 'source "$1"; recover_previous "$2" "$3"',
+             "bash", SERVER_COMMON, target, previous],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+        check("recovery leaves a live deployment alone",
+              read(target) == "current" and os.path.isdir(previous), str(tree(root)))
 
     return report()
 

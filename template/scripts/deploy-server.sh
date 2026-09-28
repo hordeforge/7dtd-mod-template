@@ -57,6 +57,10 @@ mkdir -p "$SERVER_DIR/Mods"
 STAGE="$SERVER_DIR/.deploy-stage/__MOD_NAME__"
 PREVIOUS="$SERVER_DIR/.deploy-stage/__MOD_NAME__.previous"
 mkdir -p "$SERVER_DIR/.deploy-stage"
+# Before the line below deletes it: a run killed between the swap's two moves
+# (SIGKILL, a power loss) left .previous as the only copy of the deployment,
+# and clearing the staging area would take the last good copy with it.
+recover_previous "$TARGET" "$PREVIOUS"
 rm -rf "$STAGE" "$PREVIOUS"
 cp -R "$SOURCE" "$STAGE"
 # swap_into_place restores the previous copy when the run is interrupted between
