@@ -4,7 +4,7 @@
 Deterministic, offline, no game install needed:
 
 - every tracked XML file parses
-- every Config/*.xml patch file uses a `<configs>` root (declared
+- every Config/**/*.xml patch file uses a `<configs>` root (declared
   exceptions only — a full-file override or settings file is a decision,
   recorded here, not an accident)
 - ModInfo.xml carries the required fields, and its Name matches the mod

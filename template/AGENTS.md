@@ -200,6 +200,14 @@ deployable content under a further subfolder.
   mod's localization from `<mod>/Config/` — see
   `docs/reference/agent-rules.md`).
 
+Corrected 2026-09-28: `make validate-xml` listed `Config/` flat, so every
+patch under `Config/XUi_InGame/` was never opened and the target reported a
+clean run over a set it had not read. It now walks `Config/` the way the
+engine loads it, and `scripts/test_xml_gates.py` holds that (with the
+`Extends` walk in `scripts/lib/xml_extends.py`, which has no other caller: a
+chain that re-enters a name now raises rather than recursing to the
+interpreter limit).
+
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and

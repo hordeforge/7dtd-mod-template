@@ -10,6 +10,10 @@ semantics: a mod entry may extend another mod entry or a vanilla one, pools
 are searched in order, and `Extends`'s `param1` is an exclusion list that
 removes inherited scalar properties *and* whole `<property class=...>`
 blocks by name (verified against the game engine).
+
+An `Extends` chain that re-enters a name is a config defect, not a walk to
+follow: `resolve` raises `ExtendsCycle` naming the chain instead of recursing
+until the interpreter gives up.
 """
 
 from __future__ import annotations
@@ -29,11 +33,20 @@ def entries(xml_text: str, tag: str) -> dict[str, ET.Element]:
 
 
 def own_scalars(node: ET.Element) -> dict[str, str]:
-    """Top-level `<property name=... value=.../>` of this node alone."""
+    """Top-level `<property name=... value=.../>` of this node alone.
+
+    `Extends` is patch metadata, not a property of the item, so it is never
+    listed. A property carrying a `class` is a block reported by
+    `own_classes`; it is still a scalar here when it carries a `value`, which
+    is how the engine reads `<property class="Tags" name="tags" value="..."/>`.
+    """
     return {
         child.get("name"): child.get("value", "")
         for child in node
-        if child.tag == "property" and child.get("name")
+        if child.tag == "property"
+        and child.get("name")
+        and child.get("name") != "Extends"
+        and (not child.get("class") or child.get("value") is not None)
     }
 
 
@@ -59,6 +72,10 @@ def parent_of(node: ET.Element) -> tuple[str | None, set[str]]:
                 name.strip() for name in excluded.split(",") if name.strip()
             }
     return None, set()
+
+
+class ExtendsCycle(RuntimeError):
+    """An `Extends` chain that re-enters a name already on the path."""
 
 
 def resolve(

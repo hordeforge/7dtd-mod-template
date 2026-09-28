@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Verify every XPath in Config/*.xml targets a node that exists in vanilla.
+"""Verify every XPath in Config/**/*.xml targets a node that exists in vanilla.
 
 A patch whose xpath matches nothing applies silently — the game warns at
 most, and the mod ships a no-op. This checks each patch operation's xpath
-against the installed game's Data/Config/<same file>.xml.
+against the installed game's Data/Config/<same relative file>.
 
 Needs SEVEN_DAYS_TO_DIE_DIR (env or .local.env), so it is a `make
 validate-xml` target, not part of the offline `make test` suite.
@@ -60,6 +60,21 @@ def find(root: ET.Element, xpath: str) -> bool | None:
         return None
 
 
+def patch_files(mod_config: str) -> list[str]:
+    """Every Config XML file, by its path relative to Config/, sorted.
+
+    Recursive because the engine loads "<mod>/Config/" plus the vanilla file's
+    own relative name, so the XUi patches live a directory down
+    (Config/XUi_InGame/windows.xml). A flat listing would skip every one of
+    them, which is the same silent no-op this script exists to catch.
+    """
+    pattern = os.path.join(mod_config, "**", "*.xml")
+    return sorted(
+        os.path.relpath(path, mod_config).replace(os.sep, "/")
+        for path in glob.glob(pattern, recursive=True)
+    )
+
+
 def main() -> int:
     config_dir = os.path.join(game_dir(), "Data", "Config")
     failures = 0
@@ -68,13 +83,8 @@ def main() -> int:
     if not os.path.isdir(mod_config):
         print("no Config/ directory; nothing to validate")
         return 0
-    for path in sorted(glob.glob(os.path.join(mod_config, "**", "*.xml"), recursive=True)):
-        # rglob, matching the engine and verify-patched-config.py: XmlPatcher
-        # loads "<mod>/Config/" + the vanilla file's own relative name, so the
-        # XUi patches live a directory down and a flat scan silently skips
-        # them.
-        name = os.path.relpath(path, mod_config).replace(os.sep, "/")
-        patch = ET.parse(path).getroot()
+    for name in patch_files(mod_config):
+        patch = ET.parse(os.path.join(mod_config, name)).getroot()
         if patch.tag != "configs":
             continue
         vanilla_path = os.path.join(config_dir, name)

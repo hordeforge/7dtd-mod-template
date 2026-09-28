@@ -58,7 +58,7 @@ package: build
 	cd $(ROOT)/dist && rm -f __MOD_NAME__.zip && zip -qr __MOD_NAME__.zip __MOD_NAME__
 	@echo "OK -> dist/__MOD_NAME__.zip"
 
-# Every Config/*.xml xpath checked against the installed game's vanilla
+# Every Config/**/*.xml xpath checked against the installed game's vanilla
 # files (needs .local.env; not part of the offline suite).
 validate-xml:
 	python3 $(ROOT)/scripts/validate-xml-targets.py
