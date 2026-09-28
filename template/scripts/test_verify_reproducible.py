@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
-"""`scripts/verify-reproducible.sh` must not leave its scratch tree behind.
+"""`scripts/verify-reproducible.sh` must build the same tree three times, and
+must not leave its scratch tree behind.
 
-The script copies the whole mod into a `mktemp -d` tree to build the third
-archive from another absolute path. Nothing outside the script removes that
-copy, and it is a full source tree (sources, scripts, a staged modlet), so an
-EXIT trap alone accumulates one per interrupted run: a shell killed by a
-signal never runs its EXIT trap, so every Ctrl-C during the three packaging
-passes leaves a copy behind that nothing will ever clean.
+The third archive is built from a `mktemp -d` copy of the entries the script
+lists in TREE, so a file build.sh reads by path and TREE does not list is a
+file the third pass does not have: the copy is missing the SDK pin the C#
+build resolves, and the pass dies in build.sh with a read error instead of
+comparing anything. TREE and build.sh's own references are held in step here.
 
-The case drives the real script against a fixture mod and signals it once the
-scratch directory exists, then requires TMPDIR to be empty again. No game
-install and no network: the fixture is the scripts package.sh and build.sh
+The script also copies the whole mod into that scratch tree. Nothing outside
+the script removes the copy, and it is a full source tree (sources, scripts,
+a staged modlet), so an EXIT trap alone accumulates one per interrupted run: a
+shell killed by a signal never runs its EXIT trap, so every Ctrl-C during the
+three packaging passes leaves a copy behind that nothing will ever clean.
+
+The lifecycle case drives the real script against a fixture mod and signals it
+once the scratch directory exists, then requires TMPDIR to be empty again. No
+game install and no network: the fixture is the scripts package.sh and build.sh
 need, with no src/, so no DLL is compiled and no game install is read.
 
 The archive-equality claim the script exists to make is not re-proved here;
 that needs three real packaging passes and is what `make verify-reproducible`
-is for. What is held here is the lifecycle: an interrupted run owns nothing
-after it exits.
+is for. What is held here is that the tree the third pass builds is the tree
+the first two built from, and that an interrupted run owns nothing after it
+exits.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -36,6 +44,13 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # What the fixture mod needs to package itself: the scripts, and the three
 # files build.sh stages into dist/<Name>/.
 COPIED = ("scripts", "ModInfo.xml", "README.txt", "CHANGELOG.md")
+
+# TREE=(...) in verify-reproducible.sh, one entry per line or several.
+TREE_BLOCK = re.compile(r"^TREE=\((.*?)\)", re.MULTILINE | re.DOTALL)
+# A path build.sh reaches by name at the mod root: "$ROOT/global.json",
+# "${ROOT}/ruff.toml". A name with a slash in it is a directory the script
+# lists itself or derives, not a file TREE has to carry.
+ROOT_FILE = re.compile(r"\$\{?ROOT\}?/([A-Za-z0-9_.][A-Za-z0-9_.-]*)")
 
 STARTUP_TIMEOUT_SECONDS = 60.0
 POLL_INTERVAL_SECONDS = 0.05
@@ -128,10 +143,48 @@ def interrupted_run_leaves_nothing(root: str, script: str) -> None:
         shutil.rmtree(scratch_root, ignore_errors=True)
 
 
+def tree_entries() -> set[str]:
+    """The entry names listed in verify-reproducible.sh's TREE array."""
+    script = os.path.join(MOD_DIR, "scripts", "verify-reproducible.sh")
+    with open(script, encoding="utf-8") as handle:
+        found = TREE_BLOCK.search(handle.read())
+    if found is None:
+        return set()
+    return set(re.findall(r"[A-Za-z0-9_.][A-Za-z0-9_.-]*", found.group(1)))
+
+
+def root_files_build_reads() -> set[str]:
+    """The mod-root files build.sh names, that this mod actually ships.
+
+    A name that is not on disk is not a file the copy needs: a mod without
+    src/ has no global.json to miss, which is the case the third pass runs in
+    today.
+    """
+    build = os.path.join(MOD_DIR, "scripts", "build.sh")
+    with open(build, encoding="utf-8") as handle:
+        return {name for name in ROOT_FILE.findall(handle.read())
+                if os.path.isfile(os.path.join(MOD_DIR, name))}
+
+
+def third_tree_is_the_whole_build() -> None:
+    listed = tree_entries()
+    check("verify-reproducible-lists-a-tree",
+          bool(listed),
+          "no TREE=(...) in scripts/verify-reproducible.sh")
+    missing = sorted(root_files_build_reads() - listed)
+    check("the-copied-tree-carries-everything-build-sh-reads",
+          not missing,
+          f"scripts/verify-reproducible.sh copies {sorted(listed)}, so the third "
+          f"pass builds a tree build.sh cannot read: {missing} missing")
+
+
 def main() -> int:
     if not os.path.isfile(os.path.join(MOD_DIR, "ModInfo.xml")):
         print(f"no {os.path.join(MOD_DIR, 'ModInfo.xml')}; nothing to verify")
         return 0
+
+    third_tree_is_the_whole_build()
+
     if not git_available():
         print("git not found; the script reads a commit timestamp, so nothing to verify")
         return 0

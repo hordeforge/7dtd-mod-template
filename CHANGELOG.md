@@ -211,6 +211,34 @@ shape above, so the search cannot quietly stop matching.
   alone while taking the assembly as an argument, so a second game install
   sharing a cache was answered with the first one's source for every type it
   had in common. The assembly is part of the key.
+- `make validate-xml` passed over a `Config/**/*.xml` whose root was not
+  `<configs>`, and over a patch element carrying no `xpath`, without printing
+  or counting either. A run over them reported "0 failures, 0 skipped": a clean
+  answer about files and elements the check never read, and the skip count is
+  the only signal a reader gets that something went unexamined. Both are
+  counted skips now, and `test_xml_gates.py` holds it.
+- `make verify-reproducible` copied the mod's `global.json` into the third
+  packaging tree only by accident of what build.sh had not read yet: TREE
+  listed neither it nor anything else build.sh resolves by path, so a mod with
+  `src/<Name>/` built its third archive in a tree with no SDK pin and the pass
+  died in build.sh with a read error instead of comparing anything. `global.json`
+  is listed, and `test_verify_reproducible.py` holds TREE to the mod-root files
+  build.sh names.
+- `make install-server` and `make server-smoke` grepped the server config for
+  `name="EACEnabled" value="false"` in that order. The game writes its own
+  `serverconfig.xml` with `value` first, `configure-server-config.py` preserves
+  that order, and the check then refused the config it had just written itself
+  with "must set EACEnabled=false" on a file that says exactly that. The check
+  is `server_eac_disabled` in `server-common.sh` now: attribute order is not
+  significant in XML, and `test_server_eac_check.py` runs the writer and the
+  check against each other.
+- The server lane read `.local.env` only when the environment had no
+  `SEVEN_DAYS_TO_DIE_SERVER_DIR`, so a one-off
+  `SEVEN_DAYS_TO_DIE_SERVER_DIR=/srv/other make install-server` discarded the
+  whole file: the config path and the SteamCMD path, which live nowhere else,
+  silently fell back to derived defaults. `load_local_env` already keeps a key
+  the environment set, so it is now called unconditionally, which is the
+  precedence rule the docs state.
 - The scaffolder cut the mod browser's 200 code-point description inside a
   character whenever the purpose was written in a script where one character
   is several code points: a Devanagari matra, a Thai vowel sign or a flag's

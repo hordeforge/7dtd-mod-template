@@ -17,7 +17,8 @@ OPTIONS
 
 ENVIRONMENT
   SEVEN_DAYS_TO_DIE_SERVER_DIR        the server install to boot
-  SEVEN_DAYS_TO_DIE_SERVER_CONFIG      serverconfig to boot; defaults to
+  SEVEN_DAYS_TO_DIE_SERVER_CONFIG       the config to boot with; it must exist
+                                       and set EACEnabled=false. Defaults to
                                        <SERVER_DIR>/serverconfig.__MOD_NAME_LOWER__.xml
   SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS  boot window, 90 by default
   SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS    smoke logs kept, 5 by default
@@ -68,7 +69,7 @@ if [[ ! -f "$SERVER_CONFIG" ]]; then
 	echo "ERROR: server configuration not found at $SERVER_CONFIG." >&2
 	exit 1
 fi
-if ! grep -iq '<property[[:space:]]\+name="EACEnabled"[[:space:]]\+value="false"' "$SERVER_CONFIG"; then
+if ! server_eac_disabled "$SERVER_CONFIG"; then
 	echo "ERROR: set EACEnabled=false in $SERVER_CONFIG before Harmony/DLL server testing." >&2
 	exit 1
 fi

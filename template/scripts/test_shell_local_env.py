@@ -20,6 +20,7 @@ No game install and no server: the loader only reads a temp directory.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,40 @@ def write(root: str, body: str, *, newline: str = "\n") -> None:
         handle.write(body.replace("\n", newline))
 
 
+def server_lane_keeps_the_rest_of_the_file() -> None:
+    """A one-off key overrides that key, and not the whole file.
+
+    `load_server_environment` derives its config and SteamCMD paths from the
+    file, and a caller that named only the server directory on the command line
+    used to get a derived config and a default SteamCMD instead of the ones the
+    machine was set up with: the file was read only when the directory was
+    unset, so one set key threw the rest away. The whole scripts/ tree is
+    copied, because the library finds its root from its own path.
+    """
+    with tempfile.TemporaryDirectory() as root:
+        shutil.copytree(os.path.join(MOD_DIR, "scripts"), os.path.join(root, "scripts"),
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        write(root, 'SEVEN_DAYS_TO_DIE_SERVER_DIR="/srv/from-file"\n'
+                    'SEVEN_DAYS_TO_DIE_SERVER_CONFIG="/etc/7dtd/mod-config.xml"\n'
+                    'SEVEN_DAYS_TO_DIE_STEAMCMD_DIR="/opt/steamcmd"\n')
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith("SEVEN_DAYS_TO_DIE_")}
+        env["SEVEN_DAYS_TO_DIE_SERVER_DIR"] = "/srv/from-env"
+        done = subprocess.run(
+            ["bash", "-c",
+             'source "$1"; load_server_environment; printf "%s\\n" "$SERVER_DIR" "$SERVER_CONFIG"',
+             "bash", os.path.join(root, "scripts", "server-common.sh")],
+            capture_output=True, text=True, timeout=60, env=env, check=False,
+        )
+        check("the environment wins for the key it names",
+              done.returncode == 0 and done.stdout.splitlines()[:1] == ["/srv/from-env"],
+              done.stdout + done.stderr)
+        check("the rest of the file still loads",
+              done.returncode == 0
+              and done.stdout.splitlines()[1:2] == ["/etc/7dtd/mod-config.xml"],
+              done.stdout + done.stderr)
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as root:
         write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\nDOTNET_ROOT=""\n')
@@ -84,6 +119,8 @@ def main() -> int:
         done = load(root)
         check("a missing file is not an error",
               done.returncode == 0 and done.stdout == "unset|unset\n", done.stdout + done.stderr)
+
+    server_lane_keeps_the_rest_of_the_file()
 
     return report()
 

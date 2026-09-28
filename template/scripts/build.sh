@@ -40,14 +40,14 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 if [[ -d "$SRC" ]]; then
+	# The ignored file is the documented machine-local game reference. It is
+	# loaded whether or not the environment already names a game dir:
+	# load_local_env keeps a key the environment set, and skipping the file
+	# when it was set threw away the rest of it.
+	# shellcheck source=server-common.sh
+	source "$SCRIPT_DIR/server-common.sh"
+	load_local_env "$ROOT"
 	GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
-	if [[ -z "$GAME_DIR" ]]; then
-		# The ignored file is the documented machine-local game reference.
-		# shellcheck source=server-common.sh
-		source "$SCRIPT_DIR/server-common.sh"
-		load_local_env "$ROOT"
-		GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
-	fi
 	if [[ -z "$GAME_DIR" ]]; then
 		echo "ERROR: set SEVEN_DAYS_TO_DIE_DIR or create .local.env with the client game-install directory before building." >&2
 		exit 1

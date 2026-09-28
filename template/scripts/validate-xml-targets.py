@@ -138,6 +138,13 @@ def main() -> int:
     for name in config_files.patch_files(mod_config):
         patch = parse(os.path.join(mod_config, name))
         if patch.tag != "configs":
+            # Counted, not passed over in silence: a file rooted at anything
+            # else has no xpath this script can resolve, so every element in it
+            # goes unexamined and the run reports a clean result about a file
+            # it never looked at. A wrong root is a SKIP the reader has to
+            # verify, which is what the summary's skips are for.
+            print(f"SKIP {name}: root is <{patch.tag}>, not <configs>")
+            skips += 1
             continue
         vanilla_path = os.path.join(config_dir, *name.split("/"))
         if not os.path.isfile(vanilla_path):
@@ -147,10 +154,15 @@ def main() -> int:
         vanilla = parse(vanilla_path)
         for op in patch:
             xpath = op.get("xpath")
-            if xpath is None:
-                continue
+            # Op name first: an element that is both an op this script does
+            # not know and carries no xpath is still a patch element, and
+            # asking what it was is the question the reader has to answer.
             if op.tag not in KNOWN_OPS:
                 print(f"SKIP {name}: unknown op <{op.tag}>")
+                skips += 1
+                continue
+            if xpath is None:
+                print(f"SKIP {name}: <{op.tag}> has no xpath attribute")
                 skips += 1
                 continue
             resolved = find(vanilla, xpath)

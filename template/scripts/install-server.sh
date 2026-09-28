@@ -64,7 +64,7 @@ fi
 if [[ ! -f "$SERVER_CONFIG" ]]; then
 	python3 "$SCRIPT_DIR/configure-server-config.py" "$SERVER_DIR/serverconfig.xml" "$SERVER_CONFIG"
 fi
-if ! grep -iq '<property[[:space:]]\+name="EACEnabled"[[:space:]]\+value="false"' "$SERVER_CONFIG"; then
+if ! server_eac_disabled "$SERVER_CONFIG"; then
 	echo "ERROR: $SERVER_CONFIG must set EACEnabled=false for Harmony/DLL testing." >&2
 	exit 1
 fi

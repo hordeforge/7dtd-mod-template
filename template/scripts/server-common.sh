@@ -89,12 +89,15 @@ decimal_uint() {
 # directory is missing, relative, or too shallow to deploy into.
 load_server_environment() {
 	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+	# Loaded unconditionally, not only when the environment has no server
+	# directory: load_local_env keeps a key the environment already set, so a
+	# one-off SEVEN_DAYS_TO_DIE_SERVER_DIR=... overrides that one key, and
+	# skipping the file when it is set threw away the rest of it. The config
+	# and the SteamCMD paths live in that file alone, so a run that named only
+	# the directory silently deployed to a derived config and a default
+	# SteamCMD instead of the ones the machine was set up with.
+	load_local_env "$ROOT"
 	SERVER_DIR="${SEVEN_DAYS_TO_DIE_SERVER_DIR:-}"
-
-	if [[ -z "$SERVER_DIR" ]]; then
-		load_local_env "$ROOT"
-		SERVER_DIR="${SEVEN_DAYS_TO_DIE_SERVER_DIR:-}"
-	fi
 
 	if [[ -z "$SERVER_DIR" ]]; then
 		echo "ERROR: set SEVEN_DAYS_TO_DIE_SERVER_DIR or add it to .local.env." >&2
@@ -147,6 +150,32 @@ resolve_steamcmd() {
 		echo "ERROR: SteamCMD not found; install it or set SEVEN_DAYS_TO_DIE_STEAMCMD." >&2
 		exit 1
 	fi
+}
+
+# server_eac_disabled <config>
+#
+# Succeed when <config> sets the EACEnabled property to false, whatever order
+# the two attributes are written in, and fail when it does not.
+#
+# The file is XML and attribute order is not significant, but a grep that
+# insists on name-then-value is: the server writes its own serverconfig.xml
+# with value first, that order survives configure-server-config.py's round
+# trip, and the result is a check that refuses the very config it just wrote
+# ("must set EACEnabled=false" on a file that says exactly that). The whole
+# file is folded onto one line and then split on `>`, so an element spread over
+# several lines is one line here, and the two attributes are then looked for in
+# either order.
+server_eac_disabled() {
+	local element
+	[[ -f "$1" ]] || return 1
+	while IFS= read -r element; do
+		[[ "$element" == *"<property"* ]] || continue
+		if [[ "$element" =~ name[[:space:]]*=[[:space:]]*[\'\"]EACEnabled[\'\"] ]] &&
+			[[ "$element" =~ value[[:space:]]*=[[:space:]]*[\'\"]false[\'\"] ]]; then
+			return 0
+		fi
+	done < <(tr '\n' ' ' < "$1" | tr '>' '\n')
+	return 1
 }
 
 # smoke_log_path <log-dir> <prefix>

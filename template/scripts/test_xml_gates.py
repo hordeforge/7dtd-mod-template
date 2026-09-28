@@ -111,6 +111,41 @@ def nested_patches_are_checked() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def unexamined_patches_are_reported() -> None:
+    """A file or an element the check cannot look at is a counted skip.
+
+    The run reports how many patch files it could not read, and that number is
+    the only signal a reader gets that part of `Config/` went unexamined. A
+    file rooted at the wrong element, and a patch element carrying no xpath,
+    were passed over without printing or counting, so a run over them came out
+    "0 failures, 0 skipped": a clean answer about files the check never read.
+    """
+    root = tempfile.mkdtemp(prefix="test-xml-skips-")
+    try:
+        mod_config = build_fixture(root, "/windows/window[@name='vanillaWindow']")
+        vanilla = os.path.join(root, "game", "Data", "Config")
+        # A vanilla counterpart, so the skip is about the root and not about a
+        # file the game does not have.
+        write(os.path.join(vanilla, "loot.xml"),
+              '<loot><lootgroup name="vanillaGroup"/></loot>')
+        write(os.path.join(mod_config, "loot.xml"),
+              '<loot><append xpath="/loot/lootgroup"/></loot>')
+        write(os.path.join(vanilla, "blocks.xml"), '<blocks><block name="b"/></blocks>')
+        write(os.path.join(mod_config, "blocks.xml"),
+              '<configs><append><block name="modBlock"/></append></configs>')
+        report = run_validator(mod_config, os.path.join(root, "game"))
+        check("a file rooted at the wrong element is a counted skip",
+              "SKIP loot.xml: root is <loot>, not <configs>" in report, report)
+        check("an element without an xpath is a counted skip",
+              "SKIP blocks.xml: <append> has no xpath attribute" in report, report)
+        check("the skips reach the summary",
+              "0 failures, 2 skipped" in report, report)
+        check("an unexamined file does not fail the run on its own",
+              "STATUS 0" in report, report)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def extends_model() -> None:
     def pool(*entries: str) -> dict:
         return xml_extends.entries("<configs><append>" + "".join(entries)
@@ -230,6 +265,7 @@ def cyclic_patch_is_named() -> None:
 
 def main() -> int:
     nested_patches_are_checked()
+    unexamined_patches_are_reported()
     extends_model()
     cyclic_patch_is_named()
     return report()

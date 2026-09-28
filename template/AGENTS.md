@@ -259,6 +259,13 @@ rather than copied into it (the `Extends` walk in
 beside it: a chain that re-enters a name now raises rather than recursing
 to the interpreter limit).
 
+Corrected 2026-09-28: `make validate-xml` also passed over a patch file
+rooted at anything but `<configs>`, and over a patch element carrying no
+`xpath`, without printing or counting either, so a run over them reported
+"0 failures, 0 skipped": a clean answer about files and elements the check
+never read. Both are counted skips now, which is what the summary's skip
+count is for.
+
 ## Text conventions
 
 - Text is read and written as `utf-8-sig` (`encoding="utf-8-sig"`): a file a
@@ -393,9 +400,27 @@ directory cannot grow with repeated runs.
 `scripts/test_configure_server_config.py` (the derived config: a rerun is
 byte-identical, a failed run writes nothing and leaves no residue),
 `scripts/test_smoke_log_pruning.py` (the log quota),
+`scripts/test_server_eac_check.py` (the EACEnabled check accepts the config
+`configure-server-config.py` derives),
 `scripts/test_deploy_swap.py` (the deploy swap) and
 `scripts/test_verify_reproducible.py` (an interrupted `make
-verify-reproducible` leaves no scratch tree) hold that.
+verify-reproducible` leaves no scratch tree, and the tree it builds is the
+tree `build.sh` reads) hold that.
+
+Corrected 2026-09-28: the EACEnabled check grepped for `name="EACEnabled"
+value="false"` in that order, and the game writes its own serverconfig.xml
+with `value` first. `configure-server-config.py` preserves the order it found,
+so the check refused the very config it had just written, with "must set
+EACEnabled=false" on a file that said exactly that. It is
+`server_eac_disabled` in `scripts/server-common.sh` now: attribute order is
+not significant in XML, and it reads either order.
+
+The server lane reads `.local.env` through `load_local_env` on every run, not
+only when the environment names no server directory. The reader keeps a key the
+environment already set, so a one-off
+`SEVEN_DAYS_TO_DIE_SERVER_DIR=... make install-server` overrides that one key
+and the config and SteamCMD paths, which live nowhere else, still come from the
+file. Skipping the file when one key was set threw the rest of it away.
 
 Corrected 2026-09-28: the deploy swap moved the deployed copy aside and then
 moved the new one in, with nothing between the two moves: a Ctrl-C, a SIGTERM
