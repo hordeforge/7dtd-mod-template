@@ -25,7 +25,7 @@ help:
 	@echo "  make check                   everything CI runs, in CI's order"
 	@echo "  make preflight               report the missing host tools and stop"
 	@echo "  make scaffold                re-scaffold the smoke mod into .scratch/"
-	@echo "  make clean                   remove the scaffolded smoke mod"
+	@echo "  make clean                   remove the scaffolded smoke mod and its zip"
 	@echo ""
 	@echo "Host tools: bash, make, git, python3, shellcheck, ruff, zip, unzip."
 	@echo "In the scaffolded mod, make help lists that mod's own targets."
@@ -96,4 +96,4 @@ check: preflight scaffold
 	@echo "OK -> every CI step passed locally."
 
 clean:
-	rm -rf .scratch/anvil-smoke
+	rm -rf "$(SMOKE_MOD)" "$(SMOKE_MOD).zip"

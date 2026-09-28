@@ -11,10 +11,10 @@ ROOT := $(CURDIR)
 
 help:
 	@echo "Offline gates (no game install needed; run these before every commit):"
-	@echo "  make test                   every scripts/test_*.py must exit 0"
-	@echo "  make test TF=<substring>    only the tests whose name matches (e.g. make test TF=telnet)"
-	@echo "  make lint-shell             shellcheck, full severity"
-	@echo "  make lint-py                ruff over every tracked Python script"
+	@echo "  make test                    every scripts/test_*.py must exit 0"
+	@echo "  make test TF=<substring>     only the tests whose name matches (e.g. make test TF=telnet)"
+	@echo "  make lint-shell              shellcheck, full severity"
+	@echo "  make lint-py                 ruff over every tracked Python script"
 	@echo ""
 	@echo "Modlet build (needs the game install in .local.env, plus a dotnet SDK for C#):"
 	@echo "  make build                   stage dist/__MOD_NAME__/"

@@ -20,6 +20,20 @@ set -euo pipefail
 
 ANVIL="$(cd "$(dirname "$0")" && pwd)"
 SELF="${0##*/}"
+# What the run wants to tell the user but could not do. A warning printed
+# mid-run is a line that scrolls off the terminal while the run works on, and
+# the run still ends in "OK", so every warning is kept and repeated in the
+# closing summary, next to what the mod was actually built with.
+WARNINGS=()
+warn() { # warn <message>
+	WARNINGS+=("$1")
+	printf 'WARN: %s\n' "$1" >&2
+}
+# A next step the run cannot take for the user, recorded for the same reason.
+NOTES=()
+note() { # note <message>
+	NOTES+=("$1")
+}
 
 usage() {
 	cat <<USAGE
@@ -68,24 +82,36 @@ game_dir="" server_dir="" unity_editor=""
 # Every key this scaffolder reads. The config is sourced, so a key that is
 # misspelled is not an error anywhere: it would set a variable nothing reads
 # and the run would quietly take the default for it.
-KNOWN_KEYS="name display_name author purpose target_dir hordeforge_root csharp assets clone game_dir server_dir unity_editor"
+REQUIRED_KEYS="name author purpose target_dir"
+OPTIONAL_KEYS="display_name hordeforge_root csharp assets clone game_dir server_dir unity_editor"
+KNOWN_KEYS="$REQUIRED_KEYS $OPTIONAL_KEYS"
 # LC_ALL=C, because this is the one pass in the run that reads bytes the user
-# typed rather than bytes this repo wrote. Under a UTF-8 locale GNU sed cannot
-# find a character boundary in a config value that is not UTF-8 (a latin-1
-# "Jos<e9>"), and printed the key back with that byte and the rest of the line
-# glued to it: the run then died on `unknown key 'author<e9>"'`, naming a key
-# nobody wrote. In the C locale the same match is byte-wise, the key comes out
-# clean, and the value is left for the substitution pass to decode on purpose.
-while read -r conf_key; do
+# typed rather than bytes this repo wrote. Under a UTF-8 locale a
+# multibyte-aware match cannot find a character boundary in a config value
+# that is not UTF-8 (a latin-1 "Jos<e9>"), and prints the key back with that
+# byte and the rest of the line glued to it: the run then died on `unknown key
+# 'author<e9>"'`, naming a key nobody wrote. In the C locale the same match is
+# byte-wise, the key comes out clean, and the value is left for the
+# substitution pass to decode on purpose. Each key is reported with the line
+# it came from, so a typo in a long config is one number away.
+while IFS=$'\t' read -r conf_line conf_key; do
 	[[ -z "$conf_key" ]] && continue
 	case " $KNOWN_KEYS " in
 		*" $conf_key "*) ;;
 		*)
-			echo "ERROR: unknown key '$conf_key' in $CONF; known keys: $KNOWN_KEYS" >&2
+			echo "ERROR: unknown key '$conf_key' on line $conf_line of $CONF." >&2
+			echo "       required: $REQUIRED_KEYS" >&2
+			echo "       optional: $OPTIONAL_KEYS" >&2
 			exit 2
 			;;
 	esac
-done < <(LC_ALL=C sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$CONF")
+done < <(LC_ALL=C awk '
+	match($0, /^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=/) {
+		key = $0
+		sub(/^[[:space:]]*(export[[:space:]]+)?/, "", key)
+		sub(/=.*$/, "", key)
+		printf "%d\t%s\n", NR, key
+	}' "$CONF")
 # shellcheck disable=SC1090
 source "$CONF"
 
@@ -101,8 +127,8 @@ for flag in csharp assets clone; do
 	esac
 done
 
-ask() { # ask <varname> <prompt>
-	local var="$1" prompt="$2" value
+ask() { # ask <varname> <prompt> [problem]
+	local var="$1" prompt="$2" problem="${3:-}" value
 	value="${!var}"
 	if [[ -z "$value" ]]; then
 		if [[ -t 0 ]]; then
@@ -116,7 +142,10 @@ ask() { # ask <varname> <prompt>
 			fi
 			printf -v "$var" '%s' "$value"
 		else
+			# the same shape of answer the interactive re-ask spells out, so a
+			# CI log names what the key owes instead of only that it is absent
 			echo "ERROR: '$var' missing in $CONF and not running interactively." >&2
+			[[ -n "$problem" ]] && echo "       $problem" >&2
 			exit 2
 		fi
 	fi
@@ -133,7 +162,7 @@ ask_checked() {
 	local from_config=1
 	[[ -z "${!var}" ]] && from_config=0
 	while :; do
-		ask "$var" "$prompt"
+		ask "$var" "$prompt" "$problem"
 		if [[ -z "${!var}" && -n "$default" ]]; then
 			printf -v "$var" '%s' "$default"
 		fi
@@ -142,7 +171,10 @@ ask_checked() {
 			echo "ERROR: $var in $CONF: $problem" >&2
 			exit 2
 		fi
-		echo "       $problem" >&2
+		if [[ -n "${!var}" ]]; then
+			printf "       rejected: %s\n" "${!var}" >&2
+			fi
+			echo "       $problem" >&2
 		printf -v "$var" '%s' ''
 	done
 }
@@ -155,9 +187,9 @@ ask_checked name "Mod name (modlet id, e.g. MyMod)" is_mod_name \
 [[ -z "$display_name" ]] && display_name="$name"
 ask_checked author "Author" is_filled \
 	"an author is required: it names the mod's author field and its initial commit"
-ask_checked purpose "Purpose (what this mod is for — a sentence or paragraph)" is_filled \
+ask_checked purpose "Purpose (a sentence or paragraph: what this mod is for)" is_filled \
 	"a purpose is required: it is seeded into the mod's README, design notes and TODO"
-ask_checked target_dir "Directory to create the mod in (empty for this one)" is_filled \
+ask_checked target_dir "Directory to create the mod in (empty for the current directory, $PWD)" is_filled \
 	"a target directory is required: the mod is created as <target_dir>/<name>" "$PWD"
 target_dir="${target_dir/#\~/$HOME}"
 MOD_FINAL="$target_dir/$name"
@@ -196,10 +228,10 @@ if [[ "$clone" == "yes" ]]; then
 		elif command -v gh >/dev/null 2>&1; then
 			echo "Cloning hordeforge/$repo ..."
 			gh repo clone "hordeforge/$repo" "$hordeforge_root/$repo" -- --quiet ||
-				echo "WARN: could not clone $repo; clone it later." >&2
+				warn "could not clone $repo into $hordeforge_root/$repo; clone it later"
 		else
 			git clone --quiet "https://github.com/hordeforge/$repo" "$hordeforge_root/$repo" ||
-				echo "WARN: could not clone $repo; clone it later." >&2
+				warn "could not clone $repo into $hordeforge_root/$repo; clone it later"
 		fi
 	done
 fi
@@ -211,7 +243,10 @@ if [[ -z "$game_dir" ]]; then
 		game_dir="$default_install"
 		echo "Detected game install: $game_dir"
 	elif [[ -t 0 ]]; then
-		read -r -p "7 Days To Die client install dir (empty to configure later): " game_dir
+		# ask, not a bare read: a closed stdin here used to end the run under
+		# set -e with no message at all, after four answers the user had given
+		# and before anything was written.
+		ask game_dir "7 Days To Die client install dir (empty to configure later)"
 	fi
 fi
 # Every path the config may carry, expanded the same way before anything
@@ -221,7 +256,7 @@ game_dir="${game_dir/#\~/$HOME}"
 server_dir="${server_dir/#\~/$HOME}"
 unity_editor="${unity_editor/#\~/$HOME}"
 if [[ -n "$game_dir" && ! -f "$game_dir/Data/Config/items.xml" ]]; then
-	echo "WARN: $game_dir has no Data/Config/items.xml; recorded anyway — fix .local.env before building." >&2
+	warn "$game_dir has no Data/Config/items.xml; recorded in .local.env anyway, fix it before make build"
 fi
 
 # --- create the mod directory --------------------------------------------
@@ -249,7 +284,7 @@ else
 fi
 if [[ "$assets" == "yes" ]]; then
 	mkdir -p "$MOD_DIR/assets-src"
-	echo "NOTE: run 'shamway init' in the mod to set up the asset pipeline (.shamway.toml + its AGENTS contract)."
+	note "run 'shamway init' in the mod to set up the asset pipeline (.shamway.toml + its AGENTS contract)"
 else
 	# strip the shamway targets from the Makefile, and the prose that tells an
 	# agent to run them from the docs, so neither names a target that is gone
@@ -477,6 +512,26 @@ mv "$MOD_DIR" "$MOD_FINAL"
 
 echo
 echo "OK -> $MOD_FINAL"
+# What the run decided, in the terms the config file uses for it. A first-time
+# user who left csharp and assets empty has a mod with no DLL and no asset
+# targets, and the only other place that shows up is the absence of files.
+printf '  mod          %s ("%s")\n' "$name" "$display_name"
+printf '  csharp       %s\n' "$csharp"
+printf '  assets       %s\n' "$assets"
+printf '  tool repos   %s (clone=%s)\n' "$hordeforge_root" "$clone"
+printf '  game dir     %s\n' "${game_dir:-(not set: make build and the install-dependent gates need it in .local.env)}"
+if ((${#WARNINGS[@]})); then
+	echo "Warnings:"
+	for warning in "${WARNINGS[@]}"; do
+		printf '  WARN: %s\n' "$warning"
+	done
+fi
+if ((${#NOTES[@]})); then
+	echo "Next steps:"
+	for next_step in "${NOTES[@]}"; do
+		printf '  NOTE: %s\n' "$next_step"
+	done
+fi
 printf 'Next: cd %q && make test && make lint-shell && make lint-py\n' "$MOD_FINAL"
 echo "      (make help lists every target; make build needs the game install in .local.env)"
 echo "Start with TODO.md (the purpose is seeded there); AGENTS.md has the working rules."

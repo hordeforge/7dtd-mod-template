@@ -10,7 +10,7 @@
 # Required
 name=""              # modlet id: alphanumeric, becomes the directory and ModInfo Name
 author=""
-purpose=""           # what the mod is for — a sentence or paragraph; seeded into README/design/TODO.
+purpose=""           # a sentence or paragraph: what the mod is for; seeded into README/design/TODO.
                      # Its first sentence, capped at 200 characters and cut at the
                      # sentence end its script writes, becomes ModInfo.xml's Description.
 target_dir=""        # the mod directory is created at <target_dir>/<name>
