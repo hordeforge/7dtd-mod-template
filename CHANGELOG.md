@@ -62,6 +62,17 @@ modlet's contract rather than add to it.
 
 ### Changed
 
+- The shipped `ruff.toml` selects seven more defect groups the tree
+  already passes: `ARG`, `DTZ`, `ERA`, `G`, `PGH`, `RSE` and `TID`
+  alongside the existing set, so a parameter nobody reads, a naive
+  datetime, a commented-out block, a malformed logging call, a blanket
+  `# noqa` or `# type: ignore`, a redundant parenthesised `raise` and a
+  relative import all fail `make lint-py` instead of passing unnoticed.
+- `scripts/test_ruff_rule_set.py` fails the offline gates when a group is
+  dropped from `select`, re-disabled through `[lint] ignore`, or when the
+  `line-length` cap, the `target-version` floor, or the gate's use of the
+  shipped config go missing. Deleting a line of the rule set used to
+  silence a class of defects with a still-green gate.
 - The console-command permission gate finds commands by their
   `ConsoleCmdAbstract` base type anywhere under `src/`, so a command
   declared in a file other than `ConsoleCmd<Mod>.cs` is held to the same

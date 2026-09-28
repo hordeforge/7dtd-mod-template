@@ -42,6 +42,13 @@ preflight:
 		echo "ERROR: host tools not found on PATH:$$missing" >&2; \
 		echo "       install them with your package manager, then re-run." >&2; \
 		exit 1; \
+	fi; \
+	pinned="$$(sed -n 's/.*RUFF_VERSION: *"\(.*\)".*/\1/p' "$(ROOT)/.github/workflows/ci.yml")"; \
+	local="$$(ruff --version | sed 's/^ruff //')"; \
+	if [ -n "$$pinned" ] && [ "$$pinned" != "$$local" ]; then \
+		echo "WARNING: local ruff $$local, CI pins $$pinned; a rule the" >&2; \
+		echo "         mod's ruff.toml selects can resolve differently, so a" >&2; \
+		echo "         green local run is not the CI verdict." >&2; \
 	fi
 
 # A fresh tree every run: a stale .scratch/anvil-smoke must never be what makes
