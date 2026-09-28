@@ -15,7 +15,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = os.path.join(MOD_DIR, "AGENTS.md")
@@ -42,7 +43,8 @@ def main() -> int:
         repr(missing_from("make playtest SUITE=a,b")),
     )
     missing = missing_from(text)
-    check("AGENTS.md states one concern per playtest run", missing == [], "missing " + repr(missing))
+    check("AGENTS.md states one concern per playtest run", missing == [],
+          "missing " + repr(missing))
     return report()
 
 

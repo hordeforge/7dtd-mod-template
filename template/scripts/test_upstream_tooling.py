@@ -19,7 +19,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
@@ -44,14 +45,44 @@ BANNED: dict[str, str] = {
 ALLOW: dict[str, dict[str, str]] = {}
 
 
+def banned_in(content: str) -> list[str]:
+    """Every banned tool call *content* carries, sorted."""
+    return sorted(n for n in BANNED if n in content)
+
+
+def negative_controls() -> None:
+    """Prove the content scan bites.
+
+    A gate whose walk reads nothing prints nothing and exits 0, so the
+    controls pin that a local reimplementation is caught and an ordinary
+    script line is not.
+    """
+    check("negative control: a local mute call is caught",
+          banned_in("pactl set-sink-mute 1\n") == ["pactl"],
+          repr(banned_in("pactl set-sink-mute 1\n")))
+    check("negative control: a local screenshot call is caught",
+          banned_in("grim -o out.png\n") == ["grim "],
+          repr(banned_in("grim -o out.png\n")))
+    check("negative control: a second lock file is caught",
+          banned_in('LOCK="$HOME/.cache/7dtd-playtest/playtest_running"\n')
+          == ["playtest_running"],
+          repr(banned_in('LOCK="$HOME/.cache/7dtd-playtest/playtest_running"\n')))
+    check("negative control: an ordinary script line is not caught",
+          banned_in("python3 scripts/playtest_runner.py\n") == [])
+
+
 def main() -> int:
+    negative_controls()
+
     word = {n: re.compile(re.escape(n)) for n in BANNED}
+    scanned = 0
     for base, dirs, files in os.walk(SCRIPTS):
         dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         for name in sorted(files):
             path = os.path.join(base, name)
             if os.path.abspath(path) == SELF:
                 continue
+            scanned += 1
             rel = os.path.relpath(path, MOD_DIR)
             with open(path, encoding="utf-8", errors="replace") as handle:
                 content = handle.read()
@@ -63,6 +94,9 @@ def main() -> int:
                     continue
                 check(f"banned-tool:{rel}:{needle}", False,
                       f"belongs upstream: {BANNED[needle]}")
+    # A walk that read no file would report the same empty green run.
+    check("the scan read the scripts it is meant to scan", scanned > 0,
+          f"{scanned} file(s) under scripts/, this gate excluded")
     for rel in sorted(ALLOW):
         exists = os.path.isfile(os.path.join(MOD_DIR, rel))
         check("allow-entry-exists:" + rel, exists, "stale ALLOW entry; remove it")

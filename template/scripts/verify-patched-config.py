@@ -29,7 +29,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
-import local_env  # noqa: E402
+import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ModInfo Name == directory name (enforced by test_static_checks.py)
@@ -99,7 +99,7 @@ def read_dump(path: str) -> str:
     counts.
     """
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        with open(path, encoding="utf-8", errors="replace") as handle:
             return handle.read()
     except OSError as exc:
         raise VerifyError(f"cannot read {path}: {exc}") from exc

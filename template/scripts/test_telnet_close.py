@@ -25,8 +25,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-import game_telnet  # noqa: E402  (import needs the path above)
-from gate import check, main as report  # noqa: E402
+import game_telnet
+from gate import check
+from gate import main as report
 
 
 class StubSocket:

@@ -15,8 +15,9 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
-import local_env  # noqa: E402
-from gate import check, main as report  # noqa: E402
+import local_env
+from gate import check
+from gate import main as report
 
 
 def read(env_text: str | None, key: str, environ: dict[str, str] | None = None) -> str | None:

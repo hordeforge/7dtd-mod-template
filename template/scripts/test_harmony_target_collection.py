@@ -15,12 +15,14 @@ import importlib.util
 import sys
 import tempfile
 from pathlib import Path
+from types import ModuleType
 
 SCRIPTS = Path(__file__).resolve().parent
 MODULE = SCRIPTS / "verify-patch-targets.py"
 
 sys.path.insert(0, str(SCRIPTS / "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check  # noqa: E402
+from gate import main as report  # noqa: E402
 
 FIXTURE = """using HarmonyLib;
 
@@ -53,7 +55,7 @@ EXPECTED = (
 )
 
 
-def load_collector():
+def load_collector() -> ModuleType:
     spec = importlib.util.spec_from_file_location("verify_patch_targets", MODULE)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
@@ -61,7 +63,7 @@ def load_collector():
     return module
 
 
-def collected(module, source: Path) -> list[tuple[str, str, str, tuple[str, ...]]]:
+def collected(module: ModuleType, source: Path) -> list[tuple[str, str, str, tuple[str, ...]]]:
     targets, _ = module.collect_targets(source)
     return [
         (t.patch_class, t.declaring_type, t.method, tuple(t.injected))

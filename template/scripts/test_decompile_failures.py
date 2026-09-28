@@ -18,12 +18,14 @@ import importlib.util
 import os
 import subprocess
 import sys
+from collections.abc import Callable
+from types import ModuleType
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSEMBLY = "Assembly-CSharp.dll"
 
 
-def load_verifier():
+def load_verifier() -> ModuleType:
     """Import the hyphenated script by path; it has no package of its own."""
     path = os.path.join(SCRIPT_DIR, "verify-patch-targets.py")
     spec = importlib.util.spec_from_file_location("verify_patch_targets", path)
@@ -47,17 +49,17 @@ def main() -> int:
 
     real_run = subprocess.run
 
-    def raising(exception):
-        def run(*_args, **_kwargs):
+    def raising(exception: BaseException) -> Callable[..., subprocess.CompletedProcess[str]]:
+        def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
             raise exception
         return run
 
-    def timed_out(*_args, **_kwargs):
+    def timed_out(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(
             args=["ilspycmd"], returncode=0, stdout="", stderr="")
 
-    def exits_with(code: int, stderr: str):
-        def run(*_args, **_kwargs):
+    def exits_with(code: int, stderr: str) -> Callable[..., subprocess.CompletedProcess[str]]:
+        def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(
                 args=["ilspycmd"], returncode=code, stdout="", stderr=stderr)
         return run

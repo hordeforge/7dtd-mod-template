@@ -26,7 +26,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_NAME = os.path.basename(MOD_DIR)
@@ -113,7 +114,8 @@ def main() -> int:
     # Negative control: a command that inherits the level, or that opts into
     # client execution, must fail the checks above — a gate that cannot fail
     # is not a gate.
-    inherited = "public class X : ConsoleCmdAbstract { public override bool IsExecuteOnClient => false; }"
+    inherited = ("public class X : ConsoleCmdAbstract { public override bool "
+                 "IsExecuteOnClient => false; }")
     check("negative control: an inherited level is caught", not declared(inherited))
     forwarded = ("public class X : ConsoleCmdAbstract { public override int "
                  "DefaultPermissionLevel => 0; public override bool "

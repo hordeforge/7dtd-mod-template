@@ -24,7 +24,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "server-common.sh")
@@ -44,7 +45,7 @@ def prune(log_dir: str, keep: str) -> str:
     done = subprocess.run(
         ["bash", "-c", 'source "$1"; prune_smoke_logs "$2" "$3"',
          "bash", SERVER_COMMON, log_dir, keep],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True, text=True, timeout=60, check=False,
     )
     if done.returncode != 0:
         print(done.stderr, file=sys.stderr)

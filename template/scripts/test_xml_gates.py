@@ -25,15 +25,17 @@ import os
 import shutil
 import sys
 import tempfile
+from types import ModuleType
 
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(SCRIPTS, "lib"))
 
-import xml_extends  # noqa: E402  (the lib directory is on sys.path above)
-from gate import check, main as report  # noqa: E402
+import xml_extends  # noqa: E402
+from gate import check  # noqa: E402
+from gate import main as report  # noqa: E402
 
 
-def load_validator():
+def load_validator() -> ModuleType:
     """The hyphenated script name is not importable; load it by path."""
     spec = importlib.util.spec_from_file_location(
         "validate_xml_targets", os.path.join(SCRIPTS, "validate-xml-targets.py")
@@ -155,9 +157,16 @@ def extends_model() -> None:
         '<property name="Tier" value="1"/></item>'
         '<item name="b"><property name="Extends" value="a"/></item>'
     )
-    cyclic_scalars, _ = xml_extends.resolve("a", cyclic)
-    check("a cycle resolves once and keeps the entry's own properties",
-          cyclic_scalars == {"Tier": "1"}, repr(cyclic_scalars))
+    try:
+        xml_extends.resolve("a", cyclic)
+    except xml_extends.ExtendsCycle as exc:
+        # A re-entered name is a config defect, so the model names the chain
+        # that closed instead of recursing until the interpreter gives up.
+        check("a cycle is reported as a named ExtendsCycle, not a traceback",
+              str(exc) == "a -> b -> a", str(exc))
+    else:
+        check("a cycle is reported as a named ExtendsCycle, not a traceback",
+              False, "resolve() returned instead of raising ExtendsCycle")
 
     missing = xml_extends.resolve("absent", child, inherited)
     check("an entry extending a name no pool has resolves to nothing",

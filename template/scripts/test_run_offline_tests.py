@@ -12,7 +12,9 @@ throwaway directory, never against the shared tree:
 3. a filter matching no test name -> exit 1 (must not read as a green run);
 4. a filter naming a subset -> only that subset runs;
 5. two runs over the same tree print byte-identical stdout;
-6. the elapsed seconds it reports do not come from the wall clock.
+6. the elapsed seconds it reports do not come from the wall clock;
+7. a worker that dies, with or without a status file, is a failure, and the
+   workers beside it are still reported.
 
 (5) is the gate the runner owes AGENTS.md's "every gate is deterministic" rule:
 a report carrying an elapsed time or a finish-order-dependent line makes two
@@ -25,6 +27,11 @@ inflated duration; the runner reads /proc/uptime instead, where the kernel
 provides one. The check is skipped where that file is absent, and the
 `date` shim is what makes the assertion a real one: a runner that reached for
 the wall clock fails loudly instead of quietly reporting the same number.
+
+(7) covers a worker that dies before or after writing its status file. The
+unset `status` the report would otherwise read is the shape that drops a
+result, so both deaths have to surface as failures with the passing workers
+beside them still named.
 """
 
 from __future__ import annotations
@@ -39,10 +46,27 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 PASS_BODY = "#!/usr/bin/env python3\nprint('ok')\n"
 FAIL_BODY = "#!/usr/bin/env python3\nimport sys\nprint('boom')\nsys.exit(3)\n"
+# A worker killed by a signal reports its exit status like any other failure.
+KILL_BODY = (
+    "#!/usr/bin/env python3\n"
+    "import os, signal\n"
+    "os.kill(os.getpid(), signal.SIGKILL)\n"
+)
+# A worker that takes its own reporting shell down with it never writes a
+# status file. The runner has to report that as a failure: the unset
+# `status` it would otherwise read is the shape that loses every result the
+# other workers did produce.
+KILL_SHELL_BODY = (
+    "#!/usr/bin/env python3\n"
+    "import os, signal\n"
+    "os.kill(os.getppid(), signal.SIGKILL)\n"
+    "os.kill(os.getpid(), signal.SIGKILL)\n"
+)
 TIMING = re.compile(r"\(\d+s\)")
 
 # Each case is a separate runner process, and the cases below only read the
@@ -174,6 +198,32 @@ def main() -> int:
             broken.returncode != 0
             and any(line.startswith("FAIL test_gamma_fail.py") for line in named),
             f"exit={broken.returncode} stdout={broken.stdout!r}",
+        )
+
+        # The parallel report reads a status file per worker. Both ways a
+        # worker can die have to reach the report, and the passing workers
+        # beside them must still be reported.
+        make_runner_dir(root, {"test_delta_killed.py": KILL_BODY,
+                               "test_epsilon_noreport.py": KILL_SHELL_BODY})
+        killed = run_runner(good, env={**os.environ, "OFFLINE_TEST_JOBS": "2"})
+        killed_named = [line for line in killed.stdout.splitlines()
+                        if line.startswith("FAIL ")]
+        check(
+            "a worker killed by a signal fails the run and is named",
+            killed.returncode != 0
+            and any(line.startswith("FAIL test_delta_killed.py") for line in killed_named),
+            f"exit={killed.returncode} stdout={killed.stdout!r}",
+        )
+        check(
+            "a worker that wrote no status file is reported, not dropped",
+            any("no status file" in line and "test_epsilon_noreport.py" in line
+                for line in killed_named),
+            f"stdout={killed.stdout!r}",
+        )
+        check(
+            "the workers beside a killed one are still reported",
+            any(line.startswith("PASS test_beta_ok.py") for line in killed.stdout.splitlines()),
+            f"stdout={killed.stdout!r}",
         )
     finally:
         shutil.rmtree(root, ignore_errors=True)
