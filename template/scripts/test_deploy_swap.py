@@ -45,13 +45,37 @@ exit "$status"
 """
 
 
+# Fails every move from the second on, so the first one succeeds and the
+# restore of the previous copy is the move that fails: the window where the
+# deployment is held aside and the second move is what usually fails too.
+# `mv` failing twice is a full disk or a read-only mount, and the run has to
+# say the deployed mod is gone rather than that it was put back.
+FAILING_RESTORE_MV = """#!/usr/bin/env bash
+count=$(cat "$MV_STUB_COUNT" 2>/dev/null || printf 0)
+count=$((count + 1))
+printf '%s\\n' "$count" > "$MV_STUB_COUNT"
+if ((count >= 2)); then
+\techo "mv stub: refusing" >&2
+\texit 1
+fi
+exec "$REAL_MV" "$@"
+"""
+
+
 Done = subprocess.CompletedProcess
 
 
-def swap(server_common: str, source: str, target: str, previous: str) -> Done:
+def swap(server_common: str, source: str, target: str, previous: str,
+         path_prefix: str = "") -> Done:
+    """Run one swap. `path_prefix` puts a directory of `mv` stubs on PATH."""
+    env = None
+    if path_prefix:
+        env = {**os.environ, "PATH": path_prefix + os.pathsep + os.environ["PATH"],
+               "REAL_MV": shutil.which("mv") or "/bin/mv",
+               "MV_STUB_COUNT": os.path.join(path_prefix, "mv-count")}
     return subprocess.run(
         ["bash", "-c", SWAP, "bash", server_common, source, target, previous],
-        capture_output=True, text=True, timeout=60, check=False,
+        capture_output=True, text=True, timeout=60, check=False, env=env,
     )
 
 
@@ -126,19 +150,45 @@ def main() -> int:
         target = populated(os.path.join(root, "Mods", "mod"), "old")
         previous = os.path.join(root, "stage.previous")
 
-        interrupted = subprocess.run(
-            ["bash", "-c", SWAP, "bash", SERVER_COMMON, stage, target, previous],
-            capture_output=True, text=True, timeout=60, check=False,
-            env={**os.environ, "PATH": bin_dir + os.pathsep + os.environ["PATH"],
-                 "REAL_MV": shutil.which("mv") or "/bin/mv",
-                 "MV_STUB_COUNT": os.path.join(root, "mv-count")},
-        )
+        interrupted = swap(SERVER_COMMON, stage, target, previous,
+                           path_prefix=bin_dir)
         check("the signal between the two moves ends the run",
               interrupted.returncode == 143, str(interrupted.returncode))
         check("an interrupted swap puts the previous deployment back",
               os.path.isdir(target) and read(target) == "old", str(tree(root)))
         check("an interrupted swap leaves no previous copy behind",
               not os.path.exists(previous), str(tree(root)))
+
+    with tempfile.TemporaryDirectory() as root:
+        bin_dir = os.path.join(root, "bin")
+        os.makedirs(bin_dir)
+        stub = os.path.join(bin_dir, "mv")
+        with open(stub, "w", encoding="utf-8") as handle:
+            handle.write(FAILING_RESTORE_MV)
+        os.chmod(stub, 0o755)
+
+        # A deployment is in place and a new one is staged, as deploy-server.sh
+        # leaves them, and every move from the second on fails.
+        stage = populated(os.path.join(root, "stage"), "new")
+        target = populated(os.path.join(root, "Mods", "mod"), "old")
+        previous = os.path.join(root, "stage.previous")
+
+        failed = swap(SERVER_COMMON, stage, target, previous,
+                      path_prefix=bin_dir)
+        check("a swap whose restore also fails fails loudly",
+              failed.returncode != 0, str(failed.returncode))
+        # The deployment is genuinely gone here: the second move and the
+        # restore both failed, so nothing is at the target. The message must
+        # not claim the previous copy was put back, and must name where it
+        # actually is, or the operator looks for a rollback that never ran.
+        check("a swap whose restore also fails does not claim a rollback",
+              "has been put back" not in failed.stderr, failed.stderr)
+        check("a swap whose restore also fails names where the old copy is",
+              previous in failed.stderr, failed.stderr)
+        check("a swap whose restore also fails leaves nothing deployed",
+              not os.path.exists(target), str(tree(root)))
+        check("a swap whose restore also fails keeps the old copy on disk",
+              os.path.isdir(previous) and read(previous) == "old", str(tree(root)))
 
     return report()
 

@@ -59,9 +59,16 @@ def version_key(version: str) -> tuple[int, ...]:
     A pre-release or build-metadata suffix sorts after the bare version it
     hangs off, so `1.0.0-rc.1` never passes for `1.0.0`: the suffix becomes
     a trailing part that no digits-only comparison would produce.
+
+    Total over every string a `## [...]` header can hold, because the sort
+    below runs over all the sections including the ones already reported as
+    not being semver. A part that is not a number sorts as 0 rather than
+    raising, so a typo'd version is a reported failure instead of a
+    ValueError traceback that ends the gate before it reaches the last two
+    checks.
     """
     bare, _, rest = version.partition("-")
-    key = tuple(int(part) for part in bare.split("."))
+    key = tuple(int(part) if part.isdigit() else 0 for part in bare.split("."))
     return (*key, 0) if not rest else (*key, 1)
 
 
@@ -86,8 +93,16 @@ def main() -> int:
     if not os.path.isfile(path):
         print(f"ERROR: no {path}", file=sys.stderr)
         return 2
-    with open(path, encoding="utf-8") as handle:
-        text = handle.read()
+    # Unreadable and not-UTF-8 are both this file's business to report: the
+    # existence check above is what used to be the only guard, so a file the
+    # runner could not open, or one a stray non-UTF-8 byte made undecodable,
+    # ended the gate on a traceback instead of a named reason.
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, UnicodeDecodeError) as err:
+        print(f"ERROR: cannot read {path}: {err}", file=sys.stderr)
+        return 2
 
     found = sections(text)
     check("changelog-has-a-section-for-each-version", bool(found), "no `## [...]` section")

@@ -34,6 +34,10 @@ FAILURES: list[str] = []
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCAFFOLDER = os.path.join(ROOT, "new-mod.sh")
 WORK = os.path.join(ROOT, ".scratch", "anvil-text")
+# How long one scaffolder run may take. This gate runs the scaffolder five
+# times, and a run that hangs (a prompt on a stdin that is not a terminal, a
+# clone waiting on a credential) would otherwise never come back.
+SCAFFOLD_TIMEOUT_SECONDS = 300
 
 # ModInfo.xml's Description limit, which the token substitution enforces.
 DESCRIPTION_LIMIT = 200
@@ -97,18 +101,50 @@ def scaffold(name: str, author: str, display: str, purpose: str,
         handle.write(f'target_dir="{os.path.join(WORK, "mods")}"\n')
         handle.write(f'hordeforge_root="{os.path.join(WORK, "hordeforge")}"\n')
         handle.write(f'csharp="{csharp}"\nassets="no"\nclone="no"\n')
-    result = subprocess.run(
-        [SCAFFOLDER, config], capture_output=True, text=True,
-        encoding="utf-8", errors="replace", check=False, cwd=ROOT)
+    try:
+        result = subprocess.run(
+            [SCAFFOLDER, config], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", check=False, cwd=ROOT,
+            timeout=SCAFFOLD_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        # A scaffolder that never returns would hold this gate, and CI with
+        # it, for as long as the job's timeout; a cut-off run is a reported
+        # failure and the status the caller branches on is a non-zero one.
+        return 124, mod_dir
     return result.returncode, mod_dir
 
 
 def description(mod_dir: str) -> str:
-    """The Description the scaffold wrote, or the empty string."""
-    root = ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot()
+    """The Description the scaffold wrote, or the empty string.
+
+    A ModInfo.xml that is absent or unparseable is the empty string, not a
+    traceback: the caller has already failed the run on the scaffolder's exit
+    status, and a parse error here would replace that report with a stack.
+    """
+    try:
+        root = ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot()
+    except (ET.ParseError, OSError):
+        return ""
     for field in root:
         if field.tag == "Description":
             return field.get("value") or ""
+    return ""
+
+
+def harmony_id(mod_dir: str) -> str:
+    """The Harmony id the scaffolded sources construct, or the empty string."""
+    for base, _dirs, files in os.walk(os.path.join(mod_dir, "src")):
+        for f in files:
+            if not f.endswith(".cs"):
+                continue
+            try:
+                with open(os.path.join(base, f), encoding="utf-8",
+                          errors="replace") as handle:
+                    found = re.search(r'new Harmony\("(?P<id>[^"]+)"\)', handle.read())
+            except OSError:
+                continue
+            if found:
+                return found["id"]
     return ""
 
 
@@ -160,16 +196,7 @@ def main() -> int:
     status, mod_dir = scaffold("TextAuthor", "Wei\u00df", "Text Smoke", "A purpose.",
                                csharp="yes")
     check("author-name-scaffolds", status == 0, f"exited {status}")
-    harmony = ""
-    for base, _dirs, files in os.walk(os.path.join(mod_dir, "src")):
-        for f in files:
-            if not f.endswith(".cs"):
-                continue
-            with open(os.path.join(base, f), encoding="utf-8") as handle:
-                found = re.search(r'new Harmony\("(?P<id>[^"]+)"\)', handle.read())
-            if found:
-                harmony = found["id"]
-                break
+    harmony = harmony_id(mod_dir)
     check("sharp-s-folds-into-the-harmony-id", harmony == "com.weiss.textauthor",
           repr(harmony))
 

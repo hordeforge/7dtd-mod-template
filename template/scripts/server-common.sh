@@ -183,9 +183,16 @@ swap_into_place() {
 	local source="$1" target="$2" previous="$3"
 	local held=0 swapped=0
 
+	# A restore that fails is said out loud rather than swallowed with `|| true`:
+	# the callers are the signal traps, where a discarded status leaves the
+	# deployed mod simply gone and the only copy left naming where it is.
 	put_previous_back() {
 		if (( held )) && [[ -d "$previous" && ! -e "$target" ]]; then
-			mv "$previous" "$target" || true
+			if ! mv "$previous" "$target"; then
+				echo "ERROR: the previously deployed copy is at $previous and could not be" >&2
+				echo "       moved back to $target; the server has no deployed mod until" >&2
+				echo "       one is put there by hand." >&2
+			fi
 		fi
 		held=0
 	}
@@ -206,7 +213,17 @@ swap_into_place() {
 	fi
 	if ! mv "$source" "$target"; then
 		put_previous_back
-		echo "ERROR: could not put $source in place at $target; a previously deployed copy has been put back." >&2
+		echo "ERROR: could not put $source in place at $target." >&2
+		# What the restore did, not what it was meant to do: a second failed
+		# move (a full disk, a read-only mount) leaves nothing deployed at all,
+		# and a message claiming the previous copy is back is how that reads as
+		# a normal failed deploy. The copy is still where put_previous_back
+		# could not move it, which is the only case where $previous survives.
+		if [[ -d "$previous" ]]; then
+			echo "       the previously deployed copy could not be put back; it is at $previous." >&2
+		else
+			echo "       no previously deployed copy was there to put back." >&2
+		fi
 		return 1
 	fi
 	# Read by the trap strings above, which shellcheck does not parse as code.

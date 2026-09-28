@@ -215,7 +215,16 @@ fi
 # work at all.
 mkdir -p "$target_dir"
 STAGE="$(mktemp -d "$target_dir/.anvil-stage-XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT INT TERM HUP
+# EXIT alone, plus signal traps that end the run. One trap covering all four
+# removes the stage and then lets the run carry on writing into a directory
+# that no longer exists: a Ctrl-C at the git step below deleted STAGE and the
+# next `cp` recreated it, so the run finished "OK" over a mod built across
+# two unrelated directories. Same split verify-reproducible.sh and
+# run-offline-tests.sh use, for the same reason.
+trap 'rm -rf "$STAGE"' EXIT
+trap 'rm -rf "$STAGE"; exit 129' HUP
+trap 'rm -rf "$STAGE"; exit 130' INT
+trap 'rm -rf "$STAGE"; exit 143' TERM
 # mktemp creates 0700; a mod dir is ordinary content and must not inherit it.
 chmod 0755 "$STAGE"
 # Every step below builds here; the last step is the move into MOD_FINAL.

@@ -55,32 +55,73 @@ def unquote(raw: str) -> str:
 
 
 def conf_values(path: str) -> dict[str, str]:
-    """The `key="value"` pairs of a scaffold config, as the shell expands them."""
+    """The `key="value"` pairs of a scaffold config, as the shell expands them.
+
+    A config that cannot be read yields no values, which fails the check that
+    compares them with the expected ones. It is not a traceback: this runs
+    after the scaffolder in CI, so a config the run could not read is exactly
+    the report the gate exists to make.
+    """
     values: dict[str, str] = {}
-    with open(path, encoding="utf-8") as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            match = CONF_KEY.match(line)
-            if match:
-                values[match["key"]] = unquote(match["value"])
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for raw in handle:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                match = CONF_KEY.match(line)
+                if match:
+                    values[match["key"]] = unquote(match["value"])
+    except OSError as err:
+        check("smoke-config-reads", False, f"{path}: {err}")
+        return {}
     return values
 
 
 def modinfo(mod_dir: str) -> dict[str, str]:
     """Every value attribute of the mod's ModInfo.xml, keyed by field name.
 
-    An unparseable file yields no values at all, so each field's own check
-    fails and names the parse error, rather than the run dying on it.
+    A file that is absent, unreadable or unparseable yields no values at all,
+    so each field's own check fails and names the reason, rather than the run
+    dying on it. The OSError case is the common one: a scaffolder that failed
+    before the move into place leaves no mod directory, and the gate then has
+    to say so rather than exit on the traceback of a missing file.
     """
+    path = os.path.join(mod_dir, "ModInfo.xml")
     try:
-        root = ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot()
+        root = ET.parse(path).getroot()
     except ET.ParseError as err:
-        check("modinfo-parses", False, str(err))
+        check("modinfo-parses", False, f"{path}: {err}")
+        return {}
+    except OSError as err:
+        check("modinfo-parses", False, f"cannot read {path}: {err}")
         return {}
     check("modinfo-parses", True)
     return {field.tag: (field.get("value") or "") for field in root}
+
+
+def read_text(path: str) -> str:
+    """A file's text, or the empty string when it cannot be read.
+
+    The walks below read every file in a scaffolded mod. One unreadable file
+    among them used to end the gate on a traceback, losing the results of
+    every other check, and an unreadable file is a report the gate owes
+    rather than a crash: the scaffolder copies modes and permissions with the
+    tree, and a file the runner cannot read is one of the things a reader of
+    this report needs told. `errors="replace"` throughout, so a file that is
+    not UTF-8 is scanned rather than fatal too.
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
+def search_harmony_id(path: str) -> str:
+    """The Harmony id a C# file constructs, or the empty string."""
+    found = re.search(r'new Harmony\("(?P<id>[^"]+)"\)', read_text(path))
+    return found["id"] if found else ""
 
 
 def main() -> int:
@@ -88,6 +129,9 @@ def main() -> int:
         print("usage: check-smoke-mod.py <mod-dir> <config-file>", file=sys.stderr)
         return 2
     mod_dir, conf_path = sys.argv[1], sys.argv[2]
+    if not os.path.isdir(mod_dir):
+        print(f"ERROR: no mod directory at {mod_dir}; did the scaffolder run?", file=sys.stderr)
+        return 2
     conf = conf_values(conf_path)
     values = modinfo(mod_dir)
 
@@ -140,10 +184,9 @@ def main() -> int:
         for f in files:
             if not f.endswith((".md", ".txt", ".toml", ".cs")):
                 continue
-            with open(os.path.join(base, f), encoding="utf-8", errors="replace") as handle:
-                if EXPECTED_SECOND_SENTENCE in handle.read():
-                    carried = os.path.relpath(os.path.join(base, f), mod_dir)
-                    break
+            if EXPECTED_SECOND_SENTENCE in read_text(os.path.join(base, f)):
+                carried = os.path.relpath(os.path.join(base, f), mod_dir)
+                break
         if carried:
             break
     check("whole-purpose-reaches-the-mod", bool(carried),
@@ -158,10 +201,9 @@ def main() -> int:
         for f in files:
             if not f.endswith(".cs"):
                 continue
-            with open(os.path.join(base, f), encoding="utf-8") as handle:
-                found = re.search(r'new Harmony\("(?P<id>[^"]+)"\)', handle.read())
+            found = search_harmony_id(os.path.join(base, f))
             if found:
-                harmony = found["id"]
+                harmony = found
                 break
     check("harmony-id-is-the-expected-ascii-string",
           harmony == "com.cimuller.cismoke", repr(harmony))
@@ -177,10 +219,9 @@ def main() -> int:
         dirs[:] = [d for d in dirs if d != ".git"]
         for f in files:
             path = os.path.join(base, f)
-            with open(path, encoding="utf-8", errors="replace") as handle:
-                if "ANVIL:" in handle.read():
-                    survivor = os.path.relpath(path, mod_dir)
-                    break
+            if "ANVIL:" in read_text(path):
+                survivor = os.path.relpath(path, mod_dir)
+                break
         if survivor:
             break
     check("no-scaffolder-marker-survives-the-substitution", not survivor, survivor)
