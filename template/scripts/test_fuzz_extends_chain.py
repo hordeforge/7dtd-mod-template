@@ -14,9 +14,10 @@ absent and nothing installs them here), so this generates the input grammar
 directly and asserts the three properties a coverage-guided fuzzer cannot
 check on its own:
 
-- **termination** — every chain comes back, cycles included; a cyclic
-  entry is the one input with no resolved result, and it must be the named
-  `ExtendsCycle` naming the chain, never a `RecursionError`;
+- **termination** - every chain comes back, cycles included; a cyclic entry
+  is the one input with no resolved result, and it must be the named
+  `ExtendsCycle` naming the chain and the name that closes it, never a
+  `RecursionError`;
 - **own properties win** — a property the entry declares itself is never
   lost, whatever the chain above it does;
 - **`param1` excludes** — a name the entry's `Extends` refuses to inherit is
@@ -153,8 +154,9 @@ def main() -> int:
                 try:
                     inherited, _ = xml_extends.resolve(parent_name, pool)
                 except xml_extends.ExtendsCycle:
-                    # The parent is the cyclic entry; its result is the
+                    # The parent is the cyclic entry: its result is the
                     # error, not a set of inherited values to compare with.
+                    # The cycle is already reported for the entry itself.
                     continue
                 for excluded_name in excluded:
                     if excluded_name in declared["scalars"]:

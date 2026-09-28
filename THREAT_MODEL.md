@@ -60,7 +60,8 @@ Entry points, all with the file that creates them.
   (`install-server.sh:14`).
 - `SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS`, the server-smoke window
   (`server-smoke.sh:12`).
-- `OFFLINE_TEST_JOBS` (parallelism cap, `run-offline-tests.sh:51`).
+- `OFFLINE_TEST_JOBS` (parallelism cap, `run-offline-tests.sh:51` and
+  `scripts/test_rules_have_gates.py`, which re-runs every gate twice).
 - `ANVIL_NAME`, `ANVIL_DISPLAY`, `ANVIL_AUTHOR`, `ANVIL_PURPOSE`,
   `ANVIL_SKIP_EAC`, `ANVIL_CSHARP`, `ANVIL_ASSETS` (`new-mod.sh:121-123`),
   consumed by the embedded substitution program.

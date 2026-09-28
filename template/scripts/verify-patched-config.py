@@ -80,9 +80,10 @@ def expected_elements() -> dict[str, int]:
         except ET.ParseError as exc:
             raise VerifyError(f"{path} is not well-formed XML: {exc}") from exc
         total = sum(
-            len(list(op))
+            1
             for op in tree.getroot().iter()
             if op.tag in INSERT_OPS
+            for _ in op
         )
         if total:
             counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
@@ -109,10 +110,13 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     # The dump mirrors Data/Config's subdirectories (ConfigsDump/
     # XUi_InGame/windows.xml), so the scan must descend too or every nested
-    # patch reads as missing.
+    # patch reads as missing. A dump file is a whole vanilla config with every
+    # mod's annotations on it, so the matches are counted as they are found:
+    # materializing every `appended by` name in the file first would build a
+    # list of all of them to keep one per file.
     for path in sorted(glob.glob(os.path.join(dump_dir, "**", "*.xml"), recursive=True)):
-        hits = sum(1 for name in APPENDED_BY.findall(read_dump(path))
-                   if name == MOD_NAME)
+        hits = sum(1 for match in APPENDED_BY.finditer(read_dump(path))
+                   if match.group(1) == MOD_NAME)
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
     return counts

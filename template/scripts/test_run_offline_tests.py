@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate import check, main as report  # noqa: E402
@@ -34,6 +35,16 @@ from gate import check, main as report  # noqa: E402
 PASS_BODY = "#!/usr/bin/env python3\nprint('ok')\n"
 FAIL_BODY = "#!/usr/bin/env python3\nimport sys\nprint('boom')\nsys.exit(3)\n"
 TIMING = re.compile(r"\(\d+s\)")
+
+# Each case is a separate runner process, and the cases below only read the
+# fixture tree, so they run together instead of one after another.
+MAX_RUNNER_JOBS = 5
+
+# The default-mode cases must not inherit OFFLINE_TEST_TIMINGS: this gate runs
+# inside `make test`, so with the knob set the whole suite reported elapsed
+# seconds and the "only under OFFLINE_TEST_TIMINGS=1" check read its own
+# inherited environment and failed.
+DEFAULT_ENV = {k: v for k, v in os.environ.items() if k != "OFFLINE_TEST_TIMINGS"}
 
 
 def make_runner_dir(root: str, bodies: dict[str, str]) -> str:
@@ -71,21 +82,37 @@ def main() -> int:
             root, {"test_alpha_ok.py": PASS_BODY, "test_beta_ok.py": PASS_BODY}
         )
 
-        clean = run_runner(good)
+        # The five runs below only read the fixture tree, and each is a whole
+        # runner process: serialising them made this the slowest gate in the
+        # suite for no reason. The sixth run needs the failing fixture to exist
+        # first, so it stays after them.
+        cases = [
+            ("clean", (good,), DEFAULT_ENV),
+            ("again", (good,), DEFAULT_ENV),
+            ("timed", (good,), {**DEFAULT_ENV, "OFFLINE_TEST_TIMINGS": "1"}),
+            ("filtered", (good, "alpha"), DEFAULT_ENV),
+            ("nomatch", (good, "zzz-no-such-test"), DEFAULT_ENV),
+        ]
+        with ThreadPoolExecutor(max_workers=MAX_RUNNER_JOBS) as pool:
+            runs = dict(pool.map(
+                lambda case: (case[0], run_runner(*case[1], env=case[2])),
+                cases,
+            ))
+        clean, again = runs["clean"], runs["again"]
+
         check(
             "all fixtures passing, no filter, exits 0",
             clean.returncode == 0 and "2 offline tests run" in clean.stdout,
             f"exit={clean.returncode} stdout={clean.stdout!r}",
         )
 
-        again = run_runner(good)
         check(
             "two runs over the same tree print byte-identical stdout",
             again.stdout == clean.stdout and again.returncode == clean.returncode,
             f"first={clean.stdout!r} second={again.stdout!r}",
         )
 
-        timed = run_runner(good, env={**os.environ, "OFFLINE_TEST_TIMINGS": "1"})
+        timed = runs["timed"]
         check(
             "elapsed seconds appear only under OFFLINE_TEST_TIMINGS=1",
             timed.returncode == 0
@@ -94,14 +121,14 @@ def main() -> int:
             f"default={clean.stdout!r} timed={timed.stdout!r}",
         )
 
-        filtered = run_runner(good, "alpha")
+        filtered = runs["filtered"]
         check(
             "a filter runs only the tests its substrings match",
             filtered.returncode == 0 and "1 offline tests run" in filtered.stdout,
             f"exit={filtered.returncode} stdout={filtered.stdout!r}",
         )
 
-        nomatch = run_runner(good, "zzz-no-such-test")
+        nomatch = runs["nomatch"]
         check(
             "a filter matching nothing fails instead of reading green",
             nomatch.returncode != 0 and "no test_*.py matches" in nomatch.stderr,
@@ -109,7 +136,7 @@ def main() -> int:
         )
 
         make_runner_dir(root, {"test_gamma_fail.py": FAIL_BODY})
-        broken = run_runner(good)
+        broken = run_runner(good, env=DEFAULT_ENV)
         named = [line for line in broken.stdout.splitlines() if line.startswith("FAIL ")]
         check(
             "a failing fixture test fails the whole run and is named",

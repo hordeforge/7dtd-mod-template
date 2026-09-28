@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate import check, main as report  # noqa: E402
@@ -28,6 +29,10 @@ from gate import check, main as report  # noqa: E402
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 SELF = os.path.abspath(__file__)
+
+# Each re-run is a separate interpreter, so the win is concurrency, not raw
+# cores; the cap matches run-offline-tests.sh so one knob bounds both.
+MAX_DETERMINISM_JOBS = 8
 
 INCIDENT = re.compile(
     r"\b(?:Written|Decided|Added|Corrected)\s+(?:on\s+)?20\d\d-\d\d-\d\d\b"
@@ -46,6 +51,16 @@ def sections(path: str) -> list[tuple[str, str]]:
     with open(path, encoding="utf-8") as handle:
         parts = re.split(r"^## (.+)$", handle.read(), flags=re.M)
     return [(parts[i].strip(), parts[i + 1]) for i in range(1, len(parts), 2)]
+
+
+def twice(gate: str) -> tuple[bool, str]:
+    """Run one gate two times on the unchanged tree; did both agree?"""
+    path = os.path.join(SCRIPTS, gate)
+    runs = [subprocess.run([sys.executable, path], capture_output=True)
+            for _ in range(2)]
+    same = (runs[0].stdout == runs[1].stdout
+            and runs[0].returncode == runs[1].returncode)
+    return same, "two runs on an unchanged tree differed"
 
 
 def main() -> int:
@@ -70,13 +85,18 @@ def main() -> int:
     gates = sorted(f for f in os.listdir(SCRIPTS)
                    if f.startswith("test_") and f.endswith(".py")
                    and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF)
-    for gate in gates:
-        path = os.path.join(SCRIPTS, gate)
-        runs = [subprocess.run([sys.executable, path], capture_output=True, check=False)
-                for _ in range(2)]
-        check("gate-deterministic:" + gate,
-              runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
-              "two runs on an unchanged tree differed")
+    # Two runs of every other gate is 2N process launches, and each one spends
+    # nearly all of it waiting on a fresh interpreter: run them concurrently or
+    # this gate alone takes longer than the whole suite it checks. One gate's
+    # pair stays serial, its own two runs must not overlap, and results are
+    # reported in the sorted gate order, so the report is unchanged.
+    workers = os.environ.get("OFFLINE_TEST_JOBS", "")
+    if not workers.isdigit() or int(workers) < 1:
+        workers = str(min(os.cpu_count() or 1, MAX_DETERMINISM_JOBS))
+    with ThreadPoolExecutor(max_workers=min(int(workers), len(gates) or 1)) as pool:
+        results = list(pool.map(twice, gates))
+    for gate, (ok, detail) in zip(gates, results):
+        check("gate-deterministic:" + gate, ok, detail)
 
     return report()
 

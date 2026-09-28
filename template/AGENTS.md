@@ -230,7 +230,9 @@ silences a line.
 The suite's report carries no elapsed time, so two runs over an unchanged
 tree print byte-identical output; `OFFLINE_TEST_TIMINGS=1` adds the seconds
 for a human and is the one non-reproducible mode
-(`scripts/test_run_offline_tests.py` holds the contract).
+(`scripts/test_run_offline_tests.py` holds the contract). Both the suite
+and the determinism gate that re-runs every gate twice take their
+parallelism from `OFFLINE_TEST_JOBS` (`1` runs them serially).
 Install-dependent checks: `make validate-xml` (every Config xpath against
 vanilla), `make verify-patched-config` (after loading a world: every
 shipped patch element counted in the save's own `ConfigsDump`, attributed
