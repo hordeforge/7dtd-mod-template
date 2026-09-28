@@ -42,6 +42,8 @@ lint_gate() {
 		exit 1
 	fi
 
-	echo "$tool over ${#scripts[@]} tracked $noun"
+	# A status line, not a result: on stderr it leaves the tool's own findings
+	# as the only thing on stdout for a caller reading the report.
+	echo "$tool over ${#scripts[@]} tracked $noun" >&2
 	exec "$tool" "$@" "${scripts[@]}"
 }
