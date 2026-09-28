@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "template", "scripts", "lib"))
@@ -41,6 +42,28 @@ SECTION = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?\s*$")
 GROUP = re.compile(r"^### (?P<name>\S+)\s*$")
 SEMVER = re.compile(r"\d+\.\d+\.\d+")
 ENTRY = re.compile(r"^- \S")
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def is_calendar_date(value: object) -> bool:
+    """Whether `value` is a `YYYY-MM-DD` date naming a day the calendar has.
+
+    The shape is not the date. `2026-02-31`, `2026-13-01` and `2025-02-29`
+    are three two-digit fields each, and a release section dated with one of
+    them passes a reader who then cannot place the release in time, which is
+    the only reason the section carries a date. `date.fromisoformat` is the
+    platform's own parser, so the calendar rules (month lengths, and the leap
+    rule that makes 2024-02-29 a day and 2025-02-29 none) are not re-spelled
+    here and cannot drift from them.
+    """
+    if not isinstance(value, str) or not ISO_DATE.fullmatch(value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
 
 # An entry that moves the generated modlet's contract, rather than adding to
 # it, opens with `**Breaking for a mod <what the mod did>:**`, so a reader
@@ -120,8 +143,9 @@ def main() -> int:
         check(f"released-version-is-semver[{version}]",
               bool(SEMVER.fullmatch(version)), repr(version))
         check(f"released-version-has-a-date[{version}]",
-              bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(section["date"]))),
-              f"header line {section['line']} reads `## [{version}]` with no date")
+              is_calendar_date(section["date"]),
+              f"header line {section['line']} is not `## [{version}] - YYYY-MM-DD` "
+              f"with a day the calendar has")
         body = "\n".join(section["body"])  # type: ignore[arg-type]
         groups = [m["name"] for m in
                   (GROUP.match(line) for line in body.splitlines()) if m]

@@ -164,6 +164,20 @@ def check_containers(dump_dir: str) -> list[str]:
     return failures
 
 
+def newest_dump(candidates: list[str]) -> str:
+    """The most recently written of `candidates`.
+
+    `st_mtime_ns`, not `os.path.getmtime`: on a filesystem that records a
+    whole second per timestamp (or one whose clock resolution is coarser still
+    for a write that lands inside the same tick), two worlds loaded seconds
+    apart tie, and `max` on a tie keeps whichever path the glob yielded first
+    rather than either one in particular, so the check could read the world
+    loaded before the one the caller was looking at. The path is the second
+    key, which makes the answer the same on every run for the same tree.
+    """
+    return max(candidates, key=lambda path: (os.stat(path).st_mtime_ns, path))
+
+
 def find_dump(game_dir: str, save_name: str) -> str:
     """Newest ConfigsDump directory for the save, by mtime.
 
@@ -194,7 +208,7 @@ def find_dump(game_dir: str, save_name: str) -> str:
             "writes the dump on game start."
         )
     try:
-        return max(candidates, key=os.path.getmtime)
+        return newest_dump(candidates)
     except OSError as exc:
         raise VerifyError(f"cannot stat the ConfigsDump directories under {saves}: {exc}") from exc
 
