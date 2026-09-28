@@ -277,9 +277,9 @@ namespace __MOD_NAME__
 						return false;
 					}
 					// The token itself, not parsed.ToString(): a format string
-					// rounds, and this value is what TrySet parses, so a
-					// "0.#######" format turned the tunable 0.00000001 into
-					// "0" and silently changed the setting the file declares.
+					// rounds. This value is what TrySet parses, so a
+					// "0.#######" format turned 0.00000001 into "0" and
+					// silently changed the setting the file declares.
 					value = token;
 					return true;
 				}

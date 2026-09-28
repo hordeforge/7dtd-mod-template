@@ -124,9 +124,11 @@ core.
   `make lint-shell` is full-severity shellcheck, `make lint-py` is ruff
   over the mod's Python under the shipped `ruff.toml`.
 - **Install-dependent checks**: `make validate-xml` (every Config xpath
-  against the installed game), `make verify-patched-config` (every shipped
-  patch element proven applied from a loaded save's `ConfigsDump` — a patch
-  matching nothing applies silently), `make validate-patch-targets` (every
+  against the installed game), `make verify-patched-config` (every element
+  the mod's `Config/` *inserts* counted in a loaded save's `ConfigsDump` — a
+  patch matching nothing applies silently; `set`/`remove`/`csv` change a
+  matched node and contribute no new element, so prove those in game),
+  `make validate-patch-targets` (every
   `[HarmonyPatch]` target and injected parameter against the installed
   Assembly-CSharp via ilspycmd), and a dedicated-server lane
   (`make install-server` / `deploy-server` / `server-smoke`: SteamCMD

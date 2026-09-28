@@ -86,7 +86,9 @@ defect somebody already shipped. If a gate is genuinely wrong (asserts
 something the design has since changed), say so in the commit message and
 the deciding doc, and make it *stricter about the new truth*, never looser.
 
-Corollaries, each enforced by `scripts/test_rules_have_gates.py`:
+The first two corollaries below are each enforced by
+`scripts/test_rules_have_gates.py`; the last two are the discipline that
+gate cannot check for you.
 
 - A rule that has been broken gets a **gate**, not a paragraph: every
   AGENTS.md section that records a dated incident names the
@@ -235,9 +237,9 @@ Corrected 2026-09-28: `make validate-xml` listed `Config/` flat, so every
 patch under `Config/XUi_InGame/` was never opened and the target reported a
 clean run over a set it had not read. It now walks `Config/` the way the
 engine loads it, and `scripts/test_xml_gates.py` holds that (with the
-`Extends` walk in `scripts/lib/xml_extends.py`, which has no other caller: a
-chain that re-enters a name now raises rather than recursing to the
-interpreter limit).
+`Extends` walk in `scripts/lib/xml_extends.py`, whose only callers are the
+offline gates: a chain that re-enters a name now raises rather than recursing
+to the interpreter limit).
 
 ## Text conventions
 
@@ -274,10 +276,12 @@ for a human and is the one non-reproducible mode
 and the determinism gate that re-runs every gate twice take their
 parallelism from `OFFLINE_TEST_JOBS` (`1` runs them serially).
 Install-dependent checks: `make validate-xml` (every Config xpath against
-vanilla), `make verify-patched-config` (after loading a world: every
-shipped patch element counted in the save's own `ConfigsDump`, attributed
+vanilla), `make verify-patched-config` (after loading a world: every element the
+mod's `Config/` inserts counted in the save's own `ConfigsDump`, attributed
 to this mod, in its intended parent — the positive proof a clean log cannot
-give, since a patch matching nothing applies silently) and, for C# mods,
+give, since a patch matching nothing applies silently. It counts inserted
+elements only: `set`/`remove`/`csv` change a matched node and contribute
+none, so prove those in game) and, for C# mods,
 `make validate-patch-targets` (every `[HarmonyPatch]` target against the
 installed Assembly-CSharp) — run them after any config/patch change and
 after every game update. `scripts/lib/game_telnet.py` is the stdlib client

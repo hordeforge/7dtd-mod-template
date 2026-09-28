@@ -85,8 +85,9 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
 - the console command's `set` shares one name/value grammar with the file
   via `ModSettings.TrySet`, and changes the session only until the file is
   re-read
-- `ModSettings.Applied` fires after each apply — the hook for anything
-  that must react to changed values (synced CVars, a future settings UI)
+- `ModSettings.Applied` fires after each apply, and also on a reset to
+  defaults when the file is gone — the hook for anything that must react to
+  changed values (synced CVars, a future settings UI)
 
 In multiplayer the **server's copy is authoritative** for server-side
 behavior; when clients need the values, sync them explicitly (AtomicDoomsday

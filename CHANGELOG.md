@@ -76,9 +76,11 @@ modlet's contract rather than add to it.
   used to have the chain cut silently, which reported a broken patch as a
   working one; it now fails the gate with the chain named. An entry that
   extends *itself* still resolves, as the engine reads it.
-- One `.local.env` reader for the whole modlet (`load_local_env` in
-  `scripts/server-common.sh`). It tolerates CRLF files and fails on a file it
-  cannot parse, naming itself, where a `source` died on a `/dev/fd` path.
+- One `.local.env` reader for the shell lanes (`load_local_env` in
+  `scripts/server-common.sh`), with a Python counterpart in
+  `scripts/lib/local_env.py` for the targets written in Python. It tolerates
+  CRLF files and fails on a file it cannot parse, naming itself, where a
+  `source` died on a `/dev/fd` path.
   A mod carrying its own copy of a reader should take this one.
 - Settings hot-reload detects a change by file content, not by mtime and
   length, so an edit that preserves both applies.

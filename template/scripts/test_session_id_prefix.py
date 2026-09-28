@@ -6,7 +6,7 @@ holder. An upstream wrapper once hardcoded a family, so every run claimed
 the shared client under a family that was not the one running, and a
 session reading the lock was told the wrong holder.
 
-The prefix comes from the environment. `AGENTS.md`'s "Parallel-session IDs"
+The prefix comes from the environment. `AGENTS.md`'s "Parallel sessions"
 requires a real family per session; this gate only stops the wrapper from
 inventing one on everybody's behalf.
 """

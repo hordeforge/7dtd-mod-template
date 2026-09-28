@@ -20,7 +20,7 @@ OUTPUT
   PREFIX-UTC_TIMESTAMP-RANDOM_SUFFIX, on stdout.
 
 EXIT STATUS
-  0  the id was printed
+  0  the id was printed, or usage was shown
   2  wrong arguments, or PREFIX is not a lowercase word
 
 Use the generated value when claiming a TODO task. The ID records the active

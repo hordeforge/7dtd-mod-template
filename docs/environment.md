@@ -15,7 +15,7 @@ CONNECT_ROOT=""
 ASSET_PIPELINE_ROOT=""
 DOTNET_ROOT=""                   # toolchain locations, when not on PATH
 ILSPYCMD=""
-UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
+UNITY_EDITOR=""                  # optional; only for shamway's unity bundle lane
 SEVEN_DAYS_TO_DIE_SAVES_DIR=""   # Proton Saves/; derived from the game dir when empty
 ```
 
@@ -28,10 +28,13 @@ example does not list.
 
 An environment variable already set wins over `.local.env`, so a one-off
 `SEVEN_DAYS_TO_DIE_SERVER_DIR=/srv/7dtd make server-smoke` needs no file
-edit. `load_local_env` in `scripts/server-common.sh` is the one reader for
-that file, so the precedence is the same rule on every lane. A `.local.env`
-that cannot be parsed stops the target and names the file instead of dying on
-a `/dev/fd` path.
+edit. `load_local_env` in `scripts/server-common.sh` is the one reader every
+shell target uses, and `scripts/lib/local_env.py` is its Python counterpart
+for the three targets written in Python; the two agree on the rule that
+matters (a value already in the environment wins over the file) and differ on
+a set-but-empty one, which the shell reader treats as a win and the Python
+reader as unset. A `.local.env` that cannot be parsed stops the target and
+names the file instead of dying on a `/dev/fd` path.
 
 `new-mod.sh` writes this file at scaffold time, mode 0600. On a machine
 where it is missing, blank, or invalid: **ask the user for the absolute

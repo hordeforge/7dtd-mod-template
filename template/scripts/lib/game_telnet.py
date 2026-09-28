@@ -18,7 +18,8 @@ rather than all interfaces (`TelnetConsole`'s constructor:
 so a passwordless local console is not exposed off the machine. Setting a
 password therefore moves the listener to every interface while the transport
 stays unencrypted, so a non-loopback host is warned about on stderr and the
-password is redacted from any error it appears in.
+password is redacted from the one error that carries a line this client sent
+(a failed write out of `send_raw`).
 
 Standard library only — no telnetlib, which was removed in Python 3.13.
 """
@@ -153,9 +154,10 @@ class GameTelnet:
         except Exception:
             # The socket is open but the session never became usable, so
             # release it here: __exit__ does not run when __enter__ raised,
-            # and the CLI callers only close after connect() succeeded. Any
-            # exception type, not just TelnetError, or a decode error on the
-            # banner leaks the descriptor for the life of the process.
+            # and a caller that only closes after connect() returned has
+            # nothing to close. Any exception type, not just TelnetError, or a
+            # decode error on the banner leaks the descriptor for the life of
+            # the process.
             self.close()
             raise
 
@@ -204,9 +206,12 @@ class GameTelnet:
     def _drain(self, seconds: float) -> str:
         """Collect whatever arrives over a short window.
 
-        A closed connection ends the collection rather than raising: some
-        commands legitimately end the session — `shutdown` being the obvious
-        one — and their output should still be returned.
+        Any read failure ends the collection rather than raising, because the
+        commands that legitimately end the session (`shutdown` being the
+        obvious one) should still have their output returned. A transport
+        failure and a server hangup therefore end the window the same way, and
+        both leave the connection marked closed: nothing that follows can
+        recover a session whose reads have already failed.
         """
         end = time.monotonic() + seconds
         collected = ""
@@ -252,10 +257,12 @@ class GameTelnet:
     # -- commands ---------------------------------------------------------
 
     def run(self, command: str, settle: float = 0.8) -> str:
-        """Run a console command and return everything it printed.
+        """Run a console command and return its output.
 
-        The server echoes the command itself first; that echo is stripped so
-        the caller sees only the output.
+        Three kinds of line are dropped rather than returned: blank lines, the
+        server's echo of the command itself, and the engine's own
+        `Executing command` notice. Nothing re-derives them, so a caller
+        needing the raw stream has to read it itself.
         """
         self._drain(0.1)
         self.send_raw(command)

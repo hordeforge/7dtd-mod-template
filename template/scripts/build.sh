@@ -58,12 +58,13 @@ cp "$ROOT/ModInfo.xml" "$OUT/ModInfo.xml"
 # the player-facing release readme (game version, EAC, Harmony, install)
 cp "$ROOT/README.txt" "$OUT/README.txt"
 # the release notes, so the shipped zip says what this version changed
-# (scripts/test_static_checks.py gates that the mod keeps one
+# (scripts/test_static_checks.py gates that the mod keeps one CHANGELOG.md
+# with a section for the version ModInfo.xml declares)
 cp "$ROOT/CHANGELOG.md" "$OUT/CHANGELOG.md"
 # Localization ships inside Config/: the engine reads a mod's localization
 # only from <mod>/Config/Localization.csv (ModManager passes mod.Path +
 # "/Config" to Localization.LoadPatchDictionaries).
-for entry in Config Prefabs Resources UIAtlases WebMod; do
+for entry in Config Prefabs Resources UI UIAtlases WebMod; do
 	if [[ -e "$ROOT/$entry" ]]; then
 		cp -R "$ROOT/$entry" "$OUT/$entry"
 	fi

@@ -166,7 +166,11 @@ def check_containers(dump_dir: str) -> list[str]:
 
 
 def find_dump(game_dir: str, save_name: str) -> str:
-    saves = os.environ.get("SEVEN_DAYS_TO_DIE_SAVES_DIR")
+    # Through the shared reader, not os.environ: the key is documented as a
+    # .local.env key, and reading the process environment alone silently
+    # ignored a value recorded in that file, falling back to the derived
+    # Proton path and reporting a save that was never checked.
+    saves = local_env.value(Path(MOD_DIR), "SEVEN_DAYS_TO_DIE_SAVES_DIR")
     if not saves:
         if "/steamapps/common/" not in game_dir:
             raise VerifyError("cannot derive the saves directory; set SEVEN_DAYS_TO_DIE_SAVES_DIR.")

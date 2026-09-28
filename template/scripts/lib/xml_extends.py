@@ -10,11 +10,12 @@ The walk mirrors what the static checks need of the game's Extends
 semantics: a mod entry may extend another mod entry or a vanilla one, pools
 are searched in order, and `Extends`'s `param1` is an exclusion list that
 removes inherited scalar properties *and* whole `<property class=...>`
-blocks by name (verified against the game engine).
+blocks, each named by its own key: a scalar by its `name`, a class block by
+its `class` (verified against the game engine).
 
 An `Extends` chain that re-enters a name is a config defect, not a walk to
-follow: `resolve` stops at the entry that closes the cycle instead of
-recursing until the interpreter gives up.
+follow: `resolve` raises `ExtendsCycle` naming the chain instead of recursing
+until the interpreter gives up.
 """
 
 from __future__ import annotations
@@ -70,8 +71,9 @@ def own_classes(node: ET.Element) -> dict[str, dict[str, str]]:
 def parent_of(node: ET.Element) -> tuple[str | None, set[str]]:
     """(name this entry extends, names its `param1` refuses to inherit).
 
-    `param1` excludes whole `<property class=...>` blocks by name as well as
-    scalar properties.
+    `param1` excludes whole `<property class=...>` blocks as well as scalar
+    properties, and the two are named by different keys: a scalar by its
+    `name`, a class block by its `class`.
     """
     for child in node:
         if child.tag == "property" and child.get("name") == "Extends":
@@ -101,6 +103,12 @@ def resolve(
     An entry that extends *itself* is the one chain that resolves: the engine
     reads that as the entry's own declaration, not as a loop, so that case
     still resolves.
+
+    An `Extends` naming an entry no pool holds stops the walk and contributes
+    nothing, so the chain resolves to whatever was inherited up to that point.
+    A typo'd parent is left to `make validate-xml` and the installed game to
+    report: the pools here are only what the mod's own patch files declare, so
+    a vanilla parent this tree never read is indistinguishable from a typo.
     """
     chain: list[tuple[ET.Element, set[str]]] = []
     path: list[str] = []

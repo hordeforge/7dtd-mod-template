@@ -32,7 +32,9 @@ namespace __MOD_NAME__
 		/// <summary>Example setting; replace with this mod's real options.</summary>
 		public static bool ExampleEnabled { get; private set; } = ExampleEnabledDefault;
 
-		/// <summary>Raised after a file read applied values (startup or reload).</summary>
+		/// <summary>Raised after values were (re)applied, from a file read or
+		/// from a reset to defaults because the file is gone. A reset is not a
+		/// read: subscribers see the shipped defaults here.</summary>
 		public static event Action Applied;
 
 		public const float FilePollIntervalSeconds = 0.25f;

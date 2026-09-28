@@ -8,8 +8,9 @@
 # mtime is pinned to SOURCE_DATE_EPOCH, permissions are normalized, and -X drops
 # the extra fields carrying uid/gid.
 #
-# SOURCE_DATE_EPOCH: taken from the environment when set, otherwise the last
-# commit's timestamp, otherwise a fixed constant (a copy outside git).
+# SOURCE_DATE_EPOCH: taken from the environment when set, otherwise .local.env,
+# otherwise the last commit's timestamp, otherwise a fixed constant (a copy
+# outside git).
 #
 # Usage: scripts/package.sh   (after scripts/build.sh staged dist/<Name>/)
 set -euo pipefail
@@ -24,6 +25,12 @@ STAGE="$ROOT/dist/$MOD_NAME"
 ARCHIVE="$ROOT/dist/$MOD_NAME.zip"
 # 2016-01-01T00:00:00Z, used when neither the environment nor git supplies a time.
 FALLBACK_EPOCH=1451606400
+
+# shellcheck source=server-common.sh
+source "$ROOT/scripts/server-common.sh"
+# SOURCE_DATE_EPOCH is a documented .local.env key, so the file is read before
+# the timestamp is resolved; an already-set value in the environment wins.
+load_local_env "$ROOT"
 
 # Info-ZIP writes DOS timestamps in local time and sorts in collation order,
 # so a non-UTC or non-C environment alone changes the archive bytes.

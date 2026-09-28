@@ -8,8 +8,10 @@
 #
 # The tests are independent processes writing only into their own temporary
 # directories, so they are run concurrently; results are collected and
-# reported in glob order either way. OFFLINE_TEST_JOBS=1 restores the serial
-# walk (same knob scripts/test_rules_have_gates.py honours).
+# reported in glob order either way, with each test's own output replayed
+# after its PASS/FAIL line. OFFLINE_TEST_JOBS=1 restores the serial walk,
+# which reports the same lines in the same order (same knob
+# scripts/test_rules_have_gates.py honours).
 #
 # The report carries no wall-clock reading, so two runs over an unchanged tree
 # print byte-identical stdout — the property AGENTS.md requires of a gate, and
@@ -28,6 +30,22 @@ source "$(dirname "$0")/lib/require-bash.sh"
 require_bash
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MOD_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Read one key out of .local.env without exporting it. OFFLINE_TEST_JOBS and
+# OFFLINE_TEST_TIMINGS are documented .local.env keys, so they have to be
+# settable there, but this runner spawns every gate: load_local_env would put
+# the modlet's whole machine-local configuration into the environment of each
+# one, so a gate that deliberately reads an unset key would see it set by its
+# own caller. Two keys read narrowly instead of a whole file exported wide.
+local_env_value() { # local_env_value <key>
+	local file value
+	file="$MOD_DIR/.local.env"
+	[[ -f "$file" ]] || return 0
+	value="$(sed -n -e 's/\r$//' -e "s/^[[:space:]]*${1}=//p" "$file" | tail -n 1)"
+	[[ "$value" == \"*\" ]] && value="${value:1:${#value} - 2}"
+	printf '%s' "$value"
+}
 
 # Elapsed time is measured on a monotonic clock. `date +%s` is the wall
 # clock: an NTP step or a manual clock change during a run reports a negative
@@ -70,6 +88,9 @@ for test_script in "$SCRIPT_DIR"/test_*.py; do
 done
 
 max_jobs=${OFFLINE_TEST_JOBS:-}
+if [[ -z "$max_jobs" ]]; then
+	max_jobs="$(local_env_value OFFLINE_TEST_JOBS)"
+fi
 if [[ ! "$max_jobs" =~ ^[1-9][0-9]*$ ]]; then
 	max_jobs=$(nproc 2>/dev/null || printf '8')
 	(( max_jobs > 8 )) && max_jobs=8
@@ -77,18 +98,25 @@ fi
 
 # Elapsed seconds are the one value in the report that cannot replay, so they
 # are opt-in rather than always printed.
-timings=${OFFLINE_TEST_TIMINGS:-0}
+timings=${OFFLINE_TEST_TIMINGS:-}
+if [[ -z "$timings" ]]; then
+	timings="$(local_env_value OFFLINE_TEST_TIMINGS)"
+fi
 [[ "$timings" == 1 ]] || timings=0
 
 # Global, not local: the EXIT trap must still see it after run_parallel returns.
 tmpdir=""
 
 run_serial() {
-	local test_script name start status elapsed
+	local test_script name start status elapsed out err
+	tmpdir="$(mktemp -d)"
+	trap 'rm -rf "$tmpdir"' EXIT
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
+		out="$tmpdir/$name.out"
+		err="$tmpdir/$name.err"
 		start=$(now_seconds)
-		if python3 "$test_script"; then
+		if python3 "$test_script" >"$out" 2>"$err"; then
 			status=0
 		else
 			status=$?
@@ -101,6 +129,12 @@ run_serial() {
 			printf 'FAIL %s (exit %s)%s\n' "$name" "$status" "$elapsed"
 			failed+=("$name")
 		fi
+		# Captured and replayed, exactly as run_parallel does, so a serial run
+		# reports the same lines in the same order as a parallel one. Sent
+		# straight to the terminal instead, a test's own output landed ahead of
+		# its PASS line and only in this mode.
+		cat "$out"
+		cat "$err" >&2
 		ran=$((ran + 1))
 	done
 }

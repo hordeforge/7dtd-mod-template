@@ -50,7 +50,8 @@ Escalating a layer is an architecture decision: record it (ADR).
 ## C#/Harmony (§7, §8)
 
 - Target **net48**; reference `Assembly-CSharp`, `UnityEngine.CoreModule`,
-  and the game's `0Harmony.dll` with `Private=false`; never ship vanilla
+  `LogLibrary` (the game logger `Log.Out` lives in its own assembly) and the
+  game's `0Harmony.dll`, the last with `Private=false`; never ship vanilla
   assemblies. Rebuild against *this install's* Managed after every update.
 - Entry point `IModApi.InitMod` — fast and defensive; log under a clear
   `[<ModName>]` prefix; fail soft per feature (one missing Harmony target

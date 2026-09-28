@@ -59,6 +59,14 @@ load_local_env() {
 	done
 }
 
+# load_server_environment
+#
+# Set the globals the server-*.sh callers read ($ROOT, $SERVER_DIR,
+# $SERVER_CONFIG) from SEVEN_DAYS_TO_DIE_SERVER_DIR, loading .local.env
+# first when the environment has no value. Sets them in the caller's shell
+# rather than exporting them: they are the caller's own names, not the
+# process environment's. Exits 1 naming the offending value when the server
+# directory is missing, relative, or too shallow to deploy into.
 load_server_environment() {
 	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 	SERVER_DIR="${SEVEN_DAYS_TO_DIE_SERVER_DIR:-}"
@@ -96,6 +104,15 @@ load_server_environment() {
 	fi
 }
 
+# resolve_steamcmd
+#
+# Set $STEAMCMD_BIN to the first SteamCMD that exists, in this order:
+# SEVEN_DAYS_TO_DIE_STEAMCMD, `steamcmd` on PATH, then steamcmd.sh under
+# SEVEN_DAYS_TO_DIE_STEAMCMD_DIR (default ~/.local/share/steamcmd). A
+# SEVEN_DAYS_TO_DIE_STEAMCMD that is set but not executable is skipped like
+# a missing one, so the next tier can still answer; the failure it was
+# meant to be is reported only when no tier produces a binary. Exits 1 when
+# none does.
 resolve_steamcmd() {
 	if [[ -n "${SEVEN_DAYS_TO_DIE_STEAMCMD:-}" && -x "$SEVEN_DAYS_TO_DIE_STEAMCMD" ]]; then
 		STEAMCMD_BIN="$SEVEN_DAYS_TO_DIE_STEAMCMD"

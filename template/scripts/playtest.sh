@@ -18,6 +18,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# .local.env holds PLAYTEST_ROOT, PLAYTEST_SUITE and PLAYTEST_SUITE_FILE, so
+# it is loaded before any of them is read and unconditionally: loading is
+# skipped for a key already in the environment, and loading it only when
+# PLAYTEST_ROOT happened to be unset left the other two documented keys
+# unreachable from the file. Nothing here needs a suite to be named, so a
+# `.local.env` that cannot be parsed is still reported.
+# shellcheck source=server-common.sh
+source "$SCRIPT_DIR/server-common.sh"
+load_local_env "$ROOT"
+
 suite="${1:-${SUITE:-${PLAYTEST_SUITE:-}}}"
 if (($#)); then
 	shift
@@ -27,12 +37,6 @@ if [[ -z "$suite" ]]; then
 	exit 2
 fi
 
-# .local.env holds PLAYTEST_ROOT; the environment wins when it is already set.
-if [[ -z "${PLAYTEST_ROOT:-}" ]]; then
-	# shellcheck source=server-common.sh
-	source "$SCRIPT_DIR/server-common.sh"
-	load_local_env "$ROOT"
-fi
 if [[ -z "${PLAYTEST_ROOT:-}" ]]; then
 	echo "ERROR: set PLAYTEST_ROOT in .local.env (or the environment)." >&2
 	exit 1

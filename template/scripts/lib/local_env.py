@@ -38,6 +38,8 @@ def value(root: Path, key: str) -> str | None:
     # utf-8-sig, not utf-8: a file saved by a Windows editor opens with a BOM,
     # which as a leading U+FEFF made the first key unmatchable and the value
     # read as unset. The BOM is stripped here; the rest still has to be UTF-8.
+    # First match wins, so a key written twice in this file takes its earlier
+    # value; a dotenv reader that took the last assignment would disagree here.
     for line in env_file.read_text(encoding="utf-8-sig").splitlines():
         if not line.startswith(key + "="):
             continue
