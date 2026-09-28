@@ -47,6 +47,8 @@ jobs:
       - name: Shellcheck
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-shell
       - name: Install ruff
+        # pinned: a floating ruff changes which findings the gate reports, so
+        # the gate would start failing on an unchanged tree
         run: pipx install "ruff==$RUFF_VERSION"
       - name: Ruff
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-py
@@ -60,3 +62,7 @@ jobs:
           rm -rf src   # DLL build needs a game install; prove the packaging path without it
           make package
           unzip -l dist/CiSmoke.zip | grep -q "CiSmoke/ModInfo.xml"
+      - name: Reproducible package
+        # the same source, zipped from a foreign path, locale, and timezone,
+        # has to be the same bytes
+        run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" verify-reproducible

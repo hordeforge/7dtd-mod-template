@@ -7,7 +7,7 @@ ROOT := $(CURDIR)
 # a recipe that dies mid-way must not leave a half-written target behind
 .DELETE_ON_ERROR:
 
-.PHONY: help build package test lint-shell lint-py validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
+.PHONY: help build package verify-reproducible test lint-shell lint-py validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
 
 help:
 	@echo "Offline gates (no game install needed; run these before every commit):"
@@ -19,6 +19,7 @@ help:
 	@echo "Modlet build (needs the game install in .local.env, plus a dotnet SDK for C#):"
 	@echo "  make build                   stage dist/__MOD_NAME__/"
 	@echo "  make package                 dist/__MOD_NAME__.zip, extracts to Mods/__MOD_NAME__/ModInfo.xml"
+	@echo "  make verify-reproducible     the same zip from three environments, byte for byte"
 	@echo ""
 	@echo "Install-dependent gates (need .local.env):"
 	@echo "  make validate-xml            every Config xpath against the installed game"
@@ -69,6 +70,13 @@ build:
 # SOURCE_DATE_EPOCH timestamps, no uid/gid extra fields.
 package: build
 	$(ROOT)/scripts/package.sh
+
+# Zip the modlet three times — git fallback, explicit epoch, and a copy at
+# another absolute path under a foreign locale and timezone — and require the
+# three archives to be identical. The reproducibility claim in README.md and
+# AGENTS.md is checked here rather than asserted.
+verify-reproducible:
+	$(ROOT)/scripts/verify-reproducible.sh
 
 # Every Config/**/*.xml xpath checked against the installed game's vanilla
 # files (needs .local.env; not part of the offline suite).

@@ -25,7 +25,7 @@ make server-smoke           # deploy + boot the server briefly, prove the mod lo
 Host tools: `bash` 4.4+ (checked by `scripts/lib/require-bash.sh`; macOS ships
 3.2 as its system bash, so install a current one with `brew install bash`),
 `python3` 3.9+ (the floor `ruff.toml` pins), `git`, `make`, `shellcheck`,
-`ruff`, `zip`; a .NET SDK (`dotnet`
+`ruff` (0.16.4, the version CI pins), `zip`; a .NET SDK (`dotnet`
 on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.
@@ -39,9 +39,12 @@ failures worth reading before they are accepted.
 `make package` is reproducible: entries go in sorted order with
 `SOURCE_DATE_EPOCH` timestamps, so the same source yields the same bytes
 regardless of build path, locale, or timezone. Export `SOURCE_DATE_EPOCH` to
-override the default (last git commit, else a fixed constant). The C# project
-pins the SDK floor in `global.json` and maps build paths out of the DLL
-(`PathMap`), so the DLL does not change with the build directory.
+override the default (last git commit, else a fixed constant).
+`make verify-reproducible` packages the mod three times and compares the
+archives, so the claim is checked rather than asserted. The C# project pins
+the SDK to the 8.0.1xx feature band in `global.json` and maps build paths out
+of the DLL (`PathMap`), so the DLL does not change with the build directory or
+with a newer SDK installed on the host.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.

@@ -44,8 +44,14 @@ if [[ -d "$SRC" ]]; then
 		echo "       install, including a dotnet under ~/.dotnet, shows up here)." >&2
 		exit 1
 	}
-	dotnet build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
-		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
+	# dotnet resolves global.json (the SDK pin) from the working directory,
+	# not from the project path it was handed: run from anywhere else and the
+	# pin is skipped and whatever SDK the host has newest is used instead.
+	(
+		cd "$ROOT"
+		dotnet build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
+			-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
+	)
 fi
 
 cp "$ROOT/ModInfo.xml" "$OUT/ModInfo.xml"

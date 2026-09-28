@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <LangVersion>latest</LangVersion>
+    <!-- a version, not "latest": the C# language version moves with the SDK
+         major, so "latest" makes the same source compile differently on a
+         host with a newer SDK installed -->
+    <LangVersion>12.0</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>__MOD_NAME__</AssemblyName>

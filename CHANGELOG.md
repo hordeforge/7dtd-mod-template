@@ -34,6 +34,11 @@ modlet's contract rather than add to it.
   first line of `README.txt` has to name the same value, and
   `scripts/test_static_checks.py` fails the offline gates when the three
   disagree. The changelog ships in the package next to `README.txt`.
+- `make verify-reproducible` packages the modlet three times, the last from a
+  copy at another absolute path with no git checkout, under a locale and
+  timezone that are not C/UTC, and fails unless the three archives are
+  byte-identical. CI runs it, so the reproducibility the docs claim is checked
+  rather than asserted.
 - The dedicated-server lane provisions with a mod-owned EAC-off
   `serverconfig`, and the server smoke boot is bounded.
 - A `Makefile` at the template repo root: `make check` runs the whole CI
@@ -65,8 +70,11 @@ modlet's contract rather than add to it.
   `SOURCE_DATE_EPOCH` timestamps, normalized permissions, no extra fields.
   The same source yields the same bytes on any host, so a rebuild no longer
   changes a published zip's checksum. Export `SOURCE_DATE_EPOCH` to pin the
-  time yourself. `global.json` pins the SDK floor and `PathMap` keeps the DLL
-  independent of the build directory.
+  time yourself. `global.json` pins the SDK to the 8.0.1xx feature band and
+  `PathMap` keeps the DLL independent of the build directory. The C#
+  `LangVersion` is a version rather than `latest`, which moved with the SDK
+  major, and `scripts/build.sh` builds from the mod root so `dotnet` finds
+  that pin whatever directory it was invoked from.
 - A rerun of `new-mod.sh` over the same target is safe: the mod is built in a
   staging directory and moved into place as the last step, so an interrupted
   run leaves nothing half-written for the next one to refuse.

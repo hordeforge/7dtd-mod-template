@@ -209,8 +209,11 @@ This directory itself is the modlet — the deployable unit. Mod content
 stages the deployable modlet under `dist/__MOD_NAME__/`; `make package`
 zips it with `scripts/package.sh`, which fixes entry order, timestamps
 (`SOURCE_DATE_EPOCH`, else the last commit), and permissions, so the same
-source always produces the same archive. Never nest
-deployable content under a further subfolder.
+source always produces the same archive. `make verify-reproducible`
+(`scripts/verify-reproducible.sh`) is the proof: it zips the mod three
+times, the last one from a copy at another absolute path under a foreign
+locale and timezone, and fails unless all three archives are byte-identical.
+Never nest deployable content under a further subfolder.
 
 ## XML conventions
 
