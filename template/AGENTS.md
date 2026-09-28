@@ -252,6 +252,13 @@ hordeforge/7dtd-playtest (see that repo's README "one concern"):
 make playtest SUITE=<one-id>
 ```
 
+That target is the mod's own, added to its Makefile in the same change that
+ships the first live suite: a thin wrapper that execs the hordeforge/7dtd-playtest
+runner from `$PLAYTEST_ROOT` with the mod's own suite file
+(`docs/reference/sibling-tooling.md`). The template ships no such target, so a
+mod with no live suite yet has no `playtest` rule — that is expected, not a
+broken build.
+
 Several unrelated features: separate invocations, not
 `SUITE=a,b`. `PLAYTEST_SUITE` comma-lists are refused unless declared
 as consecutive steps of one feature (`--concern-suites` /

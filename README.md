@@ -26,8 +26,9 @@ cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ```
 
 Then, in the generated mod: `make test` and `make lint-shell` are green out
-of the box; `make build` / `make package` produce the deployable modlet
-(build needs the game install recorded in `.local.env`).
+of the box, and `make help` lists every target. `make build` / `make package`
+produce the deployable modlet; they need the game install recorded in
+`.local.env` and, for a C# mod, a .NET SDK on `PATH`.
 
 One run does the whole setup:
 

@@ -30,6 +30,15 @@ if [[ -d "$SRC" ]]; then
 	[[ -f "$MANAGED/Assembly-CSharp.dll" ]] || { echo "ERROR: Assembly-CSharp.dll not found under $MANAGED." >&2; exit 1; }
 	[[ -f "$HARMONY" ]] || { echo "ERROR: stock 0_TFP_Harmony/0Harmony.dll not found in the game install." >&2; exit 1; }
 	command -v dotnet >/dev/null 2>&1 || { echo "ERROR: dotnet not found; required to build the net48 mod DLL." >&2; exit 1; }
+	# `dotnet` on PATH is not a build: a runtime-only or SDK-less install
+	# resolves the command and then fails deep inside dotnet's own output.
+	# Probe for a usable SDK here and name the fix.
+	dotnet --list-sdks 2>/dev/null | grep -q . || {
+		echo "ERROR: dotnet is on PATH but no .NET SDK is installed ('dotnet --list-sdks' is empty), so the mod DLL cannot be built." >&2
+		echo "       Install an SDK, or point DOTNET_ROOT in .local.env at one (an SDK-less" >&2
+		echo "       install, including a dotnet under ~/.dotnet, shows up here)." >&2
+		exit 1
+	}
 	dotnet build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
 		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
 fi

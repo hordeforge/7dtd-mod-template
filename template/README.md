@@ -21,9 +21,10 @@ make install-server         # provision the dedicated server via SteamCMD (EAC o
 make server-smoke           # deploy + boot the server briefly, prove the mod loaded
 ```
 
-Host tools: `python3`, `git`, `make`, `shellcheck`, `zip`; `dotnet` (net48
-build) for C# mods, `ilspycmd` (`dotnet tool install -g ilspycmd`) for
-patch-target validation, `steamcmd` for the dedicated-server lane.
+Host tools: `python3`, `git`, `make`, `shellcheck`, `zip`; a .NET SDK (`dotnet`
+on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
+(`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
+for the dedicated-server lane. `make help` lists every target.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.
@@ -43,6 +44,11 @@ One invocation is one concern: one suite id.
 ```bash
 make playtest SUITE=<one-id>
 ```
+
+`playtest` is a target this mod adds to its Makefile together with its first
+live suite (a thin wrapper over the runner in `$PLAYTEST_ROOT`, with this
+mod's suite file — see [`AGENTS.md`](AGENTS.md) "One concern per playtest
+run"). A mod with no live suite yet has no such target.
 
 Do not comma-list unrelated ids on `SUITE=` / `PLAYTEST_SUITE`. Several
 features are several invocations. A prefab in the camera (`*_look`) and
