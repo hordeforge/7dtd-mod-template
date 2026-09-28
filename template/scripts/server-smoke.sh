@@ -19,6 +19,13 @@ if ! [[ "$RUN_FOR_SECONDS" =~ ^[0-9]+$ ]] || (( RUN_FOR_SECONDS < 1 )); then
 	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS must be a positive integer." >&2
 	exit 1
 fi
+# Checked here, not only inside prune_smoke_logs: a typo'd value is a no-op
+# there, and the run it fails to prune is the one that grows logs/ without
+# bound, once per smoke run, forever.
+if ! [[ "$KEEP_LOGS" =~ ^[0-9]+$ ]]; then
+	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS must be a non-negative integer, got '$KEEP_LOGS'." >&2
+	exit 1
+fi
 command -v timeout >/dev/null 2>&1 || { echo "ERROR: timeout is required." >&2; exit 1; }
 if [[ ! -x "$SERVER_BIN" ]]; then
 	echo "ERROR: dedicated server binary not found in $SERVER_DIR. Run make install-server first." >&2

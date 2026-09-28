@@ -8,6 +8,7 @@ set -euo pipefail
 export LC_ALL=C
 export TZ=UTC
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MOD_NAME="__MOD_NAME__"
 OUT="$ROOT/dist/$MOD_NAME"
@@ -18,12 +19,11 @@ mkdir -p "$OUT"
 
 if [[ -d "$SRC" ]]; then
 	GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
-	if [[ -z "$GAME_DIR" && -f "$ROOT/.local.env" ]]; then
+	if [[ -z "$GAME_DIR" ]]; then
 		# The ignored file is the documented machine-local game reference.
-		set -a
-		# shellcheck disable=SC1090,SC1091
-		source "$ROOT/.local.env"
-		set +a
+		# shellcheck source=server-common.sh
+		source "$SCRIPT_DIR/server-common.sh"
+		load_local_env "$ROOT"
 		GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
 	fi
 	if [[ -z "$GAME_DIR" ]]; then

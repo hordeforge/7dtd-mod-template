@@ -15,6 +15,7 @@
 # 2 no suite was named.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 suite="${1:-${SUITE:-${PLAYTEST_SUITE:-}}}"
@@ -27,11 +28,10 @@ if [[ -z "$suite" ]]; then
 fi
 
 # .local.env holds PLAYTEST_ROOT; the environment wins when it is already set.
-if [[ -z "${PLAYTEST_ROOT:-}" && -f "$ROOT/.local.env" ]]; then
-	set -a
-	# shellcheck disable=SC1090,SC1091
-	source "$ROOT/.local.env"
-	set +a
+if [[ -z "${PLAYTEST_ROOT:-}" ]]; then
+	# shellcheck source=server-common.sh
+	source "$SCRIPT_DIR/server-common.sh"
+	load_local_env "$ROOT"
 fi
 if [[ -z "${PLAYTEST_ROOT:-}" ]]; then
 	echo "ERROR: set PLAYTEST_ROOT in .local.env (or the environment)." >&2

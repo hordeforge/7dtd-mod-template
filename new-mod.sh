@@ -64,8 +64,34 @@ CONF="$1"
 name="" display_name="" author="" purpose="" target_dir=""
 hordeforge_root="" csharp="no" assets="no" clone="yes"
 game_dir="" server_dir="" unity_editor=""
+# Every key this scaffolder reads. The config is sourced, so a key that is
+# misspelled is not an error anywhere: it would set a variable nothing reads
+# and the run would quietly take the default for it.
+KNOWN_KEYS="name display_name author purpose target_dir hordeforge_root csharp assets clone game_dir server_dir unity_editor"
+while read -r conf_key; do
+	[[ -z "$conf_key" ]] && continue
+	case " $KNOWN_KEYS " in
+		*" $conf_key "*) ;;
+		*)
+			echo "ERROR: unknown key '$conf_key' in $CONF; known keys: $KNOWN_KEYS" >&2
+			exit 2
+			;;
+	esac
+done < <(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$CONF")
 # shellcheck disable=SC1090
 source "$CONF"
+
+# A yes/no key with any other value takes the else branch and scaffolds a mod
+# that is quietly missing a feature, or a server that is never installed.
+for flag in csharp assets clone; do
+	case "${!flag}" in
+		yes|no) ;;
+		*)
+			echo "ERROR: $flag must be 'yes' or 'no' in $CONF, got '${!flag}'." >&2
+			exit 2
+			;;
+	esac
+done
 
 ask() { # ask <varname> <prompt>
 	local var="$1" prompt="$2" value
@@ -137,6 +163,12 @@ if [[ -z "$game_dir" ]]; then
 		read -r -p "7 Days To Die client install dir (empty to configure later): " game_dir
 	fi
 fi
+# Every path the config may carry, expanded the same way before anything
+# reads it: a literal "~" written into .local.env is a directory that does not
+# exist, and the failure surfaces later as a missing DLL, not as a bad path.
+game_dir="${game_dir/#\~/$HOME}"
+server_dir="${server_dir/#\~/$HOME}"
+unity_editor="${unity_editor/#\~/$HOME}"
 if [[ -n "$game_dir" && ! -f "$game_dir/Data/Config/items.xml" ]]; then
 	echo "WARN: $game_dir has no Data/Config/items.xml; recorded anyway — fix .local.env before building." >&2
 fi
@@ -258,17 +290,28 @@ PYEOF
 for repo_var in PLAYTEST_ROOT:7dtd-playtest CONNECT_ROOT:7dtd-fastconnect ASSET_PIPELINE_ROOT:7dtd-asset-pipeline; do
 	printf -v "${repo_var%%:*}" '%s' "$hordeforge_root/${repo_var#*:}"
 done
+# The targets source this file, so a value carrying a quote, a dollar or a
+# backtick would be re-interpreted as shell rather than read back as the path
+# the user gave.
+local_env_value() { # local_env_value <value>
+	local v="$1"
+	v="${v//\\/\\\\}"
+	v="${v//\"/\\\"}"
+	v="${v//\$/\\\$}"
+	v="${v//\`/\\\`}"
+	printf '%s' "$v"
+}
 cat > "$MOD_DIR/.local.env" <<LOCALEOF
 # Machine-local path inventory (never commit; format: .local.env.example).
-SEVEN_DAYS_TO_DIE_DIR="$game_dir"
-SEVEN_DAYS_TO_DIE_SERVER_DIR="$server_dir"
-HORDEFORGE_ROOT="$hordeforge_root"
-PLAYTEST_ROOT="$PLAYTEST_ROOT"
-CONNECT_ROOT="$CONNECT_ROOT"
-ASSET_PIPELINE_ROOT="$ASSET_PIPELINE_ROOT"
+SEVEN_DAYS_TO_DIE_DIR="$(local_env_value "$game_dir")"
+SEVEN_DAYS_TO_DIE_SERVER_DIR="$(local_env_value "$server_dir")"
+HORDEFORGE_ROOT="$(local_env_value "$hordeforge_root")"
+PLAYTEST_ROOT="$(local_env_value "$PLAYTEST_ROOT")"
+CONNECT_ROOT="$(local_env_value "$CONNECT_ROOT")"
+ASSET_PIPELINE_ROOT="$(local_env_value "$ASSET_PIPELINE_ROOT")"
 DOTNET_ROOT=""
-ILSPYCMD="$(command -v ilspycmd || true)"
-UNITY_EDITOR="$unity_editor"
+ILSPYCMD="$(local_env_value "$(command -v ilspycmd || true)")"
+UNITY_EDITOR="$(local_env_value "$unity_editor")"
 LOCALEOF
 # 0600: the file names this account's home and install directories, which the
 # default 0644 would leave readable by every other account on the machine.

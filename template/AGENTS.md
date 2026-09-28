@@ -180,7 +180,12 @@ ASSET_PIPELINE_ROOT="/absolute/checkout/7dtd-asset-pipeline"
 DOTNET_ROOT="/absolute/dotnet/sdk"
 ILSPYCMD="/absolute/ilspycmd"
 UNITY_EDITOR="/absolute/Unity"
+SEVEN_DAYS_TO_DIE_SAVES_DIR="/absolute/proton/saves"
 ```
+
+`.local.env.example` is the full inventory: these path keys plus every
+non-path knob the scripts read, each with its valid values. A key already set
+in the environment wins over the file.
 
 Never commit the file or copy its absolute values into tracked files;
 `scripts/test_local_path_inventory.py` enforces the documented keys and the

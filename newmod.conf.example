@@ -3,6 +3,9 @@
 # Any config filename works (nothing is hardcoded); keep one-off configs
 # out of git via the *.local.conf ignore pattern, or commit reusable
 # presets. Missing required keys are prompted for interactively.
+# An unknown key here is an error, and so is a yes/no key holding anything
+# other than "yes" or "no": a typo would otherwise scaffold a mod that is
+# quietly missing the feature the key asks for.
 
 # Required
 name=""              # modlet id: alphanumeric, becomes the directory and ModInfo Name
@@ -24,3 +27,6 @@ unity_editor=""      # FULLY optional; leave empty. Path to the game-matched Uni
                      # lane — its default synthesized lane builds complete bundles
                      # (textures, audio, text, meshes, materials, prefabs) with
                      # no editor at all
+
+# Every path above accepts "~" as your home directory and is expanded before
+# it is written into the new mod's .local.env.

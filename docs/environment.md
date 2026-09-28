@@ -16,10 +16,22 @@ ASSET_PIPELINE_ROOT=""
 DOTNET_ROOT=""                   # toolchain locations, when not on PATH
 ILSPYCMD=""
 UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
+SEVEN_DAYS_TO_DIE_SAVES_DIR=""   # Proton Saves/; derived from the game dir when empty
 ```
 
-`.local.env.example` is the commented inventory of the same keys, and
-`scripts/test_local_path_inventory.py` fails if one goes undocumented.
+`.local.env.example` is the commented inventory of the same keys plus every
+other environment knob the scripts read (the server lane, `make playtest`,
+`make test`, `make package`), each with its valid values.
+`scripts/test_local_path_inventory.py` fails if a path key goes undocumented,
+and `scripts/test_env_inventory.py` fails if any script reads a key the
+example does not list.
+
+An environment variable already set wins over `.local.env`, so a one-off
+`SEVEN_DAYS_TO_DIE_SERVER_DIR=/srv/7dtd make server-smoke` needs no file
+edit. `load_local_env` in `scripts/server-common.sh` is the one reader for
+that file, so the precedence is the same rule on every lane. A `.local.env`
+that cannot be parsed stops the target and names the file instead of dying on
+a `/dev/fd` path.
 
 `new-mod.sh` writes this file at scaffold time, mode 0600. On a machine
 where it is missing, blank, or invalid: **ask the user for the absolute
