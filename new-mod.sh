@@ -30,7 +30,8 @@ Scaffold a new 7 Days To Die mod from template/.
 arguments:
   <config-file>  shell key=value config, see newmod.conf.example. Missing
                  required keys are prompted for on a tty and fail the run
-                 without one.
+                 without one. A prompt is asked again until the answer is
+                 usable, and the re-ask says what a usable answer looks like.
 
 options:
   -h, --help     show this help and exit
@@ -98,7 +99,14 @@ ask() { # ask <varname> <prompt>
 	value="${!var}"
 	if [[ -z "$value" ]]; then
 		if [[ -t 0 ]]; then
-			read -r -p "$prompt: " value
+			# a closed stdin is a half-answered form, not an empty answer: it
+			# exits 2 with what was still missing rather than looping or dying
+			# on the read's status
+			if ! read -r -p "$prompt: " value; then
+				echo >&2
+				echo "ERROR: no answer read for '$var'; nothing was written." >&2
+				exit 2
+			fi
 			printf -v "$var" '%s' "$value"
 		else
 			echo "ERROR: '$var' missing in $CONF and not running interactively." >&2
@@ -107,15 +115,50 @@ ask() { # ask <varname> <prompt>
 	fi
 }
 
-ask name "Mod name (modlet id, e.g. MyMod)"
-[[ "$name" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "ERROR: name must be alphanumeric (ModInfo Name = folder name)." >&2; exit 2; }
+# ask_checked <varname> <prompt> <check> <problem> [default]
+# One bad answer used to end the run, before anything was written, with a
+# message that named the rule but not the shape of a good answer. On a tty the
+# question is asked again with that shape spelled out; an answer that came from
+# the config file is the user's own text to fix, so it stays a hard error naming
+# the key. A [default] stands in for an empty typed answer.
+ask_checked() {
+	local var="$1" prompt="$2" check="$3" problem="$4" default="${5:-}"
+	local from_config=1
+	[[ -z "${!var}" ]] && from_config=0
+	while :; do
+		ask "$var" "$prompt"
+		if [[ -z "${!var}" && -n "$default" ]]; then
+			printf -v "$var" '%s' "$default"
+		fi
+		"$check" "${!var}" && return 0
+		if ((from_config)); then
+			echo "ERROR: $var in $CONF: $problem" >&2
+			exit 2
+		fi
+		echo "       $problem" >&2
+		printf -v "$var" '%s' ''
+	done
+}
+
+is_mod_name() { [[ $1 =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; }
+is_filled() { [[ -n "$1" ]]; }
+
+ask_checked name "Mod name (modlet id, e.g. MyMod)" is_mod_name \
+	"a mod name starts with a letter and holds only letters, digits and underscores (it is the modlet id and the folder name), e.g. MyMod"
 [[ -z "$display_name" ]] && display_name="$name"
-ask author "Author"
-ask purpose "Purpose (what this mod is for — a sentence or paragraph)"
-ask target_dir "Directory to create the mod in"
+ask_checked author "Author" is_filled \
+	"an author is required: it names the mod's author field and its initial commit"
+ask_checked purpose "Purpose (what this mod is for — a sentence or paragraph)" is_filled \
+	"a purpose is required: it is seeded into the mod's README, design notes and TODO"
+ask_checked target_dir "Directory to create the mod in (empty for this one)" is_filled \
+	"a target directory is required: the mod is created as <target_dir>/<name>" "$PWD"
 target_dir="${target_dir/#\~/$HOME}"
 MOD_FINAL="$target_dir/$name"
-[[ -e "$MOD_FINAL" ]] && { echo "ERROR: $MOD_FINAL already exists." >&2; exit 2; }
+if [[ -e "$MOD_FINAL" ]]; then
+	echo "ERROR: $MOD_FINAL already exists." >&2
+	echo "       pick a different target_dir in $CONF, or move the existing one aside." >&2
+	exit 2
+fi
 
 # The scaffold is built in a staging directory beside the target and moved
 # into place as the last step, so an interrupted run (a full disk, a Ctrl-C,
@@ -133,7 +176,8 @@ MOD_DIR="$STAGE/$name"
 
 # --- hordeforge tool checkouts -------------------------------------------
 if [[ -z "$hordeforge_root" ]]; then
-	ask hordeforge_root "Directory holding (or to hold) the hordeforge tool checkouts"
+	ask_checked hordeforge_root "Directory holding (or to hold) the hordeforge tool checkouts" is_filled \
+		"a hordeforge_root is required: it is the parent directory of the tool checkouts" "$PWD"
 fi
 hordeforge_root="${hordeforge_root/#\~/$HOME}"
 
@@ -357,6 +401,6 @@ mv "$MOD_DIR" "$MOD_FINAL"
 
 echo
 echo "OK -> $MOD_FINAL"
-echo "Next: cd $MOD_FINAL && make test && make lint-shell && make lint-py"
+printf 'Next: cd %q && make test && make lint-shell && make lint-py\n' "$MOD_FINAL"
 echo "      (make help lists every target; make build needs the game install in .local.env)"
 echo "Start with TODO.md (the purpose is seeded there); AGENTS.md has the working rules."

@@ -51,7 +51,8 @@ One run does the whole setup:
 
 The config file is always passed as an argument — nothing is hardcoded, so
 several configs can coexist (a committed `configs/` presets directory is the
-natural later addition). Missing keys are prompted for interactively.
+natural later addition). Missing keys are prompted for interactively, and a
+prompt is asked again until the answer is usable.
 
 ## Changing Anvil
 

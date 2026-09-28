@@ -97,6 +97,12 @@ modlet's contract rather than add to it.
 
 ### Fixed
 
+- A scaffolder prompt is asked again until the answer is usable, and the
+  re-ask spells out what a usable answer looks like. An empty or malformed
+  answer used to end the run with a message naming the rule but not its
+  shape; a closed stdin, which used to kill the script on `read`'s status,
+  now says which key went unanswered and that nothing was written. An empty
+  `target_dir` or `hordeforge_root` takes the current directory.
 - `make lint-py` passes on a current ruff. Three test scripts carried
   `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
   scaffold; the two that did need it now put their path constants after the
