@@ -73,12 +73,19 @@ def status_of(text: str) -> str | None:
     return None
 
 
-def index_of(text: str) -> dict[int, str]:
-    """The ADR index as {number: status cell}, skipping the header and rule rows."""
-    rows: dict[int, str] = {}
+def index_of(text: str) -> tuple[dict[int, str], list[int]]:
+    """The ADR index as ({number: status cell}, numbers with a second row).
+
+    The header and rule rows carry no number, so they do not match. A number
+    listed twice is a second row for one record, not a second record: it
+    collapses into the same key here, so the duplicate is reported alongside
+    rather than lost.
+    """
+    cells: dict[int, list[str]] = {}
     for match in INDEX_ROW.finditer(text):
-        rows[int(match["number"])] = match["status"].strip()
-    return rows
+        cells.setdefault(int(match["number"]), []).append(match["status"].strip())
+    duplicated = sorted(number for number, values in cells.items() if len(values) > 1)
+    return {number: values[0] for number, values in cells.items()}, duplicated
 
 
 def normalized_status(status: str) -> str:
@@ -91,7 +98,9 @@ def audit_records(records: dict[str, str], index_text: str) -> list[str]:
     """Every way the ADR set can contradict README.md's stated lifecycle."""
     problems: list[str] = []
     numbers = {record_number(name): name for name in records}
-    indexed = index_of(index_text)
+    indexed, duplicated = index_of(index_text)
+    for number in duplicated:
+        problems.append(f"{README}: {number} has more than one index row")
     for name, text in sorted(records.items()):
         for section in REQUIRED_SECTIONS:
             if f"\n{section}\n" not in text:
@@ -182,6 +191,11 @@ def main() -> int:
     control("a record missing from the index fails", GOOD,
           INDEX.replace("| 0002 | Drop the parser | Superseded by 0003 |\n", ""),
           "not in the index")
+    control("a record with two index rows fails", GOOD,
+            INDEX.replace("| 0001 | Use a logger | Accepted |\n",
+                          "| 0001 | Use a logger | Accepted |\n"
+                          "| 0001 | Use a logger | Accepted |\n"),
+            "more than one index row")
     control("an index status that drifted from the record fails", GOOD,
           INDEX.replace("Superseded by 0003 |", "Accepted |"), "index says")
     control("a numbering gap fails", {"0002-drop-the-parser.md": GOOD["0002-drop-the-parser.md"]},

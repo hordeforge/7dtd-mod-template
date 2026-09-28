@@ -98,7 +98,10 @@ elsewhere="$(mktemp -d)"
 # that true: a shell killed by a signal never runs its EXIT trap, so an EXIT
 # trap alone leaves a whole copy of the source tree in the temp directory on
 # every interrupted run. This is the same discipline new-mod.sh uses for its
-# staging directory.
+# staging directory. They are installed on the line after the mktemp because a
+# run signalled in between has a scratch tree and no trap to remove it: the
+# gate that proves this signals as soon as the directory appears, which is
+# exactly that window.
 trap 'rm -rf "$elsewhere"' EXIT
 trap 'rm -rf "$elsewhere"; exit 129' HUP
 trap 'rm -rf "$elsewhere"; exit 130' INT
@@ -110,11 +113,12 @@ for entry in "${TREE[@]}"; do
 	fi
 done
 
-# `unset` inside the command substitution's subshell, not `env -u`: `env` is
-# the external binary, which can only exec a program and cannot see a shell
-# function, so naming `variant` through it failed with "env: 'variant': No such
-# file or directory" on every host and the first pass never ran. The unset dies
-# with the subshell, so the second pass still sees the caller's value.
+# `unset` inside the command substitution's subshell, not `env -u`: variant is a
+# shell function and `env` is the external binary, which can only exec a
+# program and cannot see one, so naming `variant` through it failed with "env:
+# 'variant': No such file or directory" on every host and the first pass never
+# ran. The unset dies with the subshell, so the second pass still sees the
+# caller's value.
 from_git="$(
 	unset SOURCE_DATE_EPOCH
 	variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback'

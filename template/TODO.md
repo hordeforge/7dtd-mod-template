@@ -12,8 +12,8 @@ __MOD_PURPOSE__
 ## Design
 
 - [ ] Break the purpose above into concrete gameplay decisions in
-      `docs/design.md` (dated `Decided:` entries); raise open questions for
-      the user instead of inventing answers.
+      `docs/design.md` (dated `Decided YYYY-MM-DD:` entries); raise open
+      questions for the user instead of inventing answers.
 
 ## Implementation
 

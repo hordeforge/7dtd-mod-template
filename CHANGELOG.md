@@ -126,6 +126,17 @@ shape above, so the search cannot quietly stop matching.
   shellcheck against, fails below it, and notes a newer one; `make preflight`
   holds a local shellcheck to the same floor and warns above it, the way it
   already did for `RUFF_VERSION`.
+- `scripts/test_adr_records.py` fails a number listed twice in the ADR index.
+  It read the index into one row per number, so a second row for the same
+  record overwrote the first and the "one index row per record" the index
+  contract states was never held; two rows for one record are a reader
+  choosing between two statuses.
+- `template/TODO.md` writes the design-log format as `Decided YYYY-MM-DD:`,
+  the spelling `docs/design.md` states and the decision-record gate enforces.
+  It said `Decided:`, which is the one heading the gate rejects.
+- `docs/adr/README.md` states the status vocabulary it is the source of
+  (`Accepted`, `Deprecated`, `Superseded by NNNN`) instead of leaving it
+  only in the template a record is copied from.
 - `global.json` pins the SDK with `rollForward: latestPatch` instead of
   `latestFeature`, so the build stays in the 8.0.1xx feature band the README
   already claimed and a host with only a newer band installed no longer
@@ -222,6 +233,22 @@ shape above, so the search cannot quietly stop matching.
   directory whose path holds a shell metacharacter ran the rest of it as a
   command (`make clean` first). Every recipe quotes it, as this repo's own
   Makefile already did.
+- `verify-reproducible.sh`'s first packaging pass ran
+  `env -u SOURCE_DATE_EPOCH variant ...`, and `env` runs a program, not a shell
+  function, so every run failed with `env: 'variant': No such file or
+  directory` and `make verify-reproducible` exited 1 on every tree, CI's
+  included. Nothing offline drove the script past that line, because the gate
+  that exercises it signals the run as soon as the scratch directory appears,
+  long before the first pass. The pass runs in a subshell that unsets the
+  variable, and `scripts/test_verify_reproducible.py` now runs the script to
+  completion on its fixture and requires the three archives to agree, which is
+  three small zips there rather than three builds.
+- `verify-reproducible.sh` created its `mktemp -d` scratch tree before the
+  traps that remove it were installed, so a run signalled in that window left
+  a whole copy of the source tree behind with nothing to clean it up. The
+  traps are installed on the line after the `mktemp` now, and the gate that
+  signs the run the instant the directory appears no longer fails
+  intermittently.
 - The static gate's two memoized answers were keyed without the tree they
   were read from: the walk was cached under an empty key and each parse under
   its relative path, both of which are relative to `MOD_DIR`. A caller that

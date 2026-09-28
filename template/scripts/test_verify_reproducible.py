@@ -14,16 +14,25 @@ a staged modlet), so an EXIT trap alone accumulates one per interrupted run: a
 shell killed by a signal never runs its EXIT trap, so every Ctrl-C during the
 three packaging passes leaves a copy behind that nothing will ever clean.
 
-The lifecycle case drives the real script against a fixture mod and signals it
-once the scratch directory exists, then requires TMPDIR to be empty again. No
+Two cases drive the real script against a fixture mod. One signals it once the
+scratch directory exists and then requires TMPDIR to be empty again. The other
+runs the same script to completion and requires its three archives to agree. No
 game install and no network: the fixture is the scripts package.sh and build.sh
 need, with no src/, so no DLL is compiled and no game install is read.
 
-The archive-equality claim the script exists to make is not re-proved here;
-that needs three real packaging passes and is what `make verify-reproducible`
-is for. What is held here is that the tree the third pass builds is the tree
-the first two built from, and that an interrupted run owns nothing after it
-exits.
+The archive-equality claim the script exists to make is held here on the
+fixture, where it is three small zips rather than three builds, and
+`make verify-reproducible` holds it on the real modlet. Before the first pass
+ran at all, that difference was the gap: the first packaging pass used
+`env -u SOURCE_DATE_EPOCH variant ...`, and `env` runs a program, not a shell
+function, so it failed with "env: 'variant': No such file or directory" and
+`make verify-reproducible` exited 1 on every tree, CI's included. Nothing
+offline drove the script past that line, because the case that signals the run
+does so as soon as the scratch directory appears, long before the first pass.
+
+What is held is the lifecycle (an interrupted run owns nothing after it
+exits), the comparison the script exists to make, and the fact that the tree
+the third pass builds is the tree the first two built from.
 """
 
 from __future__ import annotations
@@ -54,6 +63,9 @@ ROOT_FILE = re.compile(r"\$\{?ROOT\}?/([A-Za-z0-9_.][A-Za-z0-9_.-]*)")
 
 STARTUP_TIMEOUT_SECONDS = 60.0
 POLL_INTERVAL_SECONDS = 0.05
+# Three packaging passes over a fixture with no src/ and no game install, so
+# this is a small zip three times rather than a build.
+PACKAGING_TIMEOUT_SECONDS = 180.0
 GIT_ENV = {
     "GIT_AUTHOR_NAME": "offline gate",
     "GIT_AUTHOR_EMAIL": "gate@example.invalid",
@@ -178,6 +190,24 @@ def third_tree_is_the_whole_build() -> None:
           f"pass builds a tree build.sh cannot read: {missing} missing")
 
 
+def three_passes_agree(root: str, script: str) -> None:
+    """The comparison the script exists to make, driven to completion here.
+
+    The first pass ran `env -u SOURCE_DATE_EPOCH variant ...`, and `env` runs a
+    program, not a shell function, so it failed with "env: 'variant': No such
+    file or directory" and `make verify-reproducible` exited 1 on every tree.
+    Nothing offline drove the script past that line: the case below signals it
+    the moment the scratch directory appears, long before the first pass. The
+    fixture is the same one, and with no src/ in it the three passes are three
+    small zips, so the equality the script claims is provable without an SDK.
+    """
+    done = subprocess.run(
+        [script], cwd=root, capture_output=True, text=True,
+        timeout=PACKAGING_TIMEOUT_SECONDS, check=False)
+    check("the three packaging passes agree", done.returncode == 0,
+          f"exit {done.returncode}: {(done.stderr or done.stdout)[-400:]}")
+
+
 def main() -> int:
     if not os.path.isfile(os.path.join(MOD_DIR, "ModInfo.xml")):
         print(f"no {os.path.join(MOD_DIR, 'ModInfo.xml')}; nothing to verify")
@@ -195,6 +225,7 @@ def main() -> int:
             print("could not make a committed fixture; nothing to verify")
             return 0
         interrupted_run_leaves_nothing(root, script)
+        three_passes_agree(root, script)
 
     return report()
 
