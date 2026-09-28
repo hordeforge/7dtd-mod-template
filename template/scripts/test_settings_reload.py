@@ -109,6 +109,59 @@ def _float32_loss_horizon_days(interval: float) -> int | None:
     return None
 
 
+SETTINGS_NAME_CONSTANT = re.compile(r"public const string (\w+)Name = ")
+SETTINGS_DEFAULT_CONSTANT = re.compile(r"public const [\w<>,\[\]]+ (\w+)Default = ")
+SETTINGS_PROPERTY = re.compile(
+    r"public static [\w<>,\[\]]+ (\w+) \{ get; private set; \}")
+TOML_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*) *=", re.MULTILINE)
+
+
+def setting_names(source: str, toml_text: str) -> dict[str, set[str]]:
+    """The places a setting is named, as `name -> {places that name it}`.
+
+    A setting is spelled in five places at once: a `Name` constant, a
+    `Default` constant, a property, a line each in `ResetToDefaults`,
+    `TrySet` and `Describe`, and a key in the shipped TOML. Nothing in the
+    C# compiler connects them, so a setting added to four of the five is a
+    setting the mod declares and never reads: the property keeps its
+    default, and the key the player edited is refused as unknown. This maps
+    the five so the gate below can name the place that is missing rather
+    than report a disagreement.
+    """
+    code = code_without_comments(source)
+    names: dict[str, set[str]] = {}
+
+    def mark(name: str, place: str) -> None:
+        names.setdefault(name, set()).add(place)
+
+    for match in SETTINGS_NAME_CONSTANT.finditer(code):
+        mark(match.group(1), "Name")
+    for match in SETTINGS_DEFAULT_CONSTANT.finditer(code):
+        mark(match.group(1), "Default")
+    for match in SETTINGS_PROPERTY.finditer(code):
+        mark(match.group(1), "property")
+    for match in re.finditer(r"string\.Equals\(name, (\w+)Name,", code):
+        mark(match.group(1), "TrySet")
+    for match in re.finditer(r"return new\[\][^;]*?\};", code, re.DOTALL):
+        for name in re.findall(r"(\w+)Name", match.group(0)):
+            mark(name, "Describe")
+    reset = re.search(r"static void ResetToDefaults\(\)\s*\{(.*?)\n[ \t]+\}", code,
+                      re.DOTALL)
+    for name in re.findall(r"(\w+) = \w+Default;", reset.group(1) if reset else ""):
+        mark(name, "ResetToDefaults")
+    for key in TOML_KEY.findall(toml_text):
+        mark(key, "TOML")
+    return names
+
+
+REQUIRED_PLACES = ("Name", "Default", "property", "ResetToDefaults",
+                   "TrySet", "Describe", "TOML")
+
+
+def missing_places(found: set[str]) -> str:
+    return ", ".join(place for place in REQUIRED_PLACES if place not in found)
+
+
 def main() -> int:
     if not os.path.isdir(SRC):
         print("no src/ directory; no settings reader to hold to the contract")
@@ -169,6 +222,28 @@ def main() -> int:
           and not re.search(r"\bTime\.unscaledTime\b(?!\w)", code)
           and "const double FilePollIntervalSeconds" in code
           and "const double FileReloadDebounceSeconds" in code)
+
+    toml_text = (Path(toml_path).read_text(encoding="utf-8-sig")
+                 if os.path.isfile(toml_path) else "")
+    names = setting_names(settings, toml_text)
+    incomplete = sorted(
+        name + " (missing " + missing_places(found) + ")"
+        for name, found in names.items()
+        if any(place not in found for place in REQUIRED_PLACES))
+    check("every setting is named in all seven places it takes to declare one",
+          not incomplete,
+          f"a setting missing from one of Name/Default/property/"
+          f"ResetToDefaults/TrySet/Describe/shipped TOML: "
+          f"{'; '.join(incomplete)}")
+
+    toml_reader = read("TomlSettings.cs")
+    if "TomlSettings.TryRead" in settings:
+        check("an array element the comma join cannot carry is refused by name",
+              "a nested array is not a settings value." in toml_reader
+              and "an array element cannot contain ','." in toml_reader
+              and "item.IndexOf(',')" in toml_reader,
+              "an element carrying a comma, or a nested array, joins into a "
+              "value that means something else than the file declares")
 
     return report()
 

@@ -8,7 +8,9 @@
 # Keys match the console names. Unknown keys and bad values fail loud
 # (a warning in the log) and leave the default in place. Supported values:
 # booleans, integers, floats, "strings", and arrays of those. Tables and
-# dotted keys are rejected.
+# dotted keys are rejected. An array is read as the comma-joined value the
+# console command would take, so an element may not contain a comma, and
+# an array of arrays is rejected.
 #
 # The comment block directly above a key is that key's help text in the
 # in-game Mod Settings screen (Wrench, hordeforge/7dtd-mod-settings), and

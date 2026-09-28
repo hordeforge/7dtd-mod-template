@@ -13,7 +13,9 @@ namespace __MOD_NAME__
 	/// Tables, dotted keys, dates, and multiline strings are rejected so a
 	/// file that is not this mod's settings cannot be mistaken for one.
 	/// Array values are joined with commas so <see cref="ModSettings.TrySet"/>
-	/// can keep one value grammar with the console command.
+	/// can keep one value grammar with the console command; an element that
+	/// join cannot carry (a comma inside it) and a nested array are refused
+	/// by name, because both come back as a value that means something else.
 	/// </summary>
 	internal static class TomlSettings
 	{
@@ -212,8 +214,25 @@ namespace __MOD_NAME__
 				while (!AtEnd && Peek != ']')
 				{
 					string item;
+					var itemStart = index;
 					if (!ReadValue(out item, out error))
 						return false;
+					// The array's elements, and the one value this file owes
+					// TrySet, are separated by commas. An element that carries
+					// one, or an element that is itself an array, comes back
+					// as a different value than the file declares, so both are
+					// refused by name rather than joined into an answer that
+					// reads as a longer list.
+					if (index > itemStart && text[itemStart] == '[')
+					{
+						error = "line " + line + ": a nested array is not a settings value.";
+						return false;
+					}
+					if (item.IndexOf(',') >= 0)
+					{
+						error = "line " + line + ": an array element cannot contain ','.";
+						return false;
+					}
 					parts.Add(item);
 					SkipIgnorable();
 					if (Peek == ',')

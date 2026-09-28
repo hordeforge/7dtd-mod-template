@@ -21,6 +21,11 @@ namespace __MOD_NAME__
 	/// To add a setting: a Name constant, a default, a property, a line each
 	/// in <see cref="ResetToDefaults"/>, <see cref="TrySet"/> and
 	/// <see cref="Describe"/>, and a commented entry in the shipped TOML.
+	/// Nothing in the compiler connects those seven, so
+	/// <c>scripts/test_settings_reload.py</c> holds them in agreement: a name
+	/// missing from one of them is a setting the mod declares and never
+	/// reads, and a key in the TOML the reader does not know is refused on
+	/// every load.
 	/// </summary>
 	internal static class ModSettings
 	{
