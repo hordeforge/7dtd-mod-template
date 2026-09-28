@@ -130,10 +130,10 @@ run_parallel() {
 	done
 }
 
-if (( max_jobs == 1 )); then
-	run_serial
-else
+if (( max_jobs > 1 )); then
 	run_parallel
+else
+	run_serial
 fi
 
 if (( timings )); then

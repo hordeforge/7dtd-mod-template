@@ -77,6 +77,12 @@ item/block/entity without duplicating its whole definition. Verified example:
 `thrownGrenadeNukeAdmin` in `Data/Config/items.xml` extends
 `thrownGrenadeContact`.
 
+`Extends` may carry a `param1` attribute: a comma-separated exclusion list
+that stops the named properties from being inherited. It removes whole
+`<property class=...>` blocks by name as well as scalar properties, and the
+chain is walked through other mods' entries too, so a mod item may extend a
+vanilla one and a second mod entry on top of that.
+
 ## Practical workflow
 
 1. Find the vanilla node to change/extend in `Data/Config/*.xml` (read-only —

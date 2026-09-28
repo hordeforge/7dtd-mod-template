@@ -35,6 +35,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8081
 # The server prints this once it wants the password, when one is configured.
 PASSWORD_PROMPT = ("Please enter password:",)
+# How long the server is given to act on the farewell before the socket drops.
+CLOSE_SETTLE_SECONDS = 0.2
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
 REDACTED = "<redacted>"
@@ -156,7 +158,7 @@ class GameTelnet:
                 # must not skip the close below.
                 try:
                     sock.sendall(b"exit\r\n")
-                    time.sleep(0.2)
+                    time.sleep(CLOSE_SETTLE_SECONDS)
                 except OSError:
                     pass
         finally:

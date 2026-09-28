@@ -29,10 +29,9 @@ import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Ops that create content: their xpath names the *parent* that must exist.
-CHECK_PARENT_ONLY = {"append", "insertBefore", "insertAfter", "setattribute"}
-# Ops that select the target itself.
-CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
+# Ops the check understands; anything else is reported, never silently passed.
+KNOWN_OPS = {"append", "insertBefore", "insertAfter", "setattribute",
+             "set", "remove", "removeattribute", "csv"}
 
 
 def game_dir() -> str:
@@ -88,7 +87,7 @@ def main() -> int:
             xpath = op.get("xpath")
             if xpath is None:
                 continue
-            if op.tag not in CHECK_PARENT_ONLY and op.tag not in CHECK_FULL:
+            if op.tag not in KNOWN_OPS:
                 print(f"SKIP {name}: unknown op <{op.tag}>")
                 skips += 1
                 continue

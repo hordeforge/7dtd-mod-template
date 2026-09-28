@@ -36,14 +36,19 @@ def check(name: str, ok: bool, detail: str = "") -> None:
     print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
+def missing_from(text: str) -> list[str]:
+    return [item for item in REQUIRED if item not in text]
+
+
 def main() -> int:
     with open(AGENTS, encoding="utf-8") as handle:
         text = handle.read()
     check(
         "negative control: an AGENTS.md without the rule fails",
-        "One concern per run" not in "make playtest SUITE=a,b",
+        missing_from("make playtest SUITE=a,b") == list(REQUIRED),
+        repr(missing_from("make playtest SUITE=a,b")),
     )
-    missing = [item for item in REQUIRED if item not in text]
+    missing = missing_from(text)
     check("AGENTS.md states one concern per playtest run", missing == [], "missing " + repr(missing))
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0
