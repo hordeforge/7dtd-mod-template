@@ -30,7 +30,7 @@ from types import ModuleType
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(SCRIPTS, "lib"))
 
-import xml_extends  # noqa: E402
+import xml_extends  # noqa: E402  (the lib directory is on sys.path above)
 from gate import check  # noqa: E402
 from gate import main as report  # noqa: E402
 

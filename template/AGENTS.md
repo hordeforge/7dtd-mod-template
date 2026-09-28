@@ -42,6 +42,12 @@ progress that exists only in chat scrollback is lost.
 - New follow-up work or open questions go into `TODO.md` immediately.
 - If a decision changes course, fix the now-stale statements in the same
   edit.
+- A change a player can notice gets a line under `## [Unreleased]` in
+  `CHANGELOG.md` in the same edit, in the user's terms, not the diff's.
+  Releasing moves those lines to `## [<version>] - <date>` and sets
+  `<version>` in `ModInfo.xml` and on the `README.txt` first line; those
+  three have to move together, because `make test` gates them against each
+  other. A published version is spent: bump, never re-edit.
 
 ## Parallel sessions
 

@@ -51,6 +51,9 @@ fi
 cp "$ROOT/ModInfo.xml" "$OUT/ModInfo.xml"
 # the player-facing release readme (game version, EAC, Harmony, install)
 cp "$ROOT/README.txt" "$OUT/README.txt"
+# the release notes, so the shipped zip says what this version changed
+# (scripts/test_static_checks.py gates that the mod keeps one
+cp "$ROOT/CHANGELOG.md" "$OUT/CHANGELOG.md"
 # Localization ships inside Config/: the engine reads a mod's localization
 # only from <mod>/Config/Localization.csv (ModManager passes mod.Path +
 # "/Config" to Localization.LoadPatchDictionaries).

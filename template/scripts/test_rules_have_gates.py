@@ -57,7 +57,7 @@ def sections(path: str) -> list[tuple[str, str]]:
 def twice(gate: str) -> tuple[bool, str]:
     """Run one gate two times on the unchanged tree; did both agree?"""
     path = os.path.join(SCRIPTS, gate)
-    runs = [subprocess.run([sys.executable, path], capture_output=True)
+    runs = [subprocess.run([sys.executable, path], capture_output=True, check=False)
             for _ in range(2)]
     same = (runs[0].stdout == runs[1].stdout
             and runs[0].returncode == runs[1].returncode)

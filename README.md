@@ -53,6 +53,19 @@ The config file is always passed as an argument — nothing is hardcoded, so
 several configs can coexist (a committed `configs/` presets directory is the
 natural later addition). Missing keys are prompted for interactively.
 
+## Versions and releases
+
+Anvil's version is a git tag on `main`, and
+[`CHANGELOG.md`](CHANGELOG.md) records what each one changed for a mod
+scaffolded from an older tag. The template is `0.y.z` while the modlet's
+interfaces still move; `1.0.0` is when they stop. Fixes land on `main`
+through the normal branch-and-PR flow and are not backported, so a mod
+scaffolded from a tag tracks that tag, not `main`.
+
+A generated mod versions itself. `ModInfo.xml` is the single source of the
+version, the first line of the mod's `README.txt` has to name the same value,
+and both are gated against the mod's `CHANGELOG.md` by `make test`.
+
 ## Layout
 
 ```
@@ -60,7 +73,8 @@ natural later addition). Missing keys are prompted for interactively.
 ├── docs/            # shared, mod-agnostic 7DTD modding reference (vendored + generalized)
 ├── template/        # the modlet skeleton new-mod.sh instantiates
 ├── new-mod.sh       # the scaffolder
-└── newmod.conf.example
+├── newmod.conf.example
+└── CHANGELOG.md     # what each tag changed for a mod scaffolded from an older one
 ```
 
 Start at [`docs/README.md`](docs/README.md) for the reference material a

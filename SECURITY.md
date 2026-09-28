@@ -15,9 +15,12 @@ the impact, and expect no response SLA.
 
 ## Supported versions
 
-There are none. The template has no released versions, and generated mods
-version themselves independently. Fixes land on `main` through the normal
-branch-and-PR flow; nothing is backported.
+Only the latest tag is supported, and `main` is where fixes land through the
+normal branch-and-PR flow. Nothing is backported: a mod scaffolded from an
+older tag stays on that tag's behavior until its author takes the change
+from [`CHANGELOG.md`](CHANGELOG.md). Generated mods version themselves in
+their own `ModInfo.xml` and are not covered by this repository's tags at
+all.
 
 ## What is and is not protected
 

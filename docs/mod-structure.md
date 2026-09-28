@@ -32,7 +32,7 @@ MyMod/
 | `DisplayName` | Human-readable name shown in-game (mod list). |
 | `Description` | Shown in-game. |
 | `Author` | Free text. |
-| `Version` | Free-form version string, e.g. `1.0.0.0`. |
+| `Version` | Version string in four numeric segments, e.g. `1.0.0.0`. The game reads this and nothing else for a mod's version, so it is the value to bump and to echo on the release readme's first line. |
 | `Website` | Optional URL. |
 | `SkipWithAntiCheat` | `true` marks the mod as safe to still load when EAC is enabled (only true for cosmetic/non-cheating mods; most gameplay/content/code mods should leave this `false` or omit it). |
 

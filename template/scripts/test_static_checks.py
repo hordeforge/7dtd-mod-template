@@ -9,6 +9,8 @@ Deterministic, offline, no game install needed:
   recorded here, not an accident)
 - ModInfo.xml carries the required fields, and its Name matches the mod
   directory name
+- the declared version is well-formed, agrees with the release readme, and
+  has a section in CHANGELOG.md
 - localization ships at Config/Localization.csv, never the mod root (the
   engine only loads mod localization from <mod>/Config/)
 - no pre-V3 XUi shapes: no Config/XUi/ directory, no `{binding}` syntax
@@ -40,6 +42,55 @@ def xml_files() -> list[str]:
             if f.endswith(".xml"):
                 found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
     return found
+
+
+def check_release_version(version: str) -> None:
+    """The declared version is the one players are told they are running.
+
+    ModInfo.xml is what the game reads and what a multiplayer client compares;
+    the release readme's first line is what a player reads. They are two
+    hand-edited files saying the same thing, and a bump that touches only one
+    ships a package whose readme lies about its own version, so the two are
+    gated together here.
+    """
+    check("modinfo-version-is-four-segments",
+          bool(re.fullmatch(r"\d+\.\d+\.\d+\.\d+", version)), repr(version))
+    readme = os.path.join(MOD_DIR, "README.txt")
+    if not os.path.isfile(readme):
+        return
+    with open(readme, encoding="utf-8") as handle:
+        first = handle.readline().strip()
+    check("readme-first-line-names-the-declared-version",
+          first.endswith(" " + version), f"{first!r} does not end with {version!r}")
+
+
+def check_release_notes() -> None:
+    """The mod keeps a changelog with a home for unreleased work.
+
+    Without an `Unreleased` section a release has nowhere to accumulate
+    changes, so the notes arrive at the next version or never.
+    """
+    path = os.path.join(MOD_DIR, "CHANGELOG.md")
+    check("changelog-exists", os.path.isfile(path), "no CHANGELOG.md in the mod root")
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    check("changelog-has-unreleased-section",
+          "## [Unreleased]" in text, "add a '## [Unreleased]' section")
+    check("changelog-declares-the-declared-version",
+          bool(re.search(rf"^## \[{re.escape(declared_version())}\]", text, re.M)),
+          f"no released section for version {declared_version()}")
+
+
+def declared_version() -> str:
+    modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
+    if not os.path.isfile(modinfo):
+        return ""
+    for field in ET.parse(modinfo).getroot():
+        if field.tag == "Version":
+            return (field.get("value") or "").strip()
+    return ""
 
 
 def main() -> int:
@@ -77,6 +128,9 @@ def main() -> int:
         check("modinfo-name-matches-directory",
               values.get("Name", "") == dirname,
               f"Name={values.get('Name', '')!r} but directory is {dirname!r}")
+        check_release_version(values.get("Version", ""))
+
+    check_release_notes()
 
     check("release-readme-exists",
           os.path.isfile(os.path.join(MOD_DIR, "README.txt")),

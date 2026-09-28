@@ -217,9 +217,20 @@ export ANVIL_NAME="$name" ANVIL_DISPLAY="$display_name" ANVIL_AUTHOR="$author" \
 	ANVIL_CSHARP="$csharp" ANVIL_ASSETS="$assets"
 python3 - "$MOD_DIR" <<'PYEOF'
 import html, os, re, sys
+import xml.etree.ElementTree as ET
 mod_dir = sys.argv[1]
 purpose = os.environ["ANVIL_PURPOSE"].strip()
 short = re.split(r"(?<=[.!?])\s", purpose)[0][:200]
+# ModInfo.xml is the mod's single source of truth for its version: the game
+# reads that field and nothing else, and the release readme's first line has
+# to name the same version. Reading it here keeps the two in step at scaffold
+# time; the static-check gate keeps them in step afterwards.
+version = ""
+for field in ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot():
+    if field.tag == "Version":
+        version = (field.get("value") or "").strip()
+if not version:
+    sys.exit("ERROR: ModInfo.xml has no Version value; the mod's version is undeclared.")
 tokens = {
     "__MOD_NAME__": os.environ["ANVIL_NAME"],
     "__MOD_NAME_LOWER__": os.environ["ANVIL_NAME"].lower(),
@@ -228,6 +239,7 @@ tokens = {
     "__MOD_AUTHOR_LOWER__": re.sub(r"[^a-z0-9]", "", os.environ["ANVIL_AUTHOR"].lower()) or "author",
     "__MOD_PURPOSE__": purpose,
     "__MOD_PURPOSE_SHORT__": html.escape(short, quote=True),
+    "__MOD_VERSION__": version,
     "__SKIP_WITH_ANTI_CHEAT__": os.environ["ANVIL_SKIP_EAC"],
 }
 

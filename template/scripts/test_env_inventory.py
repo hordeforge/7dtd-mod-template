@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate import check, main as report  # noqa: E402
+from gate import check
+from gate import main as report
 
 MOD_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = MOD_DIR / "scripts"

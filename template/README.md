@@ -64,6 +64,7 @@ a block on a voxel (`*_block_*`) are never one run. See `AGENTS.md`
 ## Docs
 
 - [`TODO.md`](TODO.md) — what's next
+- [`CHANGELOG.md`](CHANGELOG.md) — what each released version changed, and the release procedure
 - [`docs/design.md`](docs/design.md) — gameplay decisions
 - [`docs/architecture.md`](docs/architecture.md) — technical decisions ([`docs/adr/`](docs/adr/) for formal records)
 - [`docs/reference/`](docs/reference/) — general 7DTD modding reference and best practices (binding)
