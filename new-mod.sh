@@ -330,8 +330,6 @@ def from_shell(name):
     raw = os.environ[name]
     return raw.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
 
-purpose = from_shell("ANVIL_PURPOSE").strip()
-
 # Characters that draw nothing and, worse, reorder what sits around them: the
 # bidi overrides and isolates, the soft hyphen, the zero-width space, the word
 # joiner, the BOM, and any control character. A display name or an author
@@ -363,9 +361,56 @@ def readable(label, text):
         raise SystemExit(2)
     return text
 
-display = readable("display_name", from_shell("ANVIL_DISPLAY"))
-the_author = readable("author", from_shell("ANVIL_AUTHOR"))
-purpose = readable("purpose", purpose)
+# A substituted value has to survive the grammar of every file it lands
+# in, and those grammars are not the same.
+FORBIDDEN_IN_XML = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x84\x86-\x9f\uFFFE\uFFFF]"
+    "|[\uD800-\uDFFF\uFDD0-\uFDEF]")
+LINE_BREAKS = re.compile("[\r\n\u0085\u2028\u2029]")
+WHITESPACE_RUN = re.compile(r"\s+")
+
+
+def one_line(value):
+    """`value` as the single line of text a substituted token has to be.
+
+    The tokens land in an XML attribute, a C# string literal, a markdown
+    heading and a TOML comment, and all four read a line break as the end
+    of what they were reading: a display name that came in over two lines
+    wrote a ModInfo.xml whose second line is not XML at all, a README
+    whose first heading stops mid-name, and a settings file the DLL
+    rejects. The control characters and lone surrogates here are worse
+    still, because XML 1.0 has no production for one: the game cannot
+    load the file the run reported as written.
+
+    NFC so the same name typed on a Mac (which composes) and on Windows
+    (which often does not) scaffolds the same bytes, rather than a diff
+    that shows only that the keyboard layout differed.
+    """
+    value = FORBIDDEN_IN_XML.sub("", value)
+    value = LINE_BREAKS.sub(" ", value)
+    return WHITESPACE_RUN.sub(" ", unicodedata.normalize("NFC", value)).strip()
+
+
+def csharp_escape(value):
+    """`value` as the contents of a C# string literal.
+
+    `ConsoleCmd.getDescription()` returns `"__MOD_DISPLAY_NAME__
+    settings"`, so a display name holding a quote or a backslash closes
+    the literal and leaves a file the compiler rejects: the scaffolder
+    reports success and the mod's first build fails, over the author's
+    own display name. An apostrophe, a pasted straight quote, and a
+    backtick off a Cyrillic or Greek layout all reach here. The backslash
+    goes first, so the escapes added for the quote are not escaped again.
+    """
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+# One line of text first, so what readable() checks is what is written: the
+# characters that draw nothing survive that pass, and they are the ones a
+# reader cannot see.
+purpose = readable("purpose", one_line(from_shell("ANVIL_PURPOSE")))
+display = readable("display_name", one_line(from_shell("ANVIL_DISPLAY")))
+the_author = readable("author", one_line(from_shell("ANVIL_AUTHOR")))
 # ModInfo.xml is the mod's single source of truth for its version: the game
 # reads that field and nothing else, and the release readme's first line has
 # to name the same version. Reading it here keeps the two in step at scaffold
@@ -433,9 +478,11 @@ def to_clusters(text, limit):
 # Mongolian, Ethiopic, Burmese or Tibetan one closes on its own stop
 # character and writes nothing after it at all, so an ASCII-only rule reads
 # a Japanese purpose as one long sentence and leaves the mod browser's
-# description holding two of them, cut mid-phrase.
+# description holding two of them, cut mid-phrase. The same holds for every
+# other script that owns a stop: Armenian, Greek (whose question mark is
+# U+037E, a glyph that reads as a semicolon), Persian and Arabic.
 ASCII_STOP = ".!?"
-OTHER_STOP = "。！？．｡؟۔।॥።᠃᠉။ႁႂႃႄႅႆႇႈႉႊႋႌႍႎႏ។៕៿"
+OTHER_STOP = "。！？．｡؟۔।॥።᠃᠉။ႁႂႃႄႅႆႇႈႉႊႋႌႍႎႏ។៕៿։፡؛།༎"
 
 
 def first_sentence(text):
@@ -480,8 +527,8 @@ short = to_clusters(first_sentence(purpose), DESCRIPTION_LIMIT)
 author_id = re.sub(r"[^a-z0-9]", "",
                    unicodedata.normalize("NFKD", the_author).casefold())
 tokens = {
-    "__MOD_NAME__": from_shell("ANVIL_NAME"),
-    "__MOD_NAME_LOWER__": from_shell("ANVIL_NAME").lower(),
+    "__MOD_NAME__": one_line(from_shell("ANVIL_NAME")),
+    "__MOD_NAME_LOWER__": one_line(from_shell("ANVIL_NAME")).lower(),
     "__MOD_DISPLAY_NAME__": display,
     "__MOD_AUTHOR__": the_author,
     "__MOD_AUTHOR_LOWER__": author_id or "author",
@@ -493,10 +540,12 @@ tokens = {
     # every mod starts with is the one a mod author copies when they cut
     # their next release.
     "__MOD_RELEASE_DATE__": datetime.date.today().isoformat(),
-    "__SKIP_WITH_ANTI_CHEAT__": from_shell("ANVIL_SKIP_EAC"),
+    "__SKIP_WITH_ANTI_CHEAT__": one_line(from_shell("ANVIL_SKIP_EAC")),
 }
 xml_tokens = {token: html.escape(value, quote=True)
               for token, value in tokens.items()}
+cs_tokens = {token: csharp_escape(value)
+             for token, value in tokens.items()}
 
 CSHARP = ("<!-- ANVIL:CSHARP-BEGIN -->", "<!-- ANVIL:CSHARP-END -->")
 ASSETS_MAKE = ("# ANVIL:ASSETS-BEGIN", "# ANVIL:ASSETS-END")
@@ -549,12 +598,18 @@ for base, dirs, files in os.walk(mod_dir):
         except (UnicodeDecodeError, OSError):
             continue
         out = strip_marked(text, marked[f]) if base == mod_dir and f in marked else text
-        # ModInfo.xml is the one file here whose values land in an XML
-        # attribute, where a bare `&`, `<` or `"` ends the attribute and
-        # leaves the file the game cannot parse. Every other consumer (a C#
-        # string, a markdown file) takes the text as it stands, so escaping
-        # belongs to that one file, applied to every value alike.
-        here = xml_tokens if base == mod_dir and f == "ModInfo.xml" else tokens
+        # Two of these files take a value as syntax rather than as text.
+        # ModInfo.xml's land in an XML attribute, where a bare `&`, `<` or
+        # `"` ends the attribute and leaves the file the game cannot parse.
+        # A C# file's land in a string literal, where a bare `"` or `\` ends
+        # it and leaves a file the compiler rejects. Every other consumer (a
+        # markdown file, a TOML comment) takes the text as it stands.
+        if base == mod_dir and f == "ModInfo.xml":
+            here = xml_tokens
+        elif f.endswith(".cs"):
+            here = cs_tokens
+        else:
+            here = tokens
         for token, value in here.items():
             out = out.replace(token, value)
         if out != text:

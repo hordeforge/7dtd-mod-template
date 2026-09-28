@@ -43,6 +43,11 @@ shape above, so the search cannot quietly stop matching.
   quote, an accented letter, a CJK sentence end) so the check is a real one.
   `make check` and CI both run it, and CI also runs the modlet's ruff rules
   over `ci/`.
+- `ci/scaffolder-hostile-text.sh`, beside `ci/scaffolder-encoding.sh`: a
+  scaffold from a config whose values carry a quote, a backslash, a tab, a
+  line break, a C0 control and an Ethiopic sentence stop, checked for valid
+  XML, a valid C# literal and a description that stops at its own script's
+  sentence end. `make check` and CI both run it.
 - A fuzz pass over the XPath resolver in `validate-xml-targets.py`, which
   turned a malformed `xpath=` on a patch operation into a traceback that
   killed `make validate-xml` partway through its target list.
@@ -210,6 +215,22 @@ shape above, so the search cannot quietly stop matching.
   that reads as the first, in the two fields a player tells one mod from
   another by. The run stops on such a config with exit 2 and the code
   points it found.
+- The scaffolder wrote a config value into the target file as the bytes the
+  user typed, so a display name holding a quote or a backslash produced a
+  C# string literal the compiler rejects, and a value holding a line break
+  or a control character produced a `ModInfo.xml` the game cannot load, a
+  README whose first heading stops mid-name and a settings file the DLL
+  rejects. Every substituted value is now one line of NFC text, the C#
+  files get the value escaped for a string literal the way `ModInfo.xml`
+  gets it escaped for an attribute, and `ci/scaffolder-hostile-text.sh`
+  gates both. A value holding a `"` or `\` reaches a mod through an
+  autocorrect apostrophe, a paste out of a spreadsheet, or a keyboard
+  layout whose key the author is used to.
+- The description the mod browser shows ended at a sentence stop only in
+  `.!?` and in the CJK, Devanagari and Arabic sets, so a purpose written in
+  Armenian, Ethiopic, Greek, Khmer, Myanmar or Tibetan reached the
+  description whole and was cut mid-phrase. Those scripts' own stops are
+  recognized now.
 - Nine scripts under `template/scripts/` dropped every argument they were
   given: `scripts/build.sh --help` staged a modlet, `--dry-run` ran the full
   build and looked accepted, and `scripts/playtest.sh --help` forwarded the

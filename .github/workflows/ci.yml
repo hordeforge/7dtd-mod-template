@@ -89,6 +89,11 @@ jobs:
         # a config value the user typed in an encoding that is not UTF-8 has
         # to scaffold as valid UTF-8, not as a traceback and no mod
         run: ci/scaffolder-encoding.sh
+      - name: Scaffolder with a hostile value
+        # a value holding a quote, a backslash, a line break or a control
+        # character has to scaffold as valid XML and valid C#, and a
+        # description has to end on the sentence stop of its own script
+        run: ci/scaffolder-hostile-text.sh
       - name: Scaffolder text boundaries
         # the description limit cuts at 200 code points, so a purpose in a
         # script where one character is several code points has to end on a

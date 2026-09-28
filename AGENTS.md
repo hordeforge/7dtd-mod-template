@@ -46,14 +46,20 @@ and `make lint-py`, asserts what the scaffold made of that config's text with
 header states with `ci/check-changelog.py`, shellchecks `new-mod.sh` and
 `ci/*.sh`, runs the modlet's
 ruff rules over `ci/`, and proves `make package`
-produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. `make preflight`
+produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. The last two steps
+scaffold hostile values of their own: `ci/scaffolder-encoding.sh` from a config
+that is not UTF-8, and `ci/scaffolder-hostile-text.sh` from one whose values
+carry a quote, a backslash, a line break, a control character and a non-Latin
+sentence stop. `make preflight`
 names any missing host tool first. `make scaffold` alone, then working inside
 `.scratch/anvil-smoke/CiSmoke`, is the loop for iterating on one gate. Never
 mark template work done on inspection alone.
 
 `ci/smoke.conf` carries text that is hostile on purpose (`&`, `<`, a quote in
-the display name and author, an accented letter, a CJK sentence end), and
-`ci/check-smoke-mod.py` pins what the substitution owes ModInfo.xml. Change
+the display name and author, a backslash and a straight quote in the display
+name, an accented letter, a CJK sentence end), and `ci/check-smoke-mod.py` pins
+what the substitution owes ModInfo.xml and to the C# string literal the console
+command's description is written in. Change
 either and the checker fails, by design.
 
 `new-mod.sh` is re-runnable in the same sense: it builds the mod in a staging

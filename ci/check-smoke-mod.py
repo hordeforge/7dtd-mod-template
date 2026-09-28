@@ -3,12 +3,14 @@
 
 The smoke config carries text the substitution has to survive on purpose: a
 display name and an author holding `&`, `<` and a quote, an accented letter,
-and a purpose whose first sentence ends on a CJK stop rather than a period.
+a display name also holding a backslash and a straight quote, and a purpose
+whose first sentence ends on a CJK stop rather than a period.
 A scaffolder that writes those values raw leaves a ModInfo.xml the game
-cannot parse and the mod's own xml-parses gate red; one that finds a
-sentence end only in `.!?` leaves the description holding the whole
-purpose. Both are pinned here, against what a reader of the config
-expects to see in the file.
+cannot parse and the mod's own xml-parses gate red, and one that writes them
+raw into the C# string literal the console command's description is leaves a
+file the compiler rejects; one that finds a sentence end only in `.!?`
+leaves the description holding the whole purpose. All of it is pinned here,
+against what a reader of the config expects to see in the file.
 
 The mod's own gates read the mod; this reads the scaffolder's output. They
 are separate because the file that carries the values is written before the
@@ -32,16 +34,28 @@ from gate import main as report
 # What ci/smoke.conf asks for, and what the substitution owes ModInfo.xml.
 # Change either side and this fails, which is the point: the config is the
 # input, this file is the expectation.
-EXPECTED_DISPLAY_NAME = 'CI & Smoke „Mod“'
+EXPECTED_DISPLAY_NAME = 'CI & Smoke „Mod“ \\Tag\\ "Quoted"'
 EXPECTED_AUTHOR = "CI & Müller"
 EXPECTED_DESCRIPTION = "このモッドはテンプレートから動くbmodレットである。"
 EXPECTED_SECOND_SENTENCE = "Throwaway CI smoke mod"
 
 CONF_KEY = re.compile(r"^(?P<key>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$")
+# What a backslash escapes inside a shell double-quoted value, and the only
+# place one does. new-mod.sh `source`s the config, so the shell is the reader
+# that decides what the value is; a checker that read the line literally
+# would expect a different string than the scaffold was given.
+SHELL_ESCAPE = re.compile(r"\\([\"\\$`])")
+
+
+def unquote(raw: str) -> str:
+    """One shell double-quoted value as the shell would expand it."""
+    if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    return SHELL_ESCAPE.sub(r"\1", raw)
 
 
 def conf_values(path: str) -> dict[str, str]:
-    """The `key="value"` pairs of a scaffold config, quotes stripped."""
+    """The `key="value"` pairs of a scaffold config, as the shell expands them."""
     values: dict[str, str] = {}
     with open(path, encoding="utf-8") as handle:
         for raw in handle:
@@ -50,7 +64,7 @@ def conf_values(path: str) -> dict[str, str]:
                 continue
             match = CONF_KEY.match(line)
             if match:
-                values[match["key"]] = match["value"].strip('"')
+                values[match["key"]] = unquote(match["value"])
     return values
 
 
@@ -96,6 +110,25 @@ def main() -> int:
     check("modinfo-description-fits-one-line",
           len(values.get("Description", "")) <= 200,
           f"{len(values.get('Description', ''))} code points")
+
+    # The same display name is written into the console command's
+    # getDescription, which is a C# string literal. A quote or a backslash
+    # written raw closes it, and the mod's first `make build` fails on a
+    # file the scaffolder reported as written.
+    literal = EXPECTED_DISPLAY_NAME.replace("\\", "\\\\").replace('"', '\\"')
+    console = ""
+    for base, _dirs, files in os.walk(os.path.join(mod_dir, "src")):
+        for f in files:
+            if f.startswith("ConsoleCmd") and f.endswith(".cs"):
+                with open(os.path.join(base, f), encoding="utf-8") as handle:
+                    console = handle.read()
+                break
+        if console:
+            break
+    check("console-command-escapes-the-display-name-for-csharp",
+          f'return "{literal} settings";' in console,
+          f"the C# literal does not hold {literal!r}; a quote or a backslash "
+          f"written raw makes the mod's first build fail")
 
     # The purpose's second sentence has to survive somewhere, or the
     # description check above would also pass on a scaffolder that dropped

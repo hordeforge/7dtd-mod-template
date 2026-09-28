@@ -97,6 +97,10 @@ check: preflight scaffold
 	# and the last one after it: a config value in an encoding that is not
 	# UTF-8 has to scaffold as valid UTF-8.
 	ci/scaffolder-encoding.sh
+	# and the one beside it: a value carrying a quote, a backslash, a line
+	# break or a control character has to scaffold as valid XML and valid
+	# C#, and a description has to end on a non-Latin sentence stop.
+	ci/scaffolder-hostile-text.sh
 	# and the one after that: a purpose the 200 code-point description limit
 	# cuts inside a character, a name that draws nothing, an author name
 	# reaching the Harmony id.
