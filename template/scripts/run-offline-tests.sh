@@ -23,6 +23,10 @@
 #   OFFLINE_TEST_TIMINGS=1 scripts/run-offline-tests.sh   # add elapsed seconds
 set -uo pipefail
 
+# shellcheck source=lib/require-bash.sh
+source "$(dirname "$0")/lib/require-bash.sh"
+require_bash
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Elapsed time is measured on a monotonic clock. `date +%s` is the wall

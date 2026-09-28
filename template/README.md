@@ -22,7 +22,10 @@ make install-server         # provision the dedicated server via SteamCMD (EAC o
 make server-smoke           # deploy + boot the server briefly, prove the mod loaded
 ```
 
-Host tools: `python3`, `git`, `make`, `shellcheck`, `ruff`, `zip`; a .NET SDK (`dotnet`
+Host tools: `bash` 4.4+ (checked by `scripts/lib/require-bash.sh`; macOS ships
+3.2 as its system bash, so install a current one with `brew install bash`),
+`python3` 3.9+ (the floor `ruff.toml` pins), `git`, `make`, `shellcheck`,
+`ruff`, `zip`; a .NET SDK (`dotnet`
 on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.

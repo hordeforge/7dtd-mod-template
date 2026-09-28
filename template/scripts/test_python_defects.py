@@ -18,6 +18,11 @@ floor for every tracked *.py (the mod's own gates and tools):
   assertion can never fire; an empty one can never pass.
 - **== None / != None** — identity comparison belongs to `is` / `is not`;
   `==` dispatches a stray __eq__ and misses None-correct objects.
+- **A PEP 604 union (`X | Y`) in an annotation without
+  `from __future__ import annotations`** — `str | None` is evaluated when the
+  `def` runs, and `type.__or__` arrived in 3.10. ruff.toml pins
+  `target-version = "py39"`, so on a 3.9 host the module raises TypeError at
+  import instead of running.
 
 Stdlib-only, tracked files only via `git ls-files`, sorted deterministic
 output, and negative controls proving every detector can fail — fixture
@@ -44,6 +49,46 @@ MUTABLE_LITERALS = (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast
 MUTABLE_CALLS = ("list", "dict", "set")
 
 
+def _postpones_annotations(tree: ast.Module) -> bool:
+    """Whether *tree* imports `from __future__ import annotations`."""
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and "annotations" in {alias.name for alias in node.names}
+        for node in tree.body
+    )
+
+
+def _annotation_nodes(tree: ast.Module) -> list[ast.expr]:
+    """Every node the interpreter evaluates as an annotation at def time."""
+    nodes: list[ast.expr] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = node.args
+            for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs,
+                        args.vararg, args.kwarg):
+                if arg is not None and arg.annotation is not None:
+                    nodes.append(arg.annotation)
+            if node.returns is not None:
+                nodes.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            nodes.append(node.annotation)
+    return nodes
+
+
+def _unions_outside_postponed(tree: ast.Module) -> list[int]:
+    """Linenumbers of `X | Y` in an annotation of a module that does not
+    postpone them."""
+    if _postpones_annotations(tree):
+        return []
+    return sorted({
+        node.lineno
+        for annotation in _annotation_nodes(tree)
+        for node in ast.walk(annotation)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr)
+    })
+
+
 def tracked_py() -> list[str]:
     """Every tracked *.py under this mod, sorted — never filesystem order."""
     done = subprocess.run(
@@ -68,6 +113,8 @@ def findings(source: str) -> list[str]:
     """The defect classes in *source*, as 'lineno: kind'."""
     tree = ast.parse(source)
     found: list[tuple[int, str]] = []
+    for lineno in _unions_outside_postponed(tree):
+        found.append((lineno, "PEP 604 union without postponed annotations"))
     for node in ast.walk(tree):
         for field in ("body", "orelse", "finalbody"):
             block = getattr(node, field, None)
@@ -138,7 +185,8 @@ def tracked_files_stay_clean() -> None:
     )
     check(
         "no bare excepts, mutable defaults, duplicate dict keys, "
-        "unreachable statements, tuple asserts, == None",
+        "unreachable statements, tuple asserts, == None, "
+        "PEP 604 unions without postponed annotations",
         not problems,
         "; ".join(problems),
     )
@@ -178,6 +226,14 @@ def negative_controls() -> None:
         ("mutable default argument", "def f(x, acc=[]):\n    return acc\n"),
         ("mutable default argument", "def f(x, acc=dict()):\n    return acc\n"),
         ("==/!= None comparison", "ok = (x != None)\ndef f(x):\n    return ok\n"),
+        (
+            "PEP 604 union without postponed annotations",
+            "def f(x: str | None) -> int | None:\n    return None\n",
+        ),
+        (
+            "PEP 604 union without postponed annotations",
+            "value: list[str | None] = []\n",
+        ),
     )
     for kind, snippet in cases:
         hits = findings(snippet)
@@ -186,6 +242,17 @@ def negative_controls() -> None:
             any(item.endswith(kind) for item in hits),
             f"{kind} slipped through: {hits!r}",
         )
+    # The same union is legal once annotations are postponed: that is the fix,
+    # so the detector must not fire on it.
+    postponed = findings(
+        "from __future__ import annotations\n"
+        "def f(x: str | None) -> int | None:\n    return None\n"
+    )
+    check(
+        "negative control: a postponed PEP 604 union is not flagged",
+        not any(item.endswith("PEP 604 union") for item in postponed),
+        str(postponed),
+    )
     # A trailing jump must NOT read as dead code: nothing follows it.
     tail_ok = findings("def f(x):\n    return x\n")
     check(

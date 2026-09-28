@@ -17,6 +17,8 @@ as a renamed method. Names beginning with `__` are Harmony's own injections
 (`__instance`, `__result`, `___privateField`, …) and are skipped.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import shutil

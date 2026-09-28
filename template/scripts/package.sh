@@ -14,6 +14,10 @@
 # Usage: scripts/package.sh   (after scripts/build.sh staged dist/<Name>/)
 set -euo pipefail
 
+# shellcheck source=lib/require-bash.sh
+source "$(dirname "$0")/lib/require-bash.sh"
+require_bash
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MOD_NAME="__MOD_NAME__"
 STAGE="$ROOT/dist/$MOD_NAME"

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Shared helpers for the dedicated-server targets. Sourced, not executed.
 
+# shellcheck source=lib/require-bash.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/require-bash.sh"
+require_bash
+
 # load_local_env <mod-root>
 #
 # Export every key of the ignored <mod-root>/.local.env into the environment.

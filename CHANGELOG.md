@@ -40,6 +40,13 @@ modlet's contract rather than add to it.
   workflow locally, step for step, after a `make preflight` that names any
   missing host tool. It proves a change to `new-mod.sh` or `template/` without
   a contributor having to reconstruct the CI job by hand.
+- The host floors the scripts assume are declared and checked:
+  `scripts/lib/require-bash.sh` fails with one message on the bash 3.2 that
+  macOS still ships as its system bash, where `mapfile -d`, `wait -n` and
+  `[[ -v ]]` each fail differently and none says why, and the README states
+  bash 4.4+ and Python 3.9+. **Breaking for a mod scaffolded before this:**
+  that mod has no `scripts/lib/require-bash.sh`, so take it with the three
+  scripts that source it.
 
 ### Changed
 
@@ -93,6 +100,10 @@ modlet's contract rather than add to it.
   failing deep inside the build output.
 - Settings floats stay exact, and SDK fallbacks order numerically.
 - Settings keys in `.local.env` are validated against the documented set.
+- `verify-patch-targets.py` postpones its annotations, so it imports on the
+  Python 3.9 floor `ruff.toml` pins instead of raising `TypeError` on
+  `str | None`; `test_python_defects.py` fails any script that reintroduces a
+  PEP 604 union without the future import.
 
 ## [0.1.0] - 2026-09-11
 
