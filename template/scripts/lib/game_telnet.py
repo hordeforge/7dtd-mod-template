@@ -94,6 +94,9 @@ class GameTelnet:
 
     def connect(self, wait: float = 120.0) -> None:
         """Connect, retrying until the server has opened its listener."""
+        # A reconnect on a live instance would otherwise drop the previous
+        # socket on the floor: nothing else releases it.
+        self.close()
         # Deadlines use the monotonic clock: an NTP step mid-wait would make a
         # wall-clock deadline expire instantly or hang for the skew duration.
         deadline = time.monotonic() + wait
@@ -129,32 +132,33 @@ class GameTelnet:
             # Drain the banner so the first command's output is not mixed with it.
             self._read_until_any(READY_MARKERS, timeout=self.timeout, required=False)
             self._drain(0.5)
-        except TelnetError:
+        except Exception:
             # The socket is open but the session never became usable, so
             # release it here: __exit__ does not run when __enter__ raised,
-            # and the CLI callers only close after connect() succeeded.
+            # and the CLI callers only close after connect() succeeded. Any
+            # exception type, not just TelnetError, or a decode error on the
+            # banner leaks the descriptor for the life of the process.
             self.close()
             raise
 
     def close(self) -> None:
-        if self.closed_by_server and self._sock is not None:
-            try:
-                self._sock.close()
-            except OSError:
-                pass
-            self._sock = None
+        sock, self._sock = self._sock, None
+        if sock is None:
             return
-        if self._sock is not None:
+        try:
+            if not self.closed_by_server:
+                # Best-effort farewell: the server may already be gone, and a
+                # failed send must not skip the close below.
+                try:
+                    sock.sendall(b"exit\r\n")
+                    time.sleep(0.2)
+                except OSError:
+                    pass
+        finally:
             try:
-                self.send_raw("exit")
-                time.sleep(0.2)
+                sock.close()
             except OSError:
                 pass
-            try:
-                self._sock.close()
-            except OSError:
-                pass
-            self._sock = None
 
     # -- io ---------------------------------------------------------------
 

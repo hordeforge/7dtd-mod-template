@@ -207,7 +207,10 @@ game what is true. Take its password from the environment: the console is
 plaintext telnet, and setting a password moves the engine's listener from
 loopback to every interface. Dedicated
 server: `make install-server` / `deploy-server` / `server-smoke` boot the
-configured server briefly and prove the mod loaded from its log.
+configured server briefly and prove the mod loaded from its log. Each smoke
+run writes one log into the server install's `logs/` and keeps the newest
+`SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS` (default 5); the game's own logs are
+never touched.
 
 Live behavior: deploy per `docs/reference/environment.md` and check the
 game log — a clean log alone does not prove an XPath matched; verify in

@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/server-common.sh"
 load_server_environment
 
 RUN_FOR_SECONDS="${SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS:-90}"
+KEEP_LOGS="${SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS:-5}"
 SERVER_BIN="$SERVER_DIR/7DaysToDieServer.x86_64"
 LOG_DIR="$SERVER_DIR/logs"
 LOG_FILE="$LOG_DIR/__MOD_NAME_LOWER__-server-smoke-$(date -u +%Y%m%d-%H%M%S).log"
@@ -34,6 +35,24 @@ fi
 
 "$SCRIPT_DIR/deploy-server.sh"
 mkdir -p "$LOG_DIR"
+
+# Every run writes its own log and nothing else removes them, so the server
+# install's logs/ would grow by one file per smoke run forever. Keep the newest
+# KEEP_LOGS and drop the rest; the game's own logs are a different prefix and
+# are never touched.
+if [[ "$KEEP_LOGS" =~ ^[0-9]+$ ]]; then
+	stale=()
+	while IFS= read -r log; do
+		if [[ -n "$log" ]]; then
+			stale+=("$log")
+		fi
+	done < <(find "$LOG_DIR" -maxdepth 1 -type f \
+		-name '__MOD_NAME_LOWER__-server-smoke-*.log' -printf '%T@ %p\n' |
+		sort -rn | tail -n "+$((KEEP_LOGS + 1))" | cut -d' ' -f2-)
+	if ((${#stale[@]})); then
+		rm -f -- "${stale[@]}"
+	fi
+fi
 
 echo "Launching dedicated server for ${RUN_FOR_SECONDS}s."
 set +e
