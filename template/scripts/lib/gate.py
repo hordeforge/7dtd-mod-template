@@ -2,9 +2,11 @@
 
 One definition of `check` so a gate cannot drift from its neighbours: a PASS
 line on stdout, a FAIL line on stderr, and a non-zero exit from `main`.
-Import it with:
+Every `scripts/test_*.py` uses it in place of its own bookkeeping. Import it
+by putting this directory on the path; a caller in `scripts/` does:
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+    from gate import check, main as report
 """
 
 from __future__ import annotations

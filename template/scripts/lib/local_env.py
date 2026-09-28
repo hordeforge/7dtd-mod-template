@@ -4,7 +4,8 @@ Every install-dependent tool needs the same answer to "where is the game
 install?", and three copies of the lookup had drifted: some stripped only
 double quotes, so a value written as `SEVEN_DAYS_TO_DIE_DIR='/opt/7dtd'`
 resolved to a path with a leading quote and failed with a path that does not
-exist. Import it with:
+exist. Import it by putting this directory on the path; a caller in
+`scripts/` does:
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 

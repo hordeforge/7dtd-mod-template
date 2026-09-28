@@ -15,17 +15,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
-import local_env
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+import local_env  # noqa: E402
+from gate import check, main as report  # noqa: E402
 
 
 def read(env_text: str | None, key: str, environ: dict[str, str] | None = None) -> str | None:
@@ -69,8 +60,7 @@ def main() -> int:
     check("negative control rejects a double-quote-only reader",
           legacy != "/opt/7dtd", f"the old reader would have resolved {legacy!r}")
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

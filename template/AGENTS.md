@@ -97,7 +97,7 @@ is reproducible and lengthened with `HARMONY_FUZZ_ITERS` /
 splitting in `scripts/verify-patch-targets.py`, and
 `scripts/test_fuzz_extends_chain.py` over the `Extends` walk in
 `scripts/lib/xml_extends.py`. A new parser takes a gate in the same pass
-that adds it: malformed input must come back as a parse error or a resolved
+that adds it: malformed input must come back as a named error or a resolved
 entry, never as a traceback that kills the gate before it can report.
 - **Prove a gate can fail** before trusting it — against a fixture or a
   scratchpad copy, never by breaking the shared tree.

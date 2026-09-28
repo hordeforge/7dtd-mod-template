@@ -5,16 +5,18 @@
 is whatever a mod author put in `Config/*.xml`: a chain longer than anyone
 planned, a name that points at nothing, a self-reference, or a cycle
 (`a` extends `b`, `b` extends `a`). Every one of those is a patch file, not
-an attack, and all of them have to come back as a resolved entry or as empty,
-never as a traceback that kills the offline gate before it can report the
-bad patch.
+an attack, and all of them have to come back as a resolved entry, as empty, or
+as the `ExtendsCycle` that names the chain, never as a traceback that kills
+the offline gate before it can report the bad patch.
 
 No fuzzing engine is available on the host (atheris and hypothesis are
 absent and nothing installs them here), so this generates the input grammar
 directly and asserts the three properties a coverage-guided fuzzer cannot
 check on its own:
 
-- **termination** — every chain resolves, cycles included;
+- **termination** — every chain comes back, cycles included, and a cycle comes
+  back as `ExtendsCycle` naming the entry that closed it, never as a walk that
+  runs away;
 - **own properties win** — a property the entry declares itself is never
   lost, whatever the chain above it does;
 - **`param1` excludes** — a name the entry's `Extends` refuses to inherit is
@@ -99,6 +101,7 @@ def main() -> int:
     iterations = int(os.environ.get("EXTENDS_FUZZ_ITERS", DEFAULT_ITERATIONS))
     rng = random.Random(SEED)
     failures: list[str] = []
+    cycles = 0
 
     def fail(kind: str, detail: str) -> None:
         if len(failures) < 5:
@@ -118,6 +121,14 @@ def main() -> int:
         for name, declared in sorted(own.items()):
             try:
                 scalars, classes = xml_extends.resolve(name, pool)
+            except xml_extends.ExtendsCycle as exc:
+                # A cycle is malformed input, and the only acceptable answer
+                # is the named error: an untraceable walk fails the gate the
+                # same way a traceback does.
+                cycles += 1
+                if not str(exc).startswith(name + " -> "):
+                    fail("cycle", f"{name} was not named first: {exc}")
+                continue
             except RecursionError:
                 fail("resolve", f"{name} did not terminate")
                 continue
@@ -160,8 +171,8 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    print(f"PASS extends-chain fuzz: {iterations} iterations, cycles included, "
-          "semantics intact")
+    print(f"PASS extends-chain fuzz: {iterations} iterations, {cycles} cyclic "
+          "entries named, semantics intact")
     return 0
 
 

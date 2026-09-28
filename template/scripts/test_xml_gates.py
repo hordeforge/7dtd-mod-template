@@ -30,16 +30,7 @@ SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(SCRIPTS, "lib"))
 
 import xml_extends  # noqa: E402  (the lib directory is on sys.path above)
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+from gate import check, main as report  # noqa: E402
 
 
 def load_validator():
@@ -181,8 +172,7 @@ def extends_model() -> None:
 def main() -> int:
     nested_patches_are_checked()
     extends_model()
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

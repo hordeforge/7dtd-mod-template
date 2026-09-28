@@ -23,21 +23,10 @@ import contextlib
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "lib"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-# resolved against the lib/ path the line above adds
-import game_telnet
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+import game_telnet  # noqa: E402  (import needs the path above)
+from gate import check, main as report  # noqa: E402
 
 
 class StubSocket:
@@ -139,8 +128,7 @@ def main() -> int:
     close_is_idempotent()
     close_never_raises_from_the_close_itself()
     negative_control()
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

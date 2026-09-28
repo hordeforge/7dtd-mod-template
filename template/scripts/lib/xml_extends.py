@@ -1,7 +1,8 @@
 """Shared XML `Extends`-chain resolution for the offline test scripts.
 
 One copy of the Extends walk the offline content gates share.
-Import it with:
+Import it by putting this directory on the path; a caller in `scripts/`
+does:
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
@@ -89,18 +90,22 @@ def resolve(
     The walk is iterative and tracks the names it has already visited: a
     mod-authored `Extends` cycle (`a` extends `b`, `b` extends `a`) is
     malformed input, and a recursive walk turned it into a RecursionError
-    that killed the offline gate instead of reporting the bad patch. A cycle
-    is cut at the entry that closes it, so the entries the mod wrote still
-    resolve and the rest of the chain is inherited.
+    that killed the offline gate instead of reporting the bad patch. An
+    entry that extends *itself* is not a cycle — the engine reads it as
+    "inherit nothing" — so that case still resolves.
     """
     chain: list[tuple[ET.Element, set[str]]] = []
+    path: list[str] = []
     seen: set[str] = set()
     current = name
-    while current not in seen:
+    while True:
         node = next((pool[current] for pool in pools if current in pool), None)
         if node is None:
             break
+        if current in seen:
+            raise ExtendsCycle(" -> ".join([*path, current]))
         seen.add(current)
+        path.append(current)
         parent_name, excluded = parent_of(node)
         chain.append((node, excluded))
         if not parent_name or parent_name == current:

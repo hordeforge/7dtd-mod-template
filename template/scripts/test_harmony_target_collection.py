@@ -19,6 +19,9 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 MODULE = SCRIPTS / "verify-patch-targets.py"
 
+sys.path.insert(0, str(SCRIPTS / "lib"))
+from gate import check, main as report  # noqa: E402
+
 FIXTURE = """using HarmonyLib;
 
 namespace Demo
@@ -48,16 +51,6 @@ EXPECTED = (
     ("PatchOne", "Alpha", "One", ()),
     ("PatchThree", "Gamma", "Three", ("count",)),
 )
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def load_collector():
@@ -105,8 +98,7 @@ def main() -> int:
         f"no target carried its patch method's parameter: {found!r}",
     )
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

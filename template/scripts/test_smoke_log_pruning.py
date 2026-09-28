@@ -23,18 +23,11 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "server-common.sh")
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def mod_name() -> str:
@@ -123,8 +116,7 @@ def main() -> int:
         stderr = prune(log_dir, "3")
         check("an empty log directory is not an error", stderr == "", stderr)
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

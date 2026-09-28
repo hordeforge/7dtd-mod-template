@@ -15,20 +15,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-# resolved against the lib/ path the line above adds
-import game_telnet
+import game_telnet  # noqa: E402
+from gate import check, main as report  # noqa: E402
 
 PASSWORD = "hunter2-console-password"
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def main() -> int:
@@ -56,8 +46,7 @@ def main() -> int:
         check(f"{host!r} loopback classification",
               game_telnet.is_loopback(host) is expected)
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 def _send_failure(client: game_telnet.GameTelnet, line: str) -> Exception:
