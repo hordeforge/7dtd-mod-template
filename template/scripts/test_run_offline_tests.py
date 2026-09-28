@@ -10,12 +10,19 @@ a throwaway directory, never against the shared tree:
 1. every fixture test passing, no filter -> exit 0;
 2. one fixture test failing -> nonzero, and the FAIL line names it;
 3. a filter matching no test name -> exit 1 (must not read as a green run);
-4. a filter naming a subset -> only that subset runs.
+4. a filter naming a subset -> only that subset runs;
+5. two runs over the same tree print byte-identical stdout.
+
+(5) is the gate the runner owes AGENTS.md's "every gate is deterministic" rule:
+a report carrying an elapsed time or a finish-order-dependent line makes two
+runs of an unchanged tree differ, so a diff of one run against another proves
+nothing.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +32,7 @@ FAILURES: list[str] = []
 
 PASS_BODY = "#!/usr/bin/env python3\nprint('ok')\n"
 FAIL_BODY = "#!/usr/bin/env python3\nimport sys\nprint('boom')\nsys.exit(3)\n"
+TIMING = re.compile(r"\(\d+s\)")
 
 
 def check(name: str, ok: bool, detail: str = "") -> None:
@@ -50,7 +58,8 @@ def make_runner_dir(root: str, bodies: dict[str, str]) -> str:
     return scripts
 
 
-def run_runner(scripts: str, *filters: str) -> subprocess.CompletedProcess[str]:
+def run_runner(scripts: str, *filters: str,
+               env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["./run-offline-tests.sh", *filters],
         cwd=scripts,
@@ -58,6 +67,7 @@ def run_runner(scripts: str, *filters: str) -> subprocess.CompletedProcess[str]:
         text=True,
         timeout=120,
         check=False,
+        env=env,
     )
 
 
@@ -73,6 +83,22 @@ def main() -> int:
             "all fixtures passing, no filter, exits 0",
             clean.returncode == 0 and "2 offline tests run" in clean.stdout,
             f"exit={clean.returncode} stdout={clean.stdout!r}",
+        )
+
+        again = run_runner(good)
+        check(
+            "two runs over the same tree print byte-identical stdout",
+            again.stdout == clean.stdout and again.returncode == clean.returncode,
+            f"first={clean.stdout!r} second={again.stdout!r}",
+        )
+
+        timed = run_runner(good, env={**os.environ, "OFFLINE_TEST_TIMINGS": "1"})
+        check(
+            "elapsed seconds appear only under OFFLINE_TEST_TIMINGS=1",
+            timed.returncode == 0
+            and TIMING.search(timed.stdout) is not None
+            and TIMING.search(clean.stdout) is None,
+            f"default={clean.stdout!r} timed={timed.stdout!r}",
         )
 
         filtered = run_runner(good, "alpha")
