@@ -300,7 +300,8 @@ silences a line.
 The suite's report carries no elapsed time, so two runs over an unchanged
 tree print byte-identical output; `OFFLINE_TEST_TIMINGS=1` adds the seconds
 for a human and is the one non-reproducible mode
-(`scripts/test_run_offline_tests.py` holds the contract). Both the suite
+(`scripts/test_run_offline_tests.py` holds the contract, including that an
+interrupted run leaves no scratch directory and no worker behind). Both the suite
 and the determinism gate that re-runs every gate twice take their
 parallelism from `OFFLINE_TEST_JOBS` (`1` runs them serially).
 Install-dependent checks: `make validate-xml` (every Config xpath against
@@ -383,8 +384,10 @@ run and prunes to `SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS` after the boot, so the
 directory cannot grow with repeated runs.
 `scripts/test_configure_server_config.py` (the derived config: a rerun is
 byte-identical, a failed run writes nothing and leaves no residue),
-`scripts/test_smoke_log_pruning.py` (the log quota) and
-`scripts/test_deploy_swap.py` (the deploy swap) hold that.
+`scripts/test_smoke_log_pruning.py` (the log quota),
+`scripts/test_deploy_swap.py` (the deploy swap) and
+`scripts/test_verify_reproducible.py` (an interrupted `make
+verify-reproducible` leaves no scratch tree) hold that.
 
 Corrected 2026-09-28: the deploy swap moved the deployed copy aside and then
 moved the new one in, with nothing between the two moves: a Ctrl-C, a SIGTERM

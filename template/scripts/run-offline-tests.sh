@@ -19,6 +19,10 @@
 # appends per-test elapsed seconds for a human, and is therefore the one mode
 # whose output is not reproducible.
 #
+# An interrupted run owns nothing when it exits: the signal traps release the
+# scratch directory and the workers, because a shell killed by a signal never
+# runs its EXIT trap.
+#
 # Usage:
 #   scripts/run-offline-tests.sh              # run every test
 #   scripts/run-offline-tests.sh nuke fuse    # run tests whose name matches any substring
@@ -141,10 +145,50 @@ fi
 # Global, not local: the EXIT trap must still see it after run_parallel returns.
 tmpdir=""
 
+# Release everything this run holds: the workers, then the temp directory
+# holding their output. Called from the EXIT trap and from each signal trap,
+# because a non-interactive shell killed by a signal never runs its EXIT trap,
+# so an EXIT trap alone leaves a whole temp directory behind on every
+# interrupt, once per interrupted run, forever.
+cleanup() {
+	local worker child
+	# The shell's own job table, not a list of PIDs collected at launch: a
+	# worker `wait -n` already reaped is gone from it, and its PID is free for
+	# the kernel to hand to some unrelated process, which a recorded PID
+	# would then kill.
+	while read -r worker; do
+		[[ -n "$worker" ]] || continue
+		# A worker is a subshell whose own child is the test process, so
+		# signalling the subshell alone orphans that child: it keeps running,
+		# writing into a directory that is about to be removed, until the
+		# test finishes on its own. The children are collected first,
+		# because once the subshell is gone they are reparented and this
+		# cannot find them again.
+		while read -r child; do
+			[[ -n "$child" ]] && kill "$child" 2>/dev/null || true
+		done < <(ps -o pid= --ppid "$worker" 2>/dev/null)
+		kill "$worker" 2>/dev/null || true
+	done < <(jobs -pr)
+	if [[ -n "$tmpdir" && -d "$tmpdir" ]]; then
+		rm -rf "$tmpdir"
+	fi
+	tmpdir=""
+	return 0
+}
+
+# make_tmpdir: the scratch directory both modes capture into, with the traps
+# that release it installed once.
+make_tmpdir() {
+	tmpdir="$(mktemp -d)"
+	trap cleanup EXIT
+	trap 'cleanup; exit 129' HUP
+	trap 'cleanup; exit 130' INT
+	trap 'cleanup; exit 143' TERM
+}
+
 run_serial() {
 	local test_script name start status elapsed out err
-	tmpdir="$(mktemp -d)"
-	trap 'rm -rf "$tmpdir"' EXIT
+	make_tmpdir
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
 		out="$tmpdir/$name.out"
@@ -175,8 +219,7 @@ run_serial() {
 
 run_parallel() {
 	local active test_script name start status secs elapsed out err
-	tmpdir="$(mktemp -d)"
-	trap 'rm -rf "$tmpdir"' EXIT
+	make_tmpdir
 	active=0
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"

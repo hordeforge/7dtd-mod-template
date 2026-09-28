@@ -32,6 +32,12 @@ the wall clock fails loudly instead of quietly reporting the same number.
 unset `status` the report would otherwise read is the shape that drops a
 result, so both deaths have to surface as failures with the passing workers
 beside them still named.
+
+(8) covers an interrupted run: a runner sent SIGTERM takes its temp directory
+and its workers with it. A shell killed by a signal never runs its EXIT trap,
+so the directory the whole report is captured into survives every Ctrl-C
+without the signal traps, and the test process the worker started outlives the
+run that owns it.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
@@ -68,6 +75,26 @@ KILL_SHELL_BODY = (
     "os.kill(os.getpid(), signal.SIGKILL)\n"
 )
 TIMING = re.compile(r"\(\d+s\)")
+
+# A worker that is still working when the signal arrives. The marker beside it
+# is the evidence: a worker that outlives the run leaves it behind.
+WORKER_DURATION_SECONDS = 0.8
+SLOW_BODY = (
+    "#!/usr/bin/env python3\n"
+    "import os, time\n"
+    f"time.sleep({WORKER_DURATION_SECONDS})\n"
+    "open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'survived'),\n"
+    "     'w').close()\n"
+)
+SURVIVED = "survived"
+
+# How long the interrupted-run case waits for the runner to create its scratch
+# directory, and how long after the signal the marker is read. The first is
+# the runner starting up; the second has to outlast the worker's own run, so a
+# worker the signal did not reach has written its marker by then.
+STARTUP_TIMEOUT_SECONDS = 60.0
+POLL_INTERVAL_SECONDS = 0.05
+WORKER_GRACE_SECONDS = 2.0
 
 # Each case is a separate runner process, and the cases below only read the
 # fixture tree, so they run together instead of one after another.
@@ -106,6 +133,57 @@ def run_runner(scripts: str, *filters: str,
         check=False,
         env=env,
     )
+
+
+def wait_for_scratch(directory: str) -> str | None:
+    """The runner's `mktemp -d`, once it exists, or None if it never does."""
+    deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        entries = sorted(os.listdir(directory))
+        if entries:
+            return os.path.join(directory, entries[0])
+        time.sleep(POLL_INTERVAL_SECONDS)
+    return None
+
+
+def interrupted_run_releases_everything(root: str) -> None:
+    """A runner sent SIGTERM leaves neither its temp dir nor its workers."""
+    scripts = make_runner_dir(root, {"test_eta_slow.py": SLOW_BODY})
+    scratch_root = tempfile.mkdtemp(prefix="test-runner-scratch-")
+    try:
+        # Its own session, so the signal below reaches the runner alone the way
+        # a supervisor's `kill` does. A terminal Ctrl-C already reaches the
+        # workers through the foreground process group, which would leave this
+        # case unable to tell the runner's own cleanup from the terminal's.
+        runner = subprocess.Popen(
+            ["./run-offline-tests.sh"],
+            cwd=scripts,
+            env={**DEFAULT_ENV, "TMPDIR": scratch_root},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        scratch = wait_for_scratch(scratch_root)
+        runner.terminate()
+        stdout, _stderr = runner.communicate(timeout=STARTUP_TIMEOUT_SECONDS)
+        check(
+            "an interrupted run starts before it is signalled",
+            scratch is not None,
+            f"no scratch directory under {scratch_root}",
+        )
+        check(
+            "an interrupted run leaves no temp directory behind",
+            scratch is not None and not os.path.exists(scratch),
+            f"{scratch} survived exit {runner.returncode}; stdout={stdout!r}",
+        )
+        time.sleep(WORKER_GRACE_SECONDS)
+        check(
+            "an interrupted run leaves no worker running",
+            not os.path.exists(os.path.join(scripts, SURVIVED)),
+            "a test process outlived the run that started it",
+        )
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
 
 
 def main() -> int:
@@ -225,6 +303,8 @@ def main() -> int:
             any(line.startswith("PASS test_beta_ok.py") for line in killed.stdout.splitlines()),
             f"stdout={killed.stdout!r}",
         )
+
+        interrupted_run_releases_everything(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

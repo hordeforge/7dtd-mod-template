@@ -88,8 +88,15 @@ variant() { # variant <mod-root> <label>
 # whose locale and timezone are neither C nor UTC.
 elsewhere="$(mktemp -d)"
 # The scratch tree never outlives this script, so the machine-local path
-# inventory copied into it is removed with it.
+# inventory copied into it is removed with it. The signal traps are what make
+# that true: a shell killed by a signal never runs its EXIT trap, so an EXIT
+# trap alone leaves a whole copy of the source tree in the temp directory on
+# every interrupted run. This is the same discipline new-mod.sh uses for its
+# staging directory.
 trap 'rm -rf "$elsewhere"' EXIT
+trap 'rm -rf "$elsewhere"; exit 129' HUP
+trap 'rm -rf "$elsewhere"; exit 130' INT
+trap 'rm -rf "$elsewhere"; exit 143' TERM
 mkdir -p "$elsewhere/$MOD_NAME"
 for entry in "${TREE[@]}"; do
 	if [[ -e "$ROOT/$entry" ]]; then
