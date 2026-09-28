@@ -7,6 +7,7 @@ by the anti-cheat. The source must already carry an EACEnabled property;
 a vanilla serverconfig that does not is an error, not something to invent.
 """
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -72,8 +73,14 @@ def main() -> int:
         print(f"ERROR: cannot write {target}: {exc}", file=sys.stderr)
         return 1
     finally:
-        if staged is not None and staged.exists():
-            staged.unlink()
+        # A staged file left behind by a failed write is residue a later run
+        # does not look for, so it is removed. The unlink is best-effort: it
+        # runs in a `finally` after a successful os.replace, where raising
+        # would replace this function's return 0 with a traceback and report
+        # a config that was written correctly as a failure.
+        if staged is not None:
+            with contextlib.suppress(OSError):
+                staged.unlink()
     return 0
 
 

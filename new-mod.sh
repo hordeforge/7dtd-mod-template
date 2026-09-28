@@ -611,8 +611,14 @@ for base, dirs, files in os.walk(mod_dir):
             # to CRLF by a Windows scaffolder.
             with open(path, encoding="utf-8", newline="") as handle:
                 text = handle.read()
-        except (UnicodeDecodeError, OSError):
+        except UnicodeDecodeError:
+            # A binary asset ships verbatim and has no token in it. Anything
+            # else is not a substitute for a failure: an unreadable file
+            # fails the run rather than shipping with its tokens in place.
             continue
+        except OSError as exc:
+            print(f"ERROR: could not read {path}: {exc}", file=sys.stderr)
+            raise SystemExit(1)
         out = strip_marked(text, marked[f]) if base == mod_dir and f in marked else text
         # Two of these files take a value as syntax rather than as text.
         # ModInfo.xml's land in an XML attribute, where a bare `&`, `<` or

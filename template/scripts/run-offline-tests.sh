@@ -175,9 +175,17 @@ cleanup() {
 }
 
 # make_tmpdir: the scratch directory both modes capture into, with the traps
-# that release it installed once.
+# that release it installed once. This script collects failures instead of
+# aborting on the first, so it runs without `set -e` and an unchecked mktemp
+# would put every worker's output at "/<name>.out" and report a wall of FAIL
+# lines instead of the cause.
 make_tmpdir() {
-	tmpdir="$(mktemp -d)"
+	if ! tmpdir="$(mktemp -d)"; then
+		tmpdir=""
+		echo "ERROR: could not create a temporary directory for test output." >&2
+		echo "       Check TMPDIR and the free space on its filesystem." >&2
+		exit 1
+	fi
 	trap cleanup EXIT
 	trap 'cleanup; exit 129' HUP
 	trap 'cleanup; exit 130' INT
