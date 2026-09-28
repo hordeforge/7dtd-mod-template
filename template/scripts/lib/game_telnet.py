@@ -15,24 +15,49 @@ Telnet is dedicated-server only. `GameManager` starts it under
 With an empty `TelnetPassword` the server binds the listener to loopback
 rather than all interfaces (`TelnetConsole`'s constructor:
 `new TcpListener(authEnabled ? IPAddress.Any : IPAddress.Loopback, port)`),
-so a passwordless local console is not exposed off the machine.
+so a passwordless local console is not exposed off the machine. Setting a
+password therefore moves the listener to every interface while the transport
+stays unencrypted, so a non-loopback host is warned about on stderr and the
+password is redacted from any error it appears in.
 
 Standard library only — no telnetlib, which was removed in Python 3.13.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import socket
+import sys
 import time
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8081
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
+REDACTED = "<redacted>"
 
 
 class TelnetError(RuntimeError):
     pass
+
+
+def is_loopback(host: str) -> bool:
+    """Whether `host` names this machine, so traffic never leaves it.
+
+    A hostname that does not resolve is reported as not loopback: the caller
+    only uses this to decide whether to warn, and a failed lookup is not
+    evidence that the connection stays local.
+    """
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        pass
+    try:
+        addresses = {entry[4][0] for entry in socket.getaddrinfo(host, None)}
+    except OSError:
+        return False
+    return bool(addresses) and all(
+        ipaddress.ip_address(address).is_loopback for address in addresses)
 
 
 class GameTelnet:
@@ -47,6 +72,16 @@ class GameTelnet:
         self._sock: socket.socket | None = None
         self._buffer = ""
         self.closed_by_server = False
+
+    def _describe(self, line: str) -> str:
+        """The line as it may appear in an error message.
+
+        The console password goes down the same path as every command, so it is
+        the one line that must never reach a log or a traceback.
+        """
+        if self.password and line == self.password:
+            return REDACTED
+        return repr(line)
 
     # -- connection -------------------------------------------------------
 
@@ -80,6 +115,15 @@ class GameTelnet:
 
         try:
             if self.password:
+                if not is_loopback(self.host):
+                    # The console is telnet, so the password crosses the wire in
+                    # cleartext. Setting TelnetPassword is also what makes the
+                    # engine bind IPAddress.Any instead of loopback, so a
+                    # passworded remote console is exactly the exposed case.
+                    print(f"WARNING: sending the telnet password in cleartext to "
+                          f"{self.host}:{self.port}; the console has no transport "
+                          f"security. Keep it on loopback or tunnel it over SSH.",
+                          file=sys.stderr)
                 self._read_until("Please enter password:", timeout=self.timeout)
                 self.send_raw(self.password)
             # Drain the banner so the first command's output is not mixed with it.
@@ -120,7 +164,7 @@ class GameTelnet:
         try:
             self._sock.sendall((line + "\r\n").encode("utf-8", "replace"))
         except OSError as exc:
-            raise TelnetError(f"sending {line!r} failed: {exc}") from exc
+            raise TelnetError(f"sending {self._describe(line)} failed: {exc}") from exc
 
     def _recv(self) -> str:
         if self._sock is None:

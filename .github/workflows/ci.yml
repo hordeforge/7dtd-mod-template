@@ -7,6 +7,10 @@ on:
 jobs:
   scaffold-smoke:
     runs-on: ubuntu-latest
+    # The job only checks out and builds; it never writes back or reads a
+    # secret. Anything beyond read access is an unused grant.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Scaffold a throwaway mod

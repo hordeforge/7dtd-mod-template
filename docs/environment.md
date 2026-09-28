@@ -13,12 +13,14 @@ UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
 HORDEFORGE_ROOT=""               # directory holding the hordeforge tool checkouts
 ```
 
-`new-mod.sh` writes this file at scaffold time. On a machine where it is
-missing, blank, or invalid: **ask the user for the absolute path before
-doing any game-file work.** Do not guess a platform path or reuse one from
-docs, chat history, or another machine. Validate a client path by checking
-`Data/Config/items.xml` exists under it. `.local.env` must never be
-committed, packaged, or made a runtime dependency of the shipped mod.
+`new-mod.sh` writes this file at scaffold time, mode 0600. On a machine
+where it is missing, blank, or invalid: **ask the user for the absolute
+path before doing any game-file work.** Do not guess a platform path or
+reuse one from docs, chat history, or another machine. Validate a client
+path by checking `Data/Config/items.xml` exists under it. `.local.env` must
+never be committed, packaged, or made a runtime dependency of the shipped
+mod. A credential added here (a server console password) belongs in the
+environment, not in this file.
 
 ## Game install (client)
 

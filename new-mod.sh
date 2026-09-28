@@ -172,6 +172,9 @@ DOTNET_ROOT=""
 ILSPYCMD="$(command -v ilspycmd || true)"
 UNITY_EDITOR="$unity_editor"
 LOCALEOF
+# 0600: this is where a token or password would end up, and the default 0644
+# would leave it readable by every other account on the machine.
+chmod 600 "$MOD_DIR/.local.env"
 
 # --- git ------------------------------------------------------------------
 git -C "$MOD_DIR" init -q -b main

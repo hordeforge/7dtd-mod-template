@@ -203,7 +203,9 @@ give, since a patch matching nothing applies silently) and, for C# mods,
 installed Assembly-CSharp) — run them after any config/patch change and
 after every game update. `scripts/lib/game_telnet.py` is the stdlib client
 for dedicated-server console oracles when a check needs to ask the running
-game what is true. Dedicated
+game what is true. Take its password from the environment: the console is
+plaintext telnet, and setting a password moves the engine's listener from
+loopback to every interface. Dedicated
 server: `make install-server` / `deploy-server` / `server-smoke` boot the
 configured server briefly and prove the mod loaded from its log.
 
