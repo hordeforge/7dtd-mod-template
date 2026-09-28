@@ -83,7 +83,10 @@ def check_release_notes() -> None:
     """The mod keeps a changelog with a home for unreleased work.
 
     Without an `Unreleased` section a release has nowhere to accumulate
-    changes, so the notes arrive at the next version or never.
+    changes, so the notes arrive at the next version or never. The released
+    section for the declared version carries a date: an entry with no date
+    is a version a reader cannot place in time, and the release procedure in
+    the file's own header asks for one.
     """
     path = os.path.join(MOD_DIR, "CHANGELOG.md")
     check("changelog-exists", os.path.isfile(path), "no CHANGELOG.md in the mod root")
@@ -93,9 +96,13 @@ def check_release_notes() -> None:
         text = handle.read()
     check("changelog-has-unreleased-section",
           "## [Unreleased]" in text, "add a '## [Unreleased]' section")
-    check("changelog-declares-the-declared-version",
-          bool(re.search(rf"^## \[{re.escape(declared_version())}\]", text, re.M)),
+    section = re.search(rf"^## \[{re.escape(declared_version())}\](.*)$", text, re.M)
+    check("changelog-declares-the-declared-version", bool(section),
           f"no released section for version {declared_version()}")
+    if section:
+        check("changelog-dates-the-declared-version",
+              bool(re.fullmatch(r"- \d{4}-\d{2}-\d{2}", section.group(1).strip())),
+              f"released section reads '## [{declared_version()}]' with no date")
 
 
 def check_extends_cycles() -> None:

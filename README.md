@@ -83,10 +83,21 @@ runs one test).
 
 Anvil's version is a git tag on `main`, and
 [`CHANGELOG.md`](CHANGELOG.md) records what each one changed for a mod
-scaffolded from an older tag. The template is `0.y.z` while the modlet's
+scaffolded from an older tag. Cutting a tag moves what landed under
+`Unreleased` into a dated `## [version]` section and leaves `Unreleased`
+empty for the next change; `ci/check-changelog.py` holds the notes to that
+shape and `make check` runs it. The template is `0.y.z` while the modlet's
 interfaces still move; `1.0.0` is when they stop. Fixes land on `main`
 through the normal branch-and-PR flow and are not backported, so a mod
 scaffolded from a tag tracks that tag, not `main`.
+
+Re-scaffolding a mod from a newer tag keeps the mod's own content, so the
+changes that move its contract are the ones to read. They open with the
+same marker, so the upgrade between two tags is one search:
+
+```console
+$ rg -F '**Breaking for a mod' CHANGELOG.md
+```
 
 A generated mod versions itself. `ModInfo.xml` is the single source of the
 version, the first line of the mod's `README.txt` has to name the same value,

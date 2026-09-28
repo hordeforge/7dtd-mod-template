@@ -22,7 +22,7 @@ editing the entry.
 
 ## [Unreleased]
 
-## [0.1.0.0] - scaffold
+## [__MOD_VERSION__] - __MOD_RELEASE_DATE__
 
 ### Added
 

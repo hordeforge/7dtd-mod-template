@@ -50,6 +50,11 @@ jobs:
         # config's characters that are XML-hostile, accented, or CJK have
         # to arrive intact rather than break the file
         run: python3 ci/check-smoke-mod.py "$RUNNER_TEMP/anvil-smoke/CiSmoke" ci/smoke.conf
+      - name: Release notes
+        # the template's own CHANGELOG.md, which no scaffolded mod can check:
+        # it is the file a tag is cut from. Unreleased first, a dated section
+        # per released version, versions that only go down the file.
+        run: python3 ci/check-changelog.py CHANGELOG.md
       - name: Offline gates
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" test
       - name: Shellcheck

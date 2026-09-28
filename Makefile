@@ -72,6 +72,9 @@ check: preflight scaffold
 	# what the scaffolder made of the smoke config's text: XML-hostile
 	# characters, an accented author name, a CJK sentence end
 	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
+	# the release contract of this repo's own notes, which no scaffolded mod
+	# can check: the file a tag is cut from
+	LC_ALL=C TZ=UTC python3 ci/check-changelog.py CHANGELOG.md
 	# new-mod.sh and ci/*.sh are not copied into the modlet, so the mod's own
 	# lint-shell never sees them; they are this repo's unchecked shell scripts.
 	shellcheck -x --severity=style new-mod.sh ci/*.sh

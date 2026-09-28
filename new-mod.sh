@@ -267,7 +267,7 @@ export ANVIL_NAME="$name" ANVIL_DISPLAY="$display_name" ANVIL_AUTHOR="$author" \
 	ANVIL_PURPOSE="$purpose" ANVIL_SKIP_EAC="$skip_eac" \
 	ANVIL_CSHARP="$csharp" ANVIL_ASSETS="$assets"
 python3 - "$MOD_DIR" <<'PYEOF'
-import html, os, re, sys, unicodedata
+import datetime, html, os, re, sys, unicodedata
 import xml.etree.ElementTree as ET
 mod_dir = sys.argv[1]
 
@@ -358,6 +358,11 @@ tokens = {
     "__MOD_PURPOSE__": purpose,
     "__MOD_PURPOSE_SHORT__": short,
     "__MOD_VERSION__": version,
+    # The date this mod's first release section carries. A changelog entry
+    # with no date is a version a reader cannot place in time, and the one
+    # every mod starts with is the one a mod author copies when they cut
+    # their next release.
+    "__MOD_RELEASE_DATE__": datetime.date.today().isoformat(),
     "__SKIP_WITH_ANTI_CHEAT__": from_shell("ANVIL_SKIP_EAC"),
 }
 xml_tokens = {token: html.escape(value, quote=True)

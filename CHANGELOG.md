@@ -13,7 +13,11 @@ reading the commit log. Generated mods are versioned separately, in their own
 
 A mod scaffolded from an older tag and re-scaffolded from a newer one keeps
 its own content: the notes below mark the changes that move the generated
-modlet's contract rather than add to it.
+modlet's contract rather than add to it, and every one of them opens with
+`**Breaking for a mod <what the mod did>:**`, so
+`rg -F '**Breaking for a mod' CHANGELOG.md` is the whole upgrade between
+two tags. `ci/check-changelog.py` holds that spelling, and the rest of the
+shape above, so the search cannot quietly stop matching.
 
 ## [Unreleased]
 
@@ -47,6 +51,8 @@ modlet's contract rather than add to it.
   first line of `README.txt` has to name the same value, and
   `scripts/test_static_checks.py` fails the offline gates when the three
   disagree. The changelog ships in the package next to `README.txt`.
+  **Breaking for a mod scaffolded before this:** its own `CHANGELOG.md` and
+  the release procedure in its header are what it has to take from here.
 - `make verify-reproducible` packages the modlet three times, the last from a
   copy at another absolute path with no git checkout, under a locale and
   timezone that are not C/UTC, and fails unless the three archives are
@@ -74,6 +80,18 @@ modlet's contract rather than add to it.
   index row per record whose status matches, and dated
   `Decided`/`Resolved` entries in `docs/design.md` and
   `docs/architecture.md`.
+- `test_settings_reload.py` proves the settings contract at the source level
+  and computes, in float32, the uptime at which each deadline below is lost,
+  so the constants cannot go back to a float without the gate saying why.
+- `ci/check-changelog.py` holds this file to the release contract its own
+  header states: `Unreleased` first and always present, a dated
+  `## [version]` section per released version, Keep a Changelog's group
+  names, a section with at least one entry, versions that only go down the
+  file, and the `**Breaking for a mod` marker the README tells an upgrading
+  mod author to search for. The generated mod's `test_static_checks.py` holds the same
+  contract for a mod's `ModInfo.xml` and `README.txt`; nothing held the
+  template's own notes, which are the file a tag is cut from. `make check`
+  and CI both run it.
 
 ### Changed
 
@@ -131,9 +149,21 @@ modlet's contract rather than add to it.
   `LangVersion` is a version rather than `latest`, which moved with the SDK
   major, and `scripts/build.sh` builds from the mod root so `dotnet` finds
   that pin whatever directory it was invoked from.
+- A scaffolded mod's first changelog section is dated
+  `## [<version>] - <today>`, the version `ModInfo.xml` already declares, and
+  `test_static_checks.py` fails a released section with no date. The section
+  read `- scaffold` before, so the file's own release procedure asked for
+  something the shipped file did not do, and the mod author's next release
+  copied the exception. **Breaking for a mod scaffolded before this:** its
+  `CHANGELOG.md` has to carry a date on each released section.
 - A rerun of `new-mod.sh` over the same target is safe: the mod is built in a
   staging directory and moved into place as the last step, so an interrupted
   run leaves nothing half-written for the next one to refuse.
+- The README says how a mod reads what a newer tag changes for it: one
+  fixed-string search over this file for the `**Breaking for a mod` marker,
+  which `ci/check-changelog.py` holds in place. Before, the only path from
+  "I am re-scaffolding from a newer tag" to the changes that move my mod's
+  contract was reading the whole file.
 
 ### Fixed
 
@@ -216,6 +246,21 @@ modlet's contract rather than add to it.
   and preserve line endings.
 - A `dotnet` on `PATH` with no SDK installed now names the fix instead of
   failing deep inside the build output.
+- The settings poll interval and reload debounce run on
+  `Time.unscaledTimeAsDouble` and are `double` constants. Both are differences
+  of clock readings, and a `float` there loses the sub-second resolution they
+  need once a long-running server's uptime makes the quantum larger than the
+  interval itself (0.25s at about 60 days, 1.0s at about 120). Past that the
+  poll collapsed to "every frame" and the debounce delta read 0.0, so a saved
+  file was never applied and the reload the console command promises stopped
+  working.
+- `make package` rejects a `SOURCE_DATE_EPOCH` outside 315532800
+  (1980-01-01T00:00:00Z) through 4354819198 (2107-12-31T23:59:58Z), the range
+  a zip entry's 32-bit DOS date can hold. Info-ZIP wraps an out-of-range mtime
+  silently rather than rejecting it, so a mistyped epoch produced an archive
+  that was reproducible and stamped with a date nobody asked for, and the only
+  sign was a wrong `unzip -l`. `test_package_epoch.py` drives the real script
+  and reads the real archive back.
 - Settings floats stay exact, and SDK fallbacks order numerically.
 - Settings keys in `.local.env` are validated against the documented set.
 - `verify-patch-targets.py` postpones its annotations, so it imports on the
