@@ -26,6 +26,10 @@ import os
 import re
 import sys
 import xml.etree.ElementTree as ET
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ModInfo Name == directory name (enforced by test_static_checks.py)
@@ -44,14 +48,8 @@ APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
 
 def configured_game_dir() -> str:
-    path = os.environ.get("SEVEN_DAYS_TO_DIE_DIR", "")
-    env_file = os.path.join(MOD_DIR, ".local.env")
-    if not path and os.path.isfile(env_file):
-        with open(env_file, encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-                    path = line.split("=", 1)[1].strip().strip('"')
-    return path
+    found = local_env.game_dir(Path(MOD_DIR))
+    return str(found) if found else ""
 
 
 class VerifyError(RuntimeError):
@@ -119,14 +117,19 @@ def check_containers(dump_dir: str) -> list[str]:
                     # and only report the first wrong parent if none matches.
                     if wrong_parent is None:
                         wrong_parent = current
-        if not found:
-            if wrong_parent is not None:
-                failures.append(
-                    f"{filename}: {pattern!r} landed under "
-                    f"{parent_tag} {wrong_parent!r}, expected {parent_name!r}"
-                )
-            elif not any(pattern in f for f in failures):
-                failures.append(f"{filename}: {pattern!r} is not present at all")
+        if found:
+            continue
+        # wrong_parent is set only where the target matched, so its absence
+        # means the target is not in this file at all. `failures` is shared
+        # across every expectation, so it must not decide this: two entries
+        # carrying the same pattern would silence each other.
+        if wrong_parent is not None:
+            failures.append(
+                f"{filename}: {pattern!r} landed under "
+                f"{parent_tag} {wrong_parent!r}, expected {parent_name!r}"
+            )
+        else:
+            failures.append(f"{filename}: {pattern!r} is not present at all")
     return failures
 
 

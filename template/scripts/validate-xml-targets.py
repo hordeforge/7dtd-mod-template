@@ -18,27 +18,28 @@ are checked against their parent path; `set`/`remove`/`csv` must match.
 
 from __future__ import annotations
 
+import glob
 import os
 import sys
 import xml.etree.ElementTree as ET
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Ops that create content: their xpath names the *parent* that must exist.
 CHECK_PARENT_ONLY = {"append", "insertBefore", "insertAfter", "setattribute"}
+# Ops that select the target itself.
 CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
 
 
 def game_dir() -> str:
-    path = os.environ.get("SEVEN_DAYS_TO_DIE_DIR", "")
-    env_file = os.path.join(MOD_DIR, ".local.env")
-    if not path and os.path.isfile(env_file):
-        with open(env_file, encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-                    path = line.split("=", 1)[1].strip().strip('"')
-    if not path or not os.path.isdir(os.path.join(path, "Data", "Config")):
+    found = local_env.game_dir(Path(MOD_DIR))
+    if found is None or not os.path.isdir(os.path.join(found, "Data", "Config")):
         sys.exit("ERROR: set SEVEN_DAYS_TO_DIE_DIR or .local.env to a valid game install.")
-    return path
+    return str(found)
 
 
 def find(root: ET.Element, xpath: str) -> bool | None:
@@ -68,15 +69,18 @@ def main() -> int:
     if not os.path.isdir(mod_config):
         print("no Config/ directory; nothing to validate")
         return 0
-    for name in sorted(os.listdir(mod_config)):
-        if not name.endswith(".xml"):
-            continue
-        patch = ET.parse(os.path.join(mod_config, name)).getroot()
+    for path in sorted(glob.glob(os.path.join(mod_config, "**", "*.xml"), recursive=True)):
+        # rglob, matching the engine and verify-patched-config.py: XmlPatcher
+        # loads "<mod>/Config/" + the vanilla file's own relative name, so the
+        # XUi patches live a directory down and a flat scan silently skips
+        # them.
+        name = os.path.relpath(path, mod_config).replace(os.sep, "/")
+        patch = ET.parse(path).getroot()
         if patch.tag != "configs":
             continue
         vanilla_path = os.path.join(config_dir, name)
         if not os.path.isfile(vanilla_path):
-            print(f"SKIP {name}: no vanilla counterpart (new file or XUi subpath)")
+            print(f"SKIP {name}: no vanilla counterpart (new file)")
             skips += 1
             continue
         vanilla = ET.parse(vanilla_path).getroot()
@@ -84,14 +88,11 @@ def main() -> int:
             xpath = op.get("xpath")
             if xpath is None:
                 continue
-            target = xpath
-            if op.tag in CHECK_PARENT_ONLY:
-                pass  # the xpath itself is the parent that must exist
-            elif op.tag not in CHECK_FULL:
+            if op.tag not in CHECK_PARENT_ONLY and op.tag not in CHECK_FULL:
                 print(f"SKIP {name}: unknown op <{op.tag}>")
                 skips += 1
                 continue
-            resolved = find(vanilla, target)
+            resolved = find(vanilla, xpath)
             if resolved is None:
                 print(f"SKIP {name}: xpath beyond checker subset: {xpath}")
                 skips += 1

@@ -26,12 +26,15 @@ Standard library only — no telnetlib, which was removed in Python 3.13.
 from __future__ import annotations
 
 import ipaddress
+import select
 import socket
 import sys
 import time
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8081
+# The server prints this once it wants the password, when one is configured.
+PASSWORD_PROMPT = ("Please enter password:",)
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
 REDACTED = "<redacted>"
@@ -127,7 +130,7 @@ class GameTelnet:
                           f"{self.host}:{self.port}; the console has no transport "
                           f"security. Keep it on loopback or tunnel it over SSH.",
                           file=sys.stderr)
-                self._read_until("Please enter password:", timeout=self.timeout)
+                self._read_until_any(PASSWORD_PROMPT, timeout=self.timeout)
                 self.send_raw(self.password)
             # Drain the banner so the first command's output is not mixed with it.
             self._read_until_any(READY_MARKERS, timeout=self.timeout, required=False)
@@ -147,8 +150,10 @@ class GameTelnet:
             return
         try:
             if not self.closed_by_server:
-                # Best-effort farewell: the server may already be gone, and a
-                # failed send must not skip the close below.
+                # Hang up politely so the server logs the shutdown; a connection
+                # the server already dropped has nothing left to say. Best-effort
+                # farewell: the server may already be gone, and a failed send
+                # must not skip the close below.
                 try:
                     sock.sendall(b"exit\r\n")
                     time.sleep(0.2)
@@ -211,22 +216,9 @@ class GameTelnet:
         return collected
 
     def _readable(self) -> bool:
-        import select
         if self._sock is None:
             return False
         return bool(select.select([self._sock], [], [], 0.2)[0])
-
-    def _read_until(self, marker: str, timeout: float) -> str:
-        deadline = time.monotonic() + timeout
-        seen = ""
-        while time.monotonic() < deadline:
-            if self._readable():
-                seen += self._recv()
-                if marker in seen:
-                    return seen
-            else:
-                time.sleep(0.05)
-        raise TelnetError(f"timed out waiting for {marker!r}; saw {seen[-300:]!r}")
 
     def _read_until_any(self, markers: tuple[str, ...], timeout: float,
                         required: bool = True) -> str:
@@ -239,9 +231,10 @@ class GameTelnet:
                     return seen
             else:
                 time.sleep(0.05)
-        if required:
-            raise TelnetError(f"timed out waiting for any of {markers}; saw {seen[-300:]!r}")
-        return seen
+        if not required:
+            return seen
+        wanted = ", ".join(repr(marker) for marker in markers)
+        raise TelnetError(f"timed out waiting for {wanted}; saw {seen[-300:]!r}")
 
     # -- commands ---------------------------------------------------------
 

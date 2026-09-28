@@ -24,6 +24,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+import local_env
+
 # src/<ModName> mirrors the mod directory name (Repo layout rule in AGENTS.md).
 SOURCE_DIR = Path("src") / Path(__file__).resolve().parent.parent.name
 MANAGED_SUBDIR = Path("7DaysToDie_Data") / "Managed"
@@ -74,25 +77,6 @@ def usage() -> None:
     print("EXAMPLES")
     print("  scripts/verify-patch-targets.py")
     print("  scripts/verify-patch-targets.py --game-dir /path/to/7dtd")
-
-
-def configured_game_dir(root: Path) -> Path | None:
-    game_dir = os.environ.get("SEVEN_DAYS_TO_DIE_DIR")
-    if game_dir:
-        return Path(game_dir)
-
-    env_file = root / ".local.env"
-    if not env_file.is_file():
-        return None
-
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-            continue
-        value = line.split("=", 1)[1].strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        return Path(value)
-    return None
 
 
 class Target:
@@ -253,6 +237,29 @@ def parameter_names(signature: str) -> list[str]:
     return names
 
 
+def make_target(
+    source: Path,
+    entry: tuple[int, str | None, str | None, list[str] | None],
+    lines: list[str],
+    patch_class: str | None,
+    declaring_type: str | None,
+) -> Target | None:
+    """One verifiable target, or None when the attribute names nothing to check.
+
+    An attribute that names no method patches every method of that name, and
+    one that names no declaring type says nothing about where to look; neither
+    is a target this verifier can decompile, so neither becomes a Target.
+    """
+    # The entry's own type is already folded into `declaring_type` by the
+    # caller, which is what carries a type-only class-level attribute down to
+    # the methods it covers.
+    entry_line, _own_type, method, argument_types = entry
+    if method is None or patch_class is None or declaring_type is None:
+        return None
+    return Target(source, entry_line, patch_class, declaring_type, method,
+                  argument_types, injected_parameters(lines, entry_line))
+
+
 def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     targets: list[Target] = []
     patch_classes: set[str] = set()
@@ -260,7 +267,9 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     for source in sorted(source_dir.glob("*.cs")):
         lines = source.read_text(encoding="utf-8").splitlines()
         # A class-level attribute may name only the type; the method names then
-        # come from attributes on the individual patch methods.
+        # come from attributes on the individual patch methods. Both reset at
+        # every class: a type named by one class must not leak into the next,
+        # or a method-only attribute is checked against the wrong type.
         class_type: str | None = None
         class_name: str | None = None
         pending: list[tuple[int, str | None, str | None, list[str] | None]] = []
@@ -272,27 +281,19 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
                 continue
 
             declaration = CLASS_DECLARATION.match(line)
-            if declaration and pending:
+            if declaration:
                 class_name = declaration.group(1)
-                patch_classes.add(class_name)
-                for entry_line, declaring_type, method, argument_types in pending:
-                    class_type = declaring_type or class_type
-                    if method is None:
-                        continue
-                    targets.append(Target(source, entry_line, class_name,
-                                          declaring_type or class_type, method, argument_types,
-                                          injected_parameters(lines, entry_line)))
-                pending = []
-                continue
-
-            if pending and line.strip() and not line.strip().startswith("["):
-                # A method-level attribute inside an already-opened patch class.
-                for entry_line, declaring_type, method, argument_types in pending:
-                    if method is None or class_name is None:
-                        continue
-                    targets.append(Target(source, entry_line, class_name,
-                                          declaring_type or class_type, method, argument_types,
-                                          injected_parameters(lines, entry_line)))
+                class_type = None
+            if pending and (declaration or (line.strip() and not line.strip().startswith("["))):
+                # Either a class-level attribute, or a method-level one inside
+                # an already-opened patch class.
+                if class_name is not None:
+                    patch_classes.add(class_name)
+                for entry in pending:
+                    class_type = entry[1] or class_type
+                    target = make_target(source, entry, lines, class_name, class_type)
+                    if target is not None:
+                        targets.append(target)
                 pending = []
 
     return targets, patch_classes
@@ -414,7 +415,7 @@ def main(argv: list[str]) -> int:
             return 2
         game_dir = Path(argv[index + 1])
     else:
-        game_dir = configured_game_dir(root)
+        game_dir = local_env.game_dir(root)
 
     if game_dir is None:
         print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass --game-dir.")
