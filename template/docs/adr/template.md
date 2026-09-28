@@ -4,7 +4,11 @@ Date: YYYY-MM-DD
 
 ## Status
 
-Proposed | Accepted | Superseded by [NNNN](NNNN-title.md)
+Accepted | Deprecated | Superseded by [NNNN](NNNN-title.md)
+
+An ADR records a decision that has been made. A decision still open for
+comment is an RFC, not a proposed ADR: keep the proposal out of this
+directory until it is decided, then write this file.
 
 ## Context
 

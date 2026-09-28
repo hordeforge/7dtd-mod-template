@@ -9,7 +9,9 @@ __MOD_PURPOSE__
 
 ## Decisions
 
-(Format: `## Decided YYYY-MM-DD: <topic>` — what was decided and why.)
+(Format: `## Decided YYYY-MM-DD: <topic>` — what was decided and why. A
+reversal is a later `## Resolved YYYY-MM-DD: <topic>` entry that names the
+earlier one and replaces it, never an edit to the original entry.)
 
 ## Open questions
 

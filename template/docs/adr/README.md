@@ -13,6 +13,11 @@ Numbered sequentially with a zero-padded 4-digit filename prefix (`0001-`,
 **new** ADR that references and supersedes the old one, with the old one's
 `Status` updated to `Superseded by NNNN`.
 
+An ADR records a decision that has been made, so a record here is never
+`Proposed`. A choice still open for comment belongs to an RFC; the ADR is
+written once the decision lands, and the RFC's `Status` updated to point
+at it.
+
 For a new decision: copy [`template.md`](template.md) into the next unused
 number, fill it in, then add it to the index below.
 
