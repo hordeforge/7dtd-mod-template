@@ -47,6 +47,11 @@ CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
+# The Steam app id and account name the engine's saves live under once Proton
+# has rewritten the Windows paths, when SEVEN_DAYS_TO_DIE_SAVES_DIR is unset.
+STEAM_APP_ID = "251570"
+STEAM_ACCOUNT = "steamuser"
+
 # Ops whose children are new elements the engine attributes to this mod, so
 # they are counted as "shipped". The other known ops (`setattribute`, `set`,
 # `remove`, `removeattribute`, `csv`) change a matched node instead of adding
@@ -197,7 +202,7 @@ def find_dump(game_dir: str, save_name: str) -> str:
             raise VerifyError("cannot derive the saves directory; set SEVEN_DAYS_TO_DIE_SAVES_DIR.")
         steamapps = game_dir.split("/common/")[0]
         saves = os.path.join(
-            steamapps, "compatdata", "251570", "pfx", "drive_c", "users", "steamuser",
+            steamapps, "compatdata", STEAM_APP_ID, "pfx", "drive_c", "users", STEAM_ACCOUNT,
             "AppData", "Roaming", "7DaysToDie", "Saves",
         )
     pattern = os.path.join(saves, "*", save_name if save_name else "*", "ConfigsDump")

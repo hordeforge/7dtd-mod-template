@@ -99,10 +99,10 @@ jobs:
         # scripts in the repo.
         run: shellcheck -x --severity=style new-mod.sh ci/*.sh
       - name: Ruff over this repo's own python
-        # ci/ is not copied into the modlet either, so the mod's lint-py
-        # never sees it; the modlet's rule set is the one this repo writes
-        # against.
-        run: ruff check --config template/ruff.toml ci/
+        # ci/ and scripts/ are not copied into the modlet either, so the mod's
+        # lint-py never sees them; the modlet's rule set is the one this repo
+        # writes against.
+        run: ruff check --config template/ruff.toml ci/ scripts/
       - name: Package layout (no game install -> XML-only package)
         run: |
           cd "$RUNNER_TEMP/anvil-smoke/CiSmoke"

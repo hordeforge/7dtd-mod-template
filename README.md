@@ -115,6 +115,7 @@ and both are gated against the mod's `CHANGELOG.md` by `make test`.
 ├── docs/            # shared, mod-agnostic 7DTD modding reference (vendored + generalized)
 ├── template/        # the modlet skeleton new-mod.sh instantiates
 ├── new-mod.sh       # the scaffolder
+├── scripts/         # the scaffolder's own helpers (token substitution)
 ├── newmod.conf.example
 ├── Makefile         # `make check`: this repo's gates, which are CI's
 ├── CONTRIBUTING.md  # the contributor's path: preflight, edit loop, PR requirements

@@ -32,7 +32,8 @@ with a concrete value inside `template/`.
 
 ## Testing a change
 
-Any change to `template/` or `new-mod.sh` is proven by scaffolding:
+Any change to `template/`, `new-mod.sh` or `scripts/` is proven by
+scaffolding:
 
 ```bash
 make check                  # scaffolds and runs every gate CI runs
@@ -45,7 +46,7 @@ and `make lint-py`, asserts what the scaffold made of that config's text with
 `ci/check-smoke-mod.py`, holds `CHANGELOG.md` to the release contract its own
 header states with `ci/check-changelog.py`, shellchecks `new-mod.sh` and
 `ci/*.sh`, runs the modlet's
-ruff rules over `ci/`, and proves `make package`
+ruff rules over `ci/` and `scripts/`, and proves `make package`
 produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. The last two steps
 scaffold hostile values of their own: `ci/scaffolder-encoding.sh` from a config
 that is not UTF-8, and `ci/scaffolder-hostile-text.sh` from one whose values

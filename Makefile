@@ -102,9 +102,10 @@ check: preflight scaffold
 	# new-mod.sh and ci/*.sh are not copied into the modlet, so the mod's own
 	# lint-shell never sees them; they are this repo's unchecked shell scripts.
 	shellcheck -x --severity=style new-mod.sh ci/*.sh
-	# likewise ci/: the mod's lint-py runs over the mod's scripts, not over
-	# this repo's. The modlet's rule set is the one this repo writes against.
-	ruff check --config template/ruff.toml ci/
+	# likewise ci/ and scripts/: the mod's lint-py runs over the mod's scripts,
+	# not over this repo's. The modlet's rule set is the one this repo writes
+	# against.
+	ruff check --config template/ruff.toml ci/ scripts/
 	# The packaging path without a game install: the DLL build needs one, so
 	# drop src/ and prove dist/<Name>.zip still extracts to Mods/<Name>/.
 	rm -rf "$(SMOKE_MOD)/src"
