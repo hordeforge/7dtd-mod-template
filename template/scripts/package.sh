@@ -25,6 +25,16 @@ STAGE="$ROOT/dist/$MOD_NAME"
 ARCHIVE="$ROOT/dist/$MOD_NAME.zip"
 # 2016-01-01T00:00:00Z, used when neither the environment nor git supplies a time.
 FALLBACK_EPOCH=1451606400
+# The zip entry timestamp is a 32-bit DOS date: 7 bits of year counted from
+# 1980, so it cannot express 1980-01-01T00:00:00Z (315532800) or
+# 2107-12-31T23:59:58Z (4354819198) and anything after. Info-ZIP does not
+# reject an out-of-range mtime, it wraps it: 2107-12-31T23:59:59Z and
+# 1970-01-01T00:00:01Z both land in the archive as 1980-01-01, and every
+# epoch past the wrap lands on some other wrong date. A SOURCE_DATE_EPOCH
+# outside the range therefore produces a reproducible but silently wrong
+# archive, so it is rejected here rather than written.
+MIN_DOS_EPOCH=315532800
+MAX_DOS_EPOCH=4354819198
 
 # shellcheck source=server-common.sh
 source "$ROOT/scripts/server-common.sh"
@@ -61,6 +71,12 @@ fi
 	echo "ERROR: SOURCE_DATE_EPOCH must be seconds since the epoch, got '$SOURCE_DATE_EPOCH'." >&2
 	exit 1
 }
+if (( SOURCE_DATE_EPOCH < MIN_DOS_EPOCH || SOURCE_DATE_EPOCH > MAX_DOS_EPOCH )); then
+	echo "ERROR: SOURCE_DATE_EPOCH $SOURCE_DATE_EPOCH is outside the range a zip entry can hold." >&2
+	echo "       Use $MIN_DOS_EPOCH (1980-01-01T00:00:00Z) through $MAX_DOS_EPOCH (2107-12-31T23:59:58Z);" >&2
+	echo "       past that the archive stores a wrapped, wrong timestamp without saying so." >&2
+	exit 1
+fi
 
 # the archive is the only output: a stale entry can never survive a rebuild.
 rm -f "$ARCHIVE"

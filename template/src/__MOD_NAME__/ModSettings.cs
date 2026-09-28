@@ -37,8 +37,15 @@ namespace __MOD_NAME__
 		/// read: subscribers see the shipped defaults here.</summary>
 		public static event Action Applied;
 
-		public const float FilePollIntervalSeconds = 0.25f;
-		public const float FileReloadDebounceSeconds = 0.35f;
+		// Seconds, as double: both deadlines below are differences of
+		// Time.unscaledTime readings, and a float there loses the sub-second
+		// resolution they need once a long-running server's uptime makes the
+		// quantum larger than the interval itself (0.25s at about 60 days,
+		// 1.0s at about 120). Past that the poll interval collapses to "every
+		// frame" and the debounce delta reads 0.0, so a saved file is never
+		// applied and the reload the console command promises stops working.
+		public const double FilePollIntervalSeconds = 0.25;
+		public const double FileReloadDebounceSeconds = 0.35;
 
 		static string watchedPath;
 		// What the applied values came from; the only "unchanged" test.
@@ -51,8 +58,8 @@ namespace __MOD_NAME__
 		// parsed (and logged) again until it changes.
 		static string pendingText;
 		static string rejectedText;
-		static float seenAt = -1f;
-		static float nextPollAt;
+		static double seenAt = -1.0;
+		static double nextPollAt;
 
 		/// <summary>
 		/// Reads the settings file if it is there. A missing file is the normal
@@ -83,7 +90,10 @@ namespace __MOD_NAME__
 		{
 			if (string.IsNullOrEmpty(watchedPath))
 				return false;
-			var now = Time.unscaledTime;
+			// unscaledTimeAsDouble, not unscaledTime: the same clock the
+			// settings file is polled on, at a precision that survives a
+			// dedicated server's uptime (see the two constants above).
+			var now = Time.unscaledTimeAsDouble;
 			if (now < nextPollAt)
 				return false;
 			nextPollAt = now + FilePollIntervalSeconds;
@@ -159,10 +169,10 @@ namespace __MOD_NAME__
 				if (text != pendingText)
 				{
 					pendingText = text;
-					seenAt = Time.unscaledTime;
+					seenAt = Time.unscaledTimeAsDouble;
 					return false;
 				}
-				if (Time.unscaledTime - seenAt < FileReloadDebounceSeconds)
+				if (Time.unscaledTimeAsDouble - seenAt < FileReloadDebounceSeconds)
 					return false;
 			}
 

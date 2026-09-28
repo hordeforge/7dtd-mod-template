@@ -16,6 +16,8 @@ A mod without src/ has no settings reader; the gate passes with a note.
 from __future__ import annotations
 
 import os
+import re
+import struct
 import sys
 from pathlib import Path
 
@@ -27,6 +29,84 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_NAME = os.path.basename(MOD_DIR)
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
 SRC_PATH = Path(SRC)
+# How far into a dedicated server's uptime the float32 check below searches
+# for the point each deadline is lost. A little over a year is past any real
+# server's life and still a few hundred cheap iterations.
+MAX_UPTIME_DAYS_SEARCHED = 400
+
+
+def float32(value: float) -> float:
+    return struct.unpack("f", struct.pack("f", value))[0]
+
+
+def code_without_comments(source: str) -> str:
+    """The source with C# line and block comments removed.
+
+    The checks below are about which clock the code reads. A comment naming
+    the clock it must not read is the explanation of the rule, so matching one
+    would fail the very source that documents the fix.
+    """
+    without_block = re.sub(r"/\*.*?\*/", " ", source, flags=re.DOTALL)
+    return re.sub(r"//[^\n]*", " ", without_block)
+
+
+def float32_would_lose_these_deadlines(source: str) -> bool:
+    """Whether float32 is why the two deadlines have to be double.
+
+    The deadlines are differences of readings of one engine clock. In float32
+    the gap between adjacent representable values grows with the reading, so
+    each interval stops being representable at some point in a server's
+    uptime: the 0.25s poll interval at about 49 days, where adding it rounds
+    back to the reading it started from and the poll runs every frame instead
+    of four times a second; the 0.35s debounce at about 98 days, where the
+    measured delta computes as 0.0 and a saved file is never applied at all.
+    A double's 52-bit mantissa is exact to far under a nanosecond at those
+    magnitudes, so neither happens there.
+
+    Each interval's horizon is searched for rather than asserted, so the check
+    follows the constants the file declares and fails if the claim stops being
+    true. A source that no longer needs double precision returns False and has
+    to drop the claim.
+    """
+    intervals = re.findall(
+        r"const double File(?:PollInterval|ReloadDebounce)Seconds = ([0-9.]+)",
+        source,
+    )
+    if len(intervals) != 2:
+        return False
+    for raw in intervals:
+        interval = float(raw)
+        if not _float32_loses_interval(interval):
+            return False
+        # double, at that interval's own horizon: it survives.
+        uptime = _float32_loss_horizon_days(interval) * 24 * 60 * 60.0
+        if uptime + interval == uptime or (uptime + interval) - uptime <= 0.0:
+            return False
+    return True
+
+
+def _float32_loses_interval(interval: float) -> bool:
+    """Whether float32 loses `interval` somewhere in a server's plausible life."""
+    return _float32_loss_horizon_days(interval) is not None
+
+
+def _float32_loss_horizon_days(interval: float) -> int | None:
+    """Whole days of uptime at which float32 first loses `interval`, or None.
+
+    Lost means both symptoms at once: adding the interval to the reading
+    rounds back to the reading itself, and subtracting the reading from a
+    reading one interval later gives 0.0. The search is capped at
+    MAX_UPTIME_DAYS_SEARCHED, a little over a year, so a genuinely small
+    interval (a millisecond, say) returns None rather than running long.
+    """
+    if interval <= 0.0:
+        return None
+    for days in range(1, MAX_UPTIME_DAYS_SEARCHED + 1):
+        uptime = days * 24 * 60 * 60.0
+        if (float32(float32(uptime) + interval) == float32(uptime)
+                and float32(float32(uptime + interval) - float32(uptime)) <= 0.0):
+            return days
+    return None
 
 
 def main() -> int:
@@ -82,6 +162,13 @@ def main() -> int:
           and "out string failure" in settings
           and "catch (Exception ex)" in settings
           and "ex.Message" in settings)
+    code = code_without_comments(settings)
+    check("the poll and debounce deadlines are read at double precision",
+          float32_would_lose_these_deadlines(code)
+          and "Time.unscaledTimeAsDouble" in code
+          and not re.search(r"\bTime\.unscaledTime\b(?!\w)", code)
+          and "const double FilePollIntervalSeconds" in code
+          and "const double FileReloadDebounceSeconds" in code)
 
     return report()
 
