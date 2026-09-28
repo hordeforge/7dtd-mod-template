@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
-import local_env
+import local_env  # noqa: E402
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

@@ -64,9 +64,7 @@ namespace __MOD_NAME__
 			}
 
 			watchedPath = Path.Combine(mod.Path, RelativePath);
-			string message;
-			ReloadFromWatchedFile(true, true, out message);
-			_ = message;
+			ReloadFromWatchedFile(true, true, out _);
 		}
 
 		/// <summary>
@@ -81,8 +79,7 @@ namespace __MOD_NAME__
 			if (now < nextPollAt)
 				return false;
 			nextPollAt = now + FilePollIntervalSeconds;
-			string message;
-			return ReloadFromWatchedFile(false, false, out message);
+			return ReloadFromWatchedFile(false, false, out _);
 		}
 
 		/// <summary>Re-read the watched TOML immediately, ignoring the debounce.</summary>

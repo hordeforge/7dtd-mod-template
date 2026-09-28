@@ -14,6 +14,9 @@ from __future__ import annotations
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = os.path.join(MOD_DIR, "AGENTS.md")
 
@@ -24,16 +27,6 @@ REQUIRED = (
     "part of a built prefab",
     "separate invocations",
 )
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def missing_from(text: str) -> list[str]:
@@ -50,8 +43,7 @@ def main() -> int:
     )
     missing = missing_from(text)
     check("AGENTS.md states one concern per playtest run", missing == [], "missing " + repr(missing))
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

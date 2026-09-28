@@ -21,21 +21,14 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Config XML files allowed a root other than <configs>, each with a reason.
 # A stale entry (file gone) fails, so this list cannot rot.
 NON_PATCH_CONFIG_XML: dict[str, str] = {}
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def xml_files() -> list[str]:
@@ -100,14 +93,13 @@ def main() -> int:
           "V3 path is Config/XUi_InGame/ (plus XUi_Menu/, XUi_Common/)")
     binding = re.compile(r"\{binding\b|\{#")
     for rel in files:
-        if os.sep + "XUi" in rel or rel.startswith("Config" + os.sep + "XUi"):
+        if os.sep + "XUi" in rel:
             with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
                 check("no-legacy-binding-syntax:" + rel,
                       not binding.search(handle.read()),
                       "use V3 {% expression %} bindings")
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

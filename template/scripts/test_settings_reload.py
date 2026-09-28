@@ -16,19 +16,12 @@ from __future__ import annotations
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_NAME = os.path.basename(MOD_DIR)
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool) -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name, file=sys.stderr)
 
 
 def main() -> int:
@@ -64,8 +57,7 @@ def main() -> int:
     check("a failed re-read keeps the current values",
           "keeping current settings" in settings)
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

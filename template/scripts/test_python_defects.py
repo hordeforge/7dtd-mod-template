@@ -33,21 +33,14 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 JUMPS = (ast.Return, ast.Raise, ast.Break, ast.Continue)
 MUTABLE_LITERALS = (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)
 MUTABLE_CALLS = ("list", "dict", "set")
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def tracked_py() -> list[str]:
@@ -211,8 +204,7 @@ def negative_controls() -> None:
 def main() -> int:
     tracked_files_stay_clean()
     negative_controls()
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

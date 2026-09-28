@@ -17,21 +17,14 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 
 FAMILIES = ("codex", "claude", "grok", "gemini", "gpt", "shamway")
 CALL = re.compile(r"new-session-id\.sh\"?\s+(\S+)")
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def main() -> int:
@@ -49,8 +42,7 @@ def main() -> int:
                 "hardcodes " + repr(bare) + "; the lock would name that family "
                 "whoever is actually running. Use \"${PLAYTEST_AGENT:-agent}\".",
             )
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

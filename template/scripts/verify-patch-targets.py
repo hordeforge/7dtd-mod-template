@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
-import local_env
+import local_env  # noqa: E402
 
 # src/<ModName> mirrors the mod directory name (Repo layout rule in AGENTS.md).
 SOURCE_DIR = Path("src") / Path(__file__).resolve().parent.parent.name

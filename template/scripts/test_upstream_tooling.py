@@ -18,6 +18,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 SELF = os.path.abspath(__file__)
@@ -39,16 +42,6 @@ BANNED: dict[str, str] = {
 
 # relative path -> {needle: reason}
 ALLOW: dict[str, dict[str, str]] = {}
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def main() -> int:
@@ -79,8 +72,7 @@ def main() -> int:
             for needle in sorted(ALLOW[rel]):
                 check(f"allow-entry-used:{rel}:{needle}", needle in content,
                       "stale ALLOW needle; remove it")
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

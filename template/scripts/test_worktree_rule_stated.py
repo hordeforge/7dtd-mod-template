@@ -18,6 +18,9 @@ from __future__ import annotations
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate import check, main as report  # noqa: E402
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 REQUIRED_ELEMENTS = (
@@ -26,16 +29,6 @@ REQUIRED_ELEMENTS = (
     "git switch",
     "worktree add",
 )
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def missing_elements(text: str) -> list[str]:
@@ -59,8 +52,7 @@ def main() -> int:
         check("AGENTS.md states the full shared-checkout worktree rule",
               gone == [], "missing " + repr(gone))
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":
