@@ -47,10 +47,22 @@ fail() { # fail <message>
 	exit 1
 }
 
+# The digest command, resolved once: `sha256sum` is a GNU coreutils name, and
+# the BSD userland in macOS has only `shasum -a 256`. Resolved the same way
+# scripts/verify-reproducible.sh resolves it, so one hash answer is the
+# project-wide one rather than a second spelling that only works on Linux.
+if command -v sha256sum >/dev/null 2>&1; then
+	digest_cmd=(sha256sum)
+elif command -v shasum >/dev/null 2>&1; then
+	digest_cmd=(shasum -a 256)
+else
+	fail "neither sha256sum nor shasum found; a hash is how this gate compares trees"
+fi
+
 # Contents, not mtimes: the point is that the rerun changed nothing.
 fingerprint() { # fingerprint <dir>
 	(cd "$1" && find . -path ./.git -prune -o -type f -print0 |
-		LC_ALL=C sort -z | xargs -0 sha256sum) | sha256sum
+		LC_ALL=C sort -z | xargs -0 "${digest_cmd[@]}") | "${digest_cmd[@]}"
 }
 
 # Any staging directory left in the tree is a rerun that did not clean up.

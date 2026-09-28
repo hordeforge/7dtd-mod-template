@@ -12,7 +12,18 @@ concurrency:
 
 jobs:
   scaffold-smoke:
-    runs-on: ubuntu-24.04
+    # macOS is here because the repo already documents it as a platform a mod
+    # is developed on (`scripts/lib/require-bash.sh` names the 3.2 system bash
+    # and the `brew install bash` fix; `template/README.md` repeats it), and a
+    # documented platform nothing runs on is a claim, not a support contract.
+    # The two runners differ in the userland the scripts shell out to: BSD
+    # sort, `shasum` where GNU has `sha256sum`, `sysctl` where GNU has
+    # `nproc`, BSD `touch`/`date` in the packaging timestamp fallback.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
     # The job only checks out and builds; it never writes back or reads a
     # secret. Anything beyond read access is an unused grant.
     permissions:

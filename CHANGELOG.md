@@ -230,6 +230,19 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- `ci/scaffolder-rerun.sh` shelled out to `sha256sum`, which the BSD userland
+  in macOS does not ship, so the gate died on a machine the repo already
+  documents as a supported one. It resolves `sha256sum` or `shasum -a 256`
+  once, the way `scripts/verify-reproducible.sh` already did.
+- `scripts/run-offline-tests.sh` sized its parallel run with `nproc`, another
+  GNU coreutils name absent on macOS, where the same count is
+  `sysctl -n hw.ncpu`. Both are probed, so neither platform falls through to
+  the fixed 8.
+- CI ran one job on `ubuntu-24.04` while `scripts/lib/require-bash.sh` and
+  `template/README.md` name macOS as a platform a mod is developed on, so the
+  documented support was never exercised. The job is a matrix over
+  `ubuntu-24.04` and `macos-14`; every step is the same, and the two userlands
+  differ in the tools the scripts reach for.
 - `new-mod.sh` wrote `.local.env` with a heredoc whose value escaping spells a
   quote, a dollar and a backtick, but cannot put a line break inside a quoted
   assignment. A `game_dir`, `server_dir`, `hordeforge_root` or `unity_editor`
