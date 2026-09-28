@@ -3,8 +3,9 @@
 
 `.local.env` is sourced by every install-dependent target, so the four
 variants of that load had drifted into a copy in each. One reader
-(`load_local_env` in server-common.sh) replaced them; these gates pin what it
-promises:
+(`load_local_env` in server-common.sh) replaced them; a fifth private copy in
+run-offline-tests.sh then drifted again, so the narrow read lives beside the
+wide one and these gates pin what both promise:
 
 - keys reach the caller's environment, and an already-set environment value
   wins over the file, so a one-off `make ... KEY=value` needs no edit;
@@ -12,7 +13,9 @@ promises:
 - a file that cannot be parsed stops the target and names the file, instead of
   dying on a /dev/fd path or a command-not-found on a value;
 - no file is not an error, and the file is not run when there is nothing to
-  read.
+  read;
+- `local_env_value` answers one key with the same grammar (single or double
+  quotes, `export `, last assignment wins) and exports nothing.
 
 No game install and no server: the loader only reads a temp directory.
 """
@@ -34,6 +37,10 @@ SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "server-common.sh")
 
 PROBE = ('source "$1"; load_local_env "$2"; '
          'printf "%s|%s\\n" "${SEVEN_DAYS_TO_DIE_DIR:-unset}" "${DOTNET_ROOT:-unset}"')
+
+# The narrow reader, in the environment load_local_env would have produced, so
+# a key the two answer differently is caught rather than shipped.
+NARROW_PROBE = ('source "$1"; local_env_value "$2" "$3"; printf "|end\\n"')
 
 
 def load(root: str, preset: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -89,6 +96,14 @@ def server_lane_keeps_the_rest_of_the_file() -> None:
               done.stdout + done.stderr)
 
 
+def read_value(root: str, key: str) -> subprocess.CompletedProcess[str]:
+    env = {k: v for k, v in os.environ.items() if k not in ("DOTNET_ROOT",)}
+    return subprocess.run(
+        ["bash", "-c", NARROW_PROBE, "bash", SERVER_COMMON, root, key],
+        capture_output=True, text=True, timeout=60, env=env, check=False,
+    )
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as root:
         write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\nDOTNET_ROOT=""\n')
@@ -121,6 +136,59 @@ def main() -> int:
               done.returncode == 0 and done.stdout == "unset|unset\n", done.stdout + done.stderr)
 
     server_lane_keeps_the_rest_of_the_file()
+
+    # local_env_value is the narrow read, for a caller that must not put the
+    # rest of the file into its children's environment. The copy it replaced
+    # was a private sed that stripped only double quotes and ignored `export`,
+    # so a single-quoted OFFLINE_TEST_JOBS='2' failed its integer test and the
+    # run silently used one job per core. A key now has one answer whichever
+    # reader asks.
+    with tempfile.TemporaryDirectory() as root:
+        write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\n')
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("a double-quoted value is unquoted",
+              done.returncode == 0 and done.stdout == "/srv/7dtd|end\n",
+              done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        write(root, "SEVEN_DAYS_TO_DIE_DIR='/srv/7dtd'\n")
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("a single-quoted value is unquoted",
+              done.returncode == 0 and done.stdout == "/srv/7dtd|end\n",
+              done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        write(root, 'export SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\n')
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("an export prefix is accepted, as sourcing the file would",
+              done.returncode == 0 and done.stdout == "/srv/7dtd|end\n",
+              done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        write(root, 'SEVEN_DAYS_TO_DIE_DIR="/first"\nSEVEN_DAYS_TO_DIE_DIR="/second"\n')
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("a later assignment wins, as sourcing the file gives",
+              done.returncode == 0 and done.stdout == "/second|end\n",
+              done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\n', newline="\r\n")
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("a CRLF file is read", done.returncode == 0 and done.stdout == "/srv/7dtd|end\n",
+              done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        done = read_value(root, "SEVEN_DAYS_TO_DIE_DIR")
+        check("a missing file prints nothing",
+              done.returncode == 0 and done.stdout == "|end\n", done.stdout + done.stderr)
+
+    with tempfile.TemporaryDirectory() as root:
+        write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\nDOTNET_ROOT="/opt/dotnet"\n')
+        done = read_value(root, "DOTNET_ROOT")
+        check("the narrow read exports nothing",
+              done.returncode == 0 and done.stdout == "/opt/dotnet|end\n"
+              and "SEVEN_DAYS_TO_DIE_DIR" not in done.stdout,
+              done.stdout + done.stderr)
 
     return report()
 

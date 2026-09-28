@@ -248,9 +248,15 @@ def main() -> int:
     if container_failures:
         for failure in container_failures:
             print(f"  FAIL  {failure}")
+    elif not CONTAINER_EXPECTATIONS:
+        # Not a pass. The shipped template declares none, so an empty list is
+        # a check that ran against nothing; reporting OK here would print the
+        # one line a reader is most likely to stop at, for a check that never
+        # looked at a container.
+        print("  N/A   no placement-sensitive patches declared in "
+              "CONTAINER_EXPECTATIONS; container placement was not checked")
     else:
-        print("  OK    no placement-sensitive patches declared, or all landed"
-              " in their intended parents")
+        print("  OK    every placement-sensitive patch landed in its intended parent")
     print()
 
     failures += container_failures

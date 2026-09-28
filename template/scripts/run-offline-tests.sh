@@ -65,20 +65,14 @@ HELP
 source "$SCRIPT_DIR/lib/args.sh"
 help_only usage "$@"
 
-# Read one key out of .local.env without exporting it. OFFLINE_TEST_JOBS and
-# OFFLINE_TEST_TIMINGS are documented .local.env keys, so they have to be
-# settable there, but this runner spawns every gate: load_local_env would put
-# the modlet's whole machine-local configuration into the environment of each
-# one, so a gate that deliberately reads an unset key would see it set by its
-# own caller. Two keys read narrowly instead of a whole file exported wide.
-local_env_value() { # local_env_value <key>
-	local file value
-	file="$MOD_DIR/.local.env"
-	[[ -f "$file" ]] || return 0
-	value="$(sed -n -e 's/\r$//' -e "s/^[[:space:]]*${1}=//p" "$file" | tail -n 1)"
-	[[ "$value" == \"*\" ]] && value="${value:1:${#value} - 2}"
-	printf '%s' "$value"
-}
+# shellcheck source=server-common.sh
+source "$SCRIPT_DIR/server-common.sh"
+
+# OFFLINE_TEST_JOBS and OFFLINE_TEST_TIMINGS are documented .local.env keys, so
+# they have to be settable there, but this runner spawns every gate:
+# load_local_env would put the modlet's whole machine-local configuration into
+# the environment of each one. Read through the shared narrow reader instead of
+# a private copy, so a key has one answer whichever script asks.
 
 # Elapsed time is measured on a monotonic clock. `date +%s` is the wall
 # clock: an NTP step or a manual clock change during a run reports a negative
@@ -122,7 +116,7 @@ done
 
 max_jobs=${OFFLINE_TEST_JOBS:-}
 if [[ -z "$max_jobs" ]]; then
-	max_jobs="$(local_env_value OFFLINE_TEST_JOBS)"
+	max_jobs="$(local_env_value "$MOD_DIR" OFFLINE_TEST_JOBS)"
 fi
 # `[1-9][0-9]{0,18}` rather than `[1-9][0-9]*`: a 19-digit-plus value wraps in
 # `$(( ))` rather than failing, so a run count of 18446744073709551616 came
@@ -142,7 +136,7 @@ fi
 # are opt-in rather than always printed.
 timings=${OFFLINE_TEST_TIMINGS:-}
 if [[ -z "$timings" ]]; then
-	timings="$(local_env_value OFFLINE_TEST_TIMINGS)"
+	timings="$(local_env_value "$MOD_DIR" OFFLINE_TEST_TIMINGS)"
 fi
 [[ "$timings" == 1 ]] || timings=0
 

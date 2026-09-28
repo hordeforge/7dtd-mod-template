@@ -47,14 +47,20 @@ def value(root: Path, key: str) -> str | None:
     # utf-8-sig, not utf-8: a file saved by a Windows editor opens with a BOM,
     # which as a leading U+FEFF made the first key unmatchable and the value
     # read as unset. The BOM is stripped here; the rest still has to be UTF-8.
-    # First match wins, so a key written twice in this file takes its earlier
-    # value; a dotenv reader that took the last assignment would disagree here.
+    # The same grammar the shell readers apply, so one key has one answer
+    # whichever reader asks: an `export ` prefix is accepted because
+    # `load_local_env` sources the file and would honour it, and the last
+    # assignment wins because that is what sourcing it gives. This reader
+    # originally took the first match instead, which disagreed with both shell
+    # readers on any key written twice.
+    prefix = f"export {key}="
+    found = None
     for line in LINE_BREAKS.split(env_file.read_text(encoding="utf-8-sig")):
-        if not line.startswith(key + "="):
-            continue
-        found = line.split("=", 1)[1].strip()
-        return _unquote(found) or None
-    return None
+        if line.startswith((key + "=", prefix)):
+            found = line.split("=", 1)[1]
+    if found is None:
+        return None
+    return _unquote(found.strip()) or None
 
 
 def game_dir(root: Path) -> Path | None:

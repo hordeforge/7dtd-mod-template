@@ -74,10 +74,20 @@ def main() -> int:
     crlf = read(f'{key}="/opt/7dtd"\r\n', key)
     check("a CRLF record still ends at the CR", crlf == "/opt/7dtd", repr(crlf))
     check("a bare CR still ends a record",
-          read(f'{key}="/opt/7dtd"\r{key}="/other"\n', key) == "/opt/7dtd",
+          read(f'{key}="/opt/7dtd"\r{key}="/other"\n', key) == "/other",
           repr(read(f'{key}="/opt/7dtd"\r{key}="/other"\n', key)))
     check("a missing file is None", read(None, key) is None)
     check("an empty value is None", read(f'{key}=""\n', key) is None)
+    # The grammar is the one the shell readers apply (server-common.sh
+    # load_local_env sources the file, so it honours an `export ` prefix and
+    # the last assignment). A key answered two ways in one repo is a key whose
+    # value depends on which tool asked.
+    check("an export prefix is accepted",
+          read(f'export {key}="/opt/7dtd"\n', key) == "/opt/7dtd",
+          repr(read(f'export {key}="/opt/7dtd"\n', key)))
+    check("a later assignment wins, as sourcing the file gives",
+          read(f'{key}="/first"\n{key}="/second"\n', key) == "/second",
+          repr(read(f'{key}="/first"\n{key}="/second"\n', key)))
     check("the environment wins over the file",
           read(f'{key}="/from/file"\n', key, {key: "/from/env"}) == "/from/env")
     # game_dir is what every install-dependent tool calls, so the wrapper is

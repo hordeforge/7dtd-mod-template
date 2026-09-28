@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Shared helpers for the dedicated-server targets. Sourced, not executed.
+# Shared shell helpers: the .local.env readers and the dedicated-server lane.
+# Sourced, not executed.
 
 # shellcheck source=lib/require-bash.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/require-bash.sh"
@@ -77,6 +78,39 @@ decimal_uint() {
 	local value="$1"
 	[[ "$value" =~ ^0*([0-9]{1,19})$ ]] || return 1
 	printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+# local_env_value <mod-root> <key>
+#
+# Print one key's value from <mod-root>/.local.env and export nothing, for a
+# caller whose children must not inherit the rest of the file (the offline test
+# runner spawns every gate; loading the file wide would hand each one the whole
+# machine-local configuration and a gate that reads an unset key would see it
+# set by its own caller).
+#
+# Same grammar as load_local_env, so a key has one answer whichever reader
+# asks: CRLF removed, an `export ` prefix accepted, a key written twice takes
+# its last value (which is what sourcing the file gives), surrounding
+# whitespace trimmed, and a matching pair of single or double quotes stripped.
+# A value the two readers would disagree on was a key answered two ways in the
+# same repo; the run-offline-tests copy that this replaced stripped only double
+# quotes, so a single-quoted `OFFLINE_TEST_JOBS='2'` failed its integer test
+# and silently ran one job per core instead of two.
+#
+# Prints nothing when the file, the key, or a value is absent.
+local_env_value() {
+	local env_file="$1/.local.env" key="$2" value
+	[[ -f "$env_file" ]] || return 0
+	value="$(sed -n -e 's/\r$//' \
+		-e "s/^[[:space:]]*\\(export[[:space:]]\\{1,\\}\\)\\{0,1\\}${key}=//p" \
+		"$env_file" | tail -n 1)"
+	value="${value#"${value%%[![:space:]]*}"}"
+	value="${value%"${value##*[![:space:]]}"}"
+	if ((${#value} >= 2)) && [[ "${value:0:1}" == "${value: -1}" ]] &&
+		[[ "${value:0:1}" == \' || "${value:0:1}" == \" ]]; then
+		value="${value:1:${#value} - 2}"
+	fi
+	printf '%s' "$value"
 }
 
 # load_server_environment
