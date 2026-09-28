@@ -44,8 +44,14 @@ preflight:
 		exit 1; \
 	fi; \
 	pinned="$$(sed -n 's/.*RUFF_VERSION: *"\(.*\)".*/\1/p' "$(ROOT)/.github/workflows/ci.yml")"; \
+	if [ -z "$$pinned" ]; then \
+		echo "ERROR: no RUFF_VERSION: \"...\" line in .github/workflows/ci.yml, so the" >&2; \
+		echo "       pin this compares against could not be read and a local run" >&2; \
+		echo "       would silently claim to match CI. Restore the line." >&2; \
+		exit 1; \
+	fi; \
 	local="$$(ruff --version | sed 's/^ruff //')"; \
-	if [ -n "$$pinned" ] && [ "$$pinned" != "$$local" ]; then \
+	if [ "$$pinned" != "$$local" ]; then \
 		echo "WARNING: local ruff $$local, CI pins $$pinned; a rule the" >&2; \
 		echo "         mod's ruff.toml selects can resolve differently, so a" >&2; \
 		echo "         green local run is not the CI verdict." >&2; \
@@ -66,9 +72,9 @@ check: preflight scaffold
 	# what the scaffolder made of the smoke config's text: XML-hostile
 	# characters, an accented author name, a CJK sentence end
 	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
-	# new-mod.sh is not copied into the modlet, so the mod's own lint-shell
-	# never sees it; it is the one unchecked shell script in this repo.
-	shellcheck -x --severity=style new-mod.sh
+	# new-mod.sh and ci/*.sh are not copied into the modlet, so the mod's own
+	# lint-shell never sees them; they are this repo's unchecked shell scripts.
+	shellcheck -x --severity=style new-mod.sh ci/*.sh
 	# likewise ci/: the mod's lint-py runs over the mod's scripts, not over
 	# this repo's. The modlet's rule set is the one this repo writes against.
 	ruff check --config template/ruff.toml ci/

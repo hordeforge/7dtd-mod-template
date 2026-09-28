@@ -72,9 +72,9 @@ Stated so nobody builds on an assumption that the code does not support.
   `template/scripts/install-server.sh:37`).
 - NuGet auditing is disabled and no dependency lockfile is committed
   (`template/src/__MOD_NAME__/__MOD_NAME__.csproj:17`).
-- `actions/checkout` is pinned to a release tag, not a commit
-  (`.github/workflows/ci.yml:32`), and the sibling tool checkouts the build
-  invokes are not pinned at all.
+- The sibling tool checkouts the build invokes are not pinned at all, and the
+  CI runner image is not pinned to a digest; the one action the workflow uses
+  is pinned by commit (`.github/workflows/ci.yml:35`).
 
 Do not run this toolchain on a machine whose `.local.env` or config file came
 from someone else, and do not treat the generated mod DLL as anything other than

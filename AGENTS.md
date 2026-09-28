@@ -42,7 +42,7 @@ make check                  # scaffolds and runs every gate CI runs
 `ci/smoke.conf` into the gitignored `.scratch/` (so a stale tree never makes
 the gates pass), then runs the generated mod's `make test`, `make lint-shell`
 and `make lint-py`, asserts what the scaffold made of that config's text with
-`ci/check-smoke-mod.py`, shellchecks `new-mod.sh` itself, runs the modlet's
+`ci/check-smoke-mod.py`, shellchecks `new-mod.sh` and `ci/*.sh`, runs the modlet's
 ruff rules over `ci/`, and proves `make package`
 produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. `make preflight`
 names any missing host tool first. `make scaffold` alone, then working inside

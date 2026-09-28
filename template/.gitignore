@@ -2,6 +2,7 @@ dist/
 **/bin/
 **/obj/
 **/__pycache__/
+.ruff_cache/
 .local.env
 .local/
 .scratch/

@@ -1,0 +1,16 @@
+# Keeps the workflow's pinned inputs current. Every version in ci.yml is
+# pinned on purpose, which makes the bump a chore somebody has to remember;
+# this makes it a pull request instead.
+#
+# github-actions only: it reads the tag a `uses:` line is pinned to and opens a
+# PR carrying that tag's commit, so the SHA pin survives the update. The
+# RUFF_VERSION in the workflow is not a Dependabot ecosystem; it is bumped by
+# hand, as its comment in ci.yml says.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "ci"

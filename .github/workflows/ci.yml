@@ -29,7 +29,10 @@ jobs:
       # run `make lint-py` in a scaffolded mod before committing the bump.
       RUFF_VERSION: "0.16.4"
     steps:
-      - uses: actions/checkout@v4.2.2
+      # Pinned by commit, not by tag: a tag is mutable, so a moved one swaps the
+      # code this job runs for whatever an attacker or a mistake put there.
+      # Dependabot opens the bump PR for the new tag's commit.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           # nothing in this job pushes, and the job's own token grant is
           # contents: read
@@ -58,9 +61,10 @@ jobs:
       - name: Ruff
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-py
       - name: Shellcheck the scaffolder
-        # new-mod.sh is not copied into the modlet, so lint-shell never sees
-        # it; gate it here or it is the one unchecked shell script in the repo.
-        run: shellcheck -x --severity=style new-mod.sh
+        # new-mod.sh and ci/*.sh are not copied into the modlet, so lint-shell
+        # never sees them; gate them here or they are the unchecked shell
+        # scripts in the repo.
+        run: shellcheck -x --severity=style new-mod.sh ci/*.sh
       - name: Ruff over this repo's own python
         # ci/ is not copied into the modlet either, so the mod's lint-py
         # never sees it; the modlet's rule set is the one this repo writes

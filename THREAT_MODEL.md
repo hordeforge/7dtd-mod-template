@@ -24,7 +24,7 @@ a dedicated server.
 | 7 | `.local.env` is gitignored and written `0600`, and the scaffolder's `git add -A` runs after it is written, so machine paths stay out of history and out of other accounts' reach | build to VCS | `new-mod.sh:371-385`, `:395`, `template/.gitignore:5` | Controlled |
 | 8 | `deploy-server.sh` runs `rm -rf` on a path built from an env-sourced directory; a wrong or hostile `SEVEN_DAYS_TO_DIE_SERVER_DIR` destroys a server tree | env to filesystem | `template/scripts/deploy-server.sh:30-45` | Medium |
 | 9 | NuGet audit is switched off and no lockfile is committed, so restore-time dependency substitution is unobserved | build to dependency feed | `template/src/__MOD_NAME__/__MOD_NAME__.csproj:17` | Medium |
-| 10 | CI pins `actions/checkout` to a release tag rather than a commit, and a pull request runs the PR's copy of the scaffolder | VCS to CI | `.github/workflows/ci.yml:32` | Low-Medium |
+| 10 | CI runs a pull request's own copy of the scaffolder, on runner compute and runner egress | VCS to CI | `.github/workflows/ci.yml:2-3`, `:18-19` | Low |
 | 11 | Unvalidated `author`, `display_name` and `purpose` strings are written into tracked docs and the player-facing `README.txt` | operator to artifact | `new-mod.sh:143-155` | Low |
 | 12 | Offline suite executes every `scripts/test_*.py` present, so a file dropped into the mod's scripts directory runs on `make test` | filesystem to build | `template/scripts/run-offline-tests.sh:55` | Low |
 
@@ -239,14 +239,15 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
   warnings (`new-mod.sh:190-197`).
 
 **VCS to CI (STRIDE)**
-- *Tampering:* the workflow depends on `actions/checkout@v4.2.2` by release tag
-  (`.github/workflows/ci.yml:32`); the tag is not a commit, so a moved tag
-  changes what runs.
+- *Tampering:* the workflow's one action is pinned by commit rather than by tag
+  (`.github/workflows/ci.yml:35`), and Dependabot (`.github/dependabot.yml`)
+  opens the PR that carries a new tag's commit, so the pin is not a manual chore
+  left to rot. The runner image itself is not pinned to a digest.
 - *Elevation of privilege:* a pull request executes the PR's own copy of
   `new-mod.sh` and the mod's test suite. The workflow uses `pull_request`, so no
   repository secrets are exposed, and the job's grant is `contents: read` with
-  `persist-credentials: false` (`.github/workflows/ci.yml:18-19`, `:32-36`),
-  which bounds this to runner compute and runner egress.
+  `persist-credentials: false` (`.github/workflows/ci.yml:2-3`, `:18-19`,
+  `:35-39`), which bounds this to runner compute and runner egress.
 
 **Parser boundary (STRIDE)**
 - *Denial of service:* `xml.etree.ElementTree` expands internal entities without a
