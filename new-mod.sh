@@ -69,6 +69,13 @@ game_dir="" server_dir="" unity_editor=""
 # misspelled is not an error anywhere: it would set a variable nothing reads
 # and the run would quietly take the default for it.
 KNOWN_KEYS="name display_name author purpose target_dir hordeforge_root csharp assets clone game_dir server_dir unity_editor"
+# LC_ALL=C, because this is the one pass in the run that reads bytes the user
+# typed rather than bytes this repo wrote. Under a UTF-8 locale GNU sed cannot
+# find a character boundary in a config value that is not UTF-8 (a latin-1
+# "Jos<e9>"), and printed the key back with that byte and the rest of the line
+# glued to it: the run then died on `unknown key 'author<e9>"'`, naming a key
+# nobody wrote. In the C locale the same match is byte-wise, the key comes out
+# clean, and the value is left for the substitution pass to decode on purpose.
 while read -r conf_key; do
 	[[ -z "$conf_key" ]] && continue
 	case " $KNOWN_KEYS " in
@@ -78,7 +85,7 @@ while read -r conf_key; do
 			exit 2
 			;;
 	esac
-done < <(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$CONF")
+done < <(LC_ALL=C sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$CONF")
 # shellcheck disable=SC1090
 source "$CONF"
 
@@ -263,7 +270,26 @@ python3 - "$MOD_DIR" <<'PYEOF'
 import html, os, re, sys, unicodedata
 import xml.etree.ElementTree as ET
 mod_dir = sys.argv[1]
-purpose = os.environ["ANVIL_PURPOSE"].strip()
+
+def from_shell(name):
+    """A value the shell exported, as text this program can write back out.
+
+    A shell variable is a byte string, and `os.environ` decodes one that is
+    not UTF-8 with `surrogateescape`, so a `newmod.conf` holding `author=Jos<e9>`
+    in latin-1 (any editor still saving that encoding) arrived here as
+    'Jos<udce9>'. Every write below is `encoding="utf-8"`, so the substituted
+    token raised UnicodeEncodeError out of the scaffolder with a traceback and
+    no mod, over a name the user had typed.
+
+    The bytes go back through `surrogateescape` and are then decoded as UTF-8
+    with `replace`: text that was already UTF-8 comes back unchanged, and a
+    byte that is not becomes U+FFFD, which is a substitution a reader can see
+    rather than a crash. The modlet is never handed a lone surrogate.
+    """
+    raw = os.environ[name]
+    return raw.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+
+purpose = from_shell("ANVIL_PURPOSE").strip()
 # ModInfo.xml is the mod's single source of truth for its version: the game
 # reads that field and nothing else, and the release readme's first line has
 # to name the same version. Reading it here keeps the two in step at scaffold
@@ -322,17 +348,17 @@ short = TRAILING_JOINER.sub("", first_sentence(purpose)[:DESCRIPTION_LIMIT])
 # first turns an accented name into its base letters, so Müller and its
 # decomposed spelling both reduce to muller rather than mller.
 author_id = re.sub(r"[^a-z0-9]", "",
-                   unicodedata.normalize("NFKD", os.environ["ANVIL_AUTHOR"]).lower())
+                   unicodedata.normalize("NFKD", from_shell("ANVIL_AUTHOR")).lower())
 tokens = {
-    "__MOD_NAME__": os.environ["ANVIL_NAME"],
-    "__MOD_NAME_LOWER__": os.environ["ANVIL_NAME"].lower(),
-    "__MOD_DISPLAY_NAME__": os.environ["ANVIL_DISPLAY"],
-    "__MOD_AUTHOR__": os.environ["ANVIL_AUTHOR"],
+    "__MOD_NAME__": from_shell("ANVIL_NAME"),
+    "__MOD_NAME_LOWER__": from_shell("ANVIL_NAME").lower(),
+    "__MOD_DISPLAY_NAME__": from_shell("ANVIL_DISPLAY"),
+    "__MOD_AUTHOR__": from_shell("ANVIL_AUTHOR"),
     "__MOD_AUTHOR_LOWER__": author_id or "author",
     "__MOD_PURPOSE__": purpose,
     "__MOD_PURPOSE_SHORT__": short,
     "__MOD_VERSION__": version,
-    "__SKIP_WITH_ANTI_CHEAT__": os.environ["ANVIL_SKIP_EAC"],
+    "__SKIP_WITH_ANTI_CHEAT__": from_shell("ANVIL_SKIP_EAC"),
 }
 xml_tokens = {token: html.escape(value, quote=True)
               for token, value in tokens.items()}

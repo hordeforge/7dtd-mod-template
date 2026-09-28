@@ -68,6 +68,41 @@ def fake_console(listener: socket.socket) -> None:
             connection.sendall("\r\nPrêt\r\n".encode())
 
 
+def printing_console(listener: socket.socket, printed: str) -> None:
+    """One session answering every command with `printed`, verbatim."""
+    try:
+        connection, _ = listener.accept()
+    except OSError:
+        return
+    with connection:
+        connection.sendall(BANNER)
+        while True:
+            try:
+                data = connection.recv(4096)
+            except OSError:
+                return
+            if not data or b"exit" in data:
+                return
+            connection.sendall(printed.encode())
+
+
+def console_output(printed: str) -> str:
+    """What `run` returns for a console that answers with `printed`."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    server = threading.Thread(target=printing_console, args=(listener, printed), daemon=True)
+    server.start()
+    telnet = GameTelnet("127.0.0.1", listener.getsockname()[1], timeout=5.0)
+    try:
+        telnet.connect()
+        return telnet.run("help", settle=0.3)
+    finally:
+        telnet.close()
+        listener.close()
+        server.join(timeout=5)
+
+
 def reopened_session() -> tuple[bool, str]:
     """(ok, detail) for a console run that follows a half-read session."""
     left, right = socket.socketpair()
@@ -114,6 +149,19 @@ def main() -> int:
     ok, detail = reopened_session()
     check("a new session does not open with the previous one's partial character",
           ok, detail)
+
+    # A line ends where the protocol says it ends, at CR, LF or CRLF, and
+    # nowhere else. str.splitlines() also ends one at NEL, LINE SEPARATOR and
+    # PARAGRAPH SEPARATOR, so one printed line came back as two and a caller
+    # matching the output against what the server said never matched.
+    for name, separator in (("LINE SEPARATOR", "\u2028"), ("PARAGRAPH SEPARATOR", "\u2029"),
+                            ("NEL", "\u0085")):
+        printed = f"Name: Jos{separator}Doe\r\n"
+        got = console_output(printed)
+        check(f"a {name} inside a printed line is not a line break",
+              got == f"Name: Jos{separator}Doe", repr(got))
+    check("CRLF, CR and LF each end a line",
+          console_output("a\r\nb\rc\nd") == "a\nb\nc\nd", repr(console_output("a\r\nb\rc\nd")))
 
     return report()
 

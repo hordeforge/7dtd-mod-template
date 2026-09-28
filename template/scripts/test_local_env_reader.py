@@ -63,6 +63,19 @@ def main() -> int:
           read(f'{key}="/opt/we\'ird"\n', key) == "/opt/we'ird")
     check("a comment line is not a value", read(f'# {key}="/nope"\n', key) is None)
     check("another key is not picked up", read('OTHER="/nope"\n', key) is None)
+    # A record ends at LF, CRLF or bare CR, and at nothing else. Each of
+    # these separators is a legal byte inside a path, so a record split on it
+    # resolved to a directory that does not exist for an install that does.
+    for name, separator in (("LINE SEPARATOR", "\u2028"), ("PARAGRAPH SEPARATOR", "\u2029"),
+                            ("NEL", "\u0085")):
+        path = f"/srv/7dtd{separator}alt"
+        got = read(f'{key}="{path}"\n', key)
+        check(f"a {name} inside a value does not end the record", got == path, repr(got))
+    crlf = read(f'{key}="/opt/7dtd"\r\n', key)
+    check("a CRLF record still ends at the CR", crlf == "/opt/7dtd", repr(crlf))
+    check("a bare CR still ends a record",
+          read(f'{key}="/opt/7dtd"\r{key}="/other"\n', key) == "/opt/7dtd",
+          repr(read(f'{key}="/opt/7dtd"\r{key}="/other"\n', key)))
     check("a missing file is None", read(None, key) is None)
     check("an empty value is None", read(f'{key}=""\n', key) is None)
     check("the environment wins over the file",

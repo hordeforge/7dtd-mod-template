@@ -29,6 +29,7 @@ from __future__ import annotations
 import codecs
 import contextlib
 import ipaddress
+import re
 import select
 import socket
 import sys
@@ -47,6 +48,19 @@ REDACTED = "<redacted>"
 
 class TelnetError(RuntimeError):
     pass
+
+
+# The only two byte sequences that end a line on this wire, in either order.
+# str.splitlines() is not that rule: it also breaks on NEL, LINE SEPARATOR,
+# PARAGRAPH SEPARATOR, LS, PS and the vertical/horizontal separators, so one
+# printed line carrying U+2028 came back as two, and a caller matching the
+# output against what the server said never matched.
+WIRE_LINE_BREAKS = re.compile(r"\r\n|\r|\n")
+
+
+def wire_lines(text: str) -> list[str]:
+    """`text` split on the protocol's line terminators only."""
+    return WIRE_LINE_BREAKS.split(text)
 
 
 def is_loopback(host: str) -> bool:
@@ -271,7 +285,7 @@ class GameTelnet:
         self._drain(0.1)
         self.send_raw(command)
         output = self._drain(settle)
-        lines = [line.rstrip("\r") for line in output.splitlines()]
+        lines = [line.rstrip("\r") for line in wire_lines(output)]
         cleaned = [
             line for line in lines
             if line.strip() and line.strip() != command

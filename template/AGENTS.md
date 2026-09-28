@@ -253,6 +253,17 @@ to the interpreter limit).
 - A byte stream is decoded once across its chunks, not once per chunk. TCP
   splits a character anywhere, so `scripts/lib/game_telnet.py` decodes with an
   incremental decoder; a per-chunk decode turned every split into U+FFFD.
+- A record ends where the format says it ends, and nowhere else. Python's
+  `str.splitlines()` also ends one at NEL, LINE SEPARATOR and PARAGRAPH
+  SEPARATOR, each of which is a legal byte inside a path or a printed line:
+  `scripts/lib/game_telnet.py` splits the console stream on the protocol's CR,
+  LF and CRLF, and `scripts/lib/local_env.py` splits `.local.env` the way the
+  shell's own `source` reads it (`scripts/test_telnet_text_decoding.py` and
+  `scripts/test_local_env_reader.py` hold both).
+- Text arriving from the shell is decoded with a stated policy, not left to
+  the default. A shell variable is a byte string, and `os.environ` decodes one
+  that is not UTF-8 with `surrogateescape`, so the value carries a lone
+  surrogate that any UTF-8 write rejects.
 - Truncate text on a character boundary, never at a code point that only
   completes the one before it (combining mark, zero-width joiner, variation
   selector, emoji modifier, regional indicator). `new-mod.sh` does this for

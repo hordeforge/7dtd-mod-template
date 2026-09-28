@@ -76,3 +76,7 @@ jobs:
         # the same source, zipped from a foreign path, locale, and timezone,
         # has to be the same bytes
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" verify-reproducible
+      - name: Scaffolder with a non-UTF-8 config
+        # a config value the user typed in an encoding that is not UTF-8 has
+        # to scaffold as valid UTF-8, not as a traceback and no mod
+        run: ci/scaffolder-encoding.sh

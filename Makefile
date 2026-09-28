@@ -81,6 +81,9 @@ check: preflight scaffold
 	# proves the archive the packaging path really builds is byte-identical
 	# across a foreign path, locale, and timezone.
 	$(MAKE) -C "$(SMOKE_MOD)" verify-reproducible
+	# and the last one after it: a config value in an encoding that is not
+	# UTF-8 has to scaffold as valid UTF-8.
+	ci/scaffolder-encoding.sh
 	@echo "OK -> every CI step passed locally."
 
 clean:

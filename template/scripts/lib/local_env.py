@@ -16,10 +16,19 @@ caller reports one message instead of two that only differ in wording.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 GAME_DIR_KEY = "SEVEN_DAYS_TO_DIE_DIR"
 QUOTES = ("'", '"')
+# A .local.env record ends at LF, CRLF or bare CR, and at nothing else.
+# str.splitlines() also ends one at NEL (U+0085), LS (U+2028) and PS (U+2029),
+# each of which is a legal byte inside a path: a value written as
+# SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd<U+2028>alt" was cut in two, and the reader
+# returned "/srv/7dtd", a directory that does not exist, for an install that
+# does. The shell's own `source` reads the same file and ends a line at LF, so
+# the two readers disagreed on what one line was.
+LINE_BREAKS = re.compile(r"\r\n|\r|\n")
 
 
 def value(root: Path, key: str) -> str | None:
@@ -40,7 +49,7 @@ def value(root: Path, key: str) -> str | None:
     # read as unset. The BOM is stripped here; the rest still has to be UTF-8.
     # First match wins, so a key written twice in this file takes its earlier
     # value; a dotenv reader that took the last assignment would disagree here.
-    for line in env_file.read_text(encoding="utf-8-sig").splitlines():
+    for line in LINE_BREAKS.split(env_file.read_text(encoding="utf-8-sig")):
         if not line.startswith(key + "="):
             continue
         found = line.split("=", 1)[1].strip()
