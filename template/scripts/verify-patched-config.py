@@ -28,7 +28,8 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import config_files
 import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -70,11 +71,8 @@ def expected_elements() -> dict[str, int]:
     """Count the elements this mod's Config/ inserts, per target file."""
     counts: dict[str, int] = {}
     config_dir = os.path.join(MOD_DIR, "Config")
-    # rglob, matching the engine: XmlPatcher loads "<mod>/Config/" + the
-    # vanilla file's own relative name, so the XUi patches live a directory
-    # down (Config/XUi_InGame/windows.xml) and a flat scan would silently
-    # skip them — the same reason validate-xml-targets.py uses rglob.
-    for path in sorted(glob.glob(os.path.join(config_dir, "**", "*.xml"), recursive=True)):
+    for name in config_files.patch_files(config_dir):
+        path = os.path.join(config_dir, *name.split("/"))
         try:
             tree = ET.parse(path)
         except ET.ParseError as exc:
@@ -86,7 +84,7 @@ def expected_elements() -> dict[str, int]:
             for _ in op
         )
         if total:
-            counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
+            counts[name] = total
     return counts
 
 

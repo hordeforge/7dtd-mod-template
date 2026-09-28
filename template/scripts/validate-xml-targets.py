@@ -18,13 +18,13 @@ are checked against their parent path; `set`/`remove`/`csv` must match.
 
 from __future__ import annotations
 
-import glob
 import os
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import config_files
 import local_env
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,21 +84,6 @@ def find(root: ET.Element, xpath: str) -> bool | None:
         return None
 
 
-def patch_files(mod_config: str) -> list[str]:
-    """Every Config XML file, by its path relative to Config/, sorted.
-
-    Recursive because the engine loads "<mod>/Config/" plus the vanilla file's
-    own relative name, so the XUi patches live a directory down
-    (Config/XUi_InGame/windows.xml). A flat listing would skip every one of
-    them, which is the same silent no-op this script exists to catch.
-    """
-    pattern = os.path.join(mod_config, "**", "*.xml")
-    return sorted(
-        os.path.relpath(path, mod_config).replace(os.sep, "/")
-        for path in glob.glob(pattern, recursive=True)
-    )
-
-
 def main() -> int:
     config_dir = os.path.join(game_dir(), "Data", "Config")
     failures = 0
@@ -107,7 +92,7 @@ def main() -> int:
     if not os.path.isdir(mod_config):
         print("no Config/ directory; nothing to validate")
         return 0
-    for name in patch_files(mod_config):
+    for name in config_files.patch_files(mod_config):
         patch = parse(os.path.join(mod_config, name))
         if patch.tag != "configs":
             continue

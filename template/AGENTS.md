@@ -241,9 +241,11 @@ Never nest deployable content under a further subfolder.
 Corrected 2026-09-28: `make validate-xml` listed `Config/` flat, so every
 patch under `Config/XUi_InGame/` was never opened and the target reported a
 clean run over a set it had not read. It now walks `Config/` the way the
-engine loads it, and `scripts/test_xml_gates.py` holds that (with the
-`Extends` walk in `scripts/lib/xml_extends.py`, whose only callers are the
-offline gates: a chain that re-enters a name now raises rather than recursing
+engine loads it, and `scripts/test_xml_gates.py` holds that. The walk itself
+is `scripts/lib/config_files.py`, shared with `make verify-patched-config`
+rather than copied into it (the `Extends` walk in
+`scripts/lib/xml_extends.py`, whose only callers are the offline gates, is
+beside it: a chain that re-enters a name now raises rather than recursing
 to the interpreter limit).
 
 ## Text conventions
