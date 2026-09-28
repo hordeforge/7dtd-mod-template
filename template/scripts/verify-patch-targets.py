@@ -209,6 +209,21 @@ def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> li
     return cache[type_name]
 
 
+def editor_version_key(path: Path) -> tuple:
+    """Newest editor first, comparing version segments as numbers.
+
+    Plain `sorted(..., reverse=True)` on paths is lexicographic, so an
+    installed `2022.3.9f1` outranks `2022.3.10f1` and the fallback probes
+    the older SDK first. Runs of digits compare numerically, everything
+    else ordinally, and the raw parts break a tie deterministically.
+    """
+    tokens: list[tuple[int, int, str]] = []
+    for part in path.parts:
+        for run in re.findall(r"\d+|\D+", part):
+            tokens.append((0, int(run), "") if run.isdigit() else (1, 0, run))
+    return (tokens, path.parts)
+
+
 def ensure_ilspy_runtime() -> str | None:
     """Make the installed ilspycmd runnable without a manual DOTNET_ROOT.
 
@@ -225,6 +240,7 @@ def ensure_ilspy_runtime() -> str | None:
     hub_editors = Path.home() / "Unity" / "Hub" / "Editor"
     candidates = sorted(
         (path / "Editor" / "Data" / "DotNetSdk" for path in hub_editors.glob("*")),
+        key=editor_version_key,
         reverse=True,
     ) if hub_editors.is_dir() else []
     for runtime_root in candidates:

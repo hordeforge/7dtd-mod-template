@@ -270,12 +270,17 @@ namespace __MOD_NAME__
 				if (isFloat)
 				{
 					double parsed;
-					if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+					if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed)
+						|| double.IsNaN(parsed) || double.IsInfinity(parsed))
 					{
 						error = "line " + line + ": invalid number '" + token + "'.";
 						return false;
 					}
-					value = parsed.ToString("0.#######", CultureInfo.InvariantCulture);
+					// The token itself, not parsed.ToString(): a format string
+					// rounds, and this value is what TrySet parses, so a
+					// "0.#######" format turned the tunable 0.00000001 into
+					// "0" and silently changed the setting the file declares.
+					value = token;
 					return true;
 				}
 
