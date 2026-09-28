@@ -323,6 +323,41 @@ def from_shell(name):
     return raw.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
 
 purpose = from_shell("ANVIL_PURPOSE").strip()
+
+# Characters that draw nothing and, worse, reorder what sits around them: the
+# bidi overrides and isolates, the soft hyphen, the zero-width space, the word
+# joiner, the BOM, and any control character. A display name or an author
+# carrying one is a second string that reads as the first, and those two
+# fields are how a player tells one mod from another, so the run stops rather
+# than seed a look-alike into the mod browser. The zero-width joiner and
+# non-joiner are not in this set: they are how an emoji sequence and a
+# Persian word are written, and they attach to a neighbouring character
+# rather than reorder the line.
+INVISIBLE = frozenset(
+    "\u00ad\u200b\u2060\ufeff"
+    "\u200e\u200f\u202a\u202b\u202c\u202d\u202e"
+    "\u2066\u2067\u2068\u2069")
+
+def readable(label, text):
+    """`text` as the config reader saw it, or exit 2 naming what is in it.
+
+    Exit 2 is the config's own status: a name carrying a character that draws
+    nothing is a value the user has to fix, not a step that failed part way.
+    """
+    found = sorted({char for char in text
+                    if char in INVISIBLE or unicodedata.category(char) == "Cc"})
+    if found:
+        listed = ", ".join("U+%04X" % ord(char) for char in found)
+        print("ERROR: %s in the config holds a character that draws nothing: %s."
+              % (label, listed), file=sys.stderr)
+        print("       A mod name that is not the name a player reads is not this mod's name.",
+              file=sys.stderr)
+        raise SystemExit(2)
+    return text
+
+display = readable("display_name", from_shell("ANVIL_DISPLAY"))
+the_author = readable("author", from_shell("ANVIL_AUTHOR"))
+purpose = readable("purpose", purpose)
 # ModInfo.xml is the mod's single source of truth for its version: the game
 # reads that field and nothing else, and the release readme's first line has
 # to name the same version. Reading it here keeps the two in step at scaffold
@@ -334,23 +369,65 @@ for field in ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot():
 if not version:
     sys.exit("ERROR: ModInfo.xml has no Version value; the mod's version is undeclared.")
 
-# A code point that can only follow another one: a combining mark, a
-# zero-width joiner or space, a variation selector, an emoji skin-tone
-# modifier, a regional indicator. Cutting the description between one of these
-# and the character it belongs to leaves it stranded, and ModInfo.xml's
+ZWJ = "\u200d"
+# A code point that can only follow another one: a zero-width joiner or space,
+# a BOM, a variation selector, an emoji skin-tone modifier, or a mark in any
+# script (a combining accent, a Devanagari matra, a Thai vowel sign, a
+# keycap's enclosing mark). Cutting the description between one of these and
+# the character it belongs to leaves it stranded, and ModInfo.xml's
 # Description is rendered by the game, so the truncation has to end on a whole
 # character.
-TRAILING_JOINER = re.compile(
-    "(?:[\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20F0"
-    "\uFE00-\uFE0F\U0001F3FB-\U0001F3FF\U0001F1E6-\U0001F1FF]"
-    "|[\u200C\u200D\uFEFF])+$")
+#
+# The mark test is the Unicode property, not a list of ranges: a list of
+# combining marks needs an entry per script, and every script left out of it
+# truncates mid-word. Marks are the Mn, Mc and Me categories, and the ranges
+# below are the non-marks that attach the same way.
+ATTACHING = re.compile("[\u200d\u200c\ufeff\ufe00-\ufe0f\ufe20-\ufe2f"
+                       "\U0001f3fb-\U0001f3ff]")
+REGIONAL_INDICATOR = (0x1F1E6, 0x1F1FF)
+
+def attaches(char):
+    """Whether `char` belongs to the character before it, not after it."""
+    if ATTACHING.match(char):
+        return True
+    return unicodedata.category(char) in ("Mn", "Mc", "Me")
+
+def ends_mid_cluster(text):
+    """Whether `text` stops inside a character, so a cut there strands half of one.
+
+    Three ways a fixed code-point limit lands inside one: on a mark, on the
+    base of a ZWJ sequence whose joiner is already behind it, and on the
+    first of a flag's two regional indicators.
+    """
+    if not text:
+        return False
+    if attaches(text[-1]):
+        return True
+    if len(text) > 1 and text[-2] == ZWJ:
+        return True
+    run = 0
+    for char in reversed(text):
+        if REGIONAL_INDICATOR[0] <= ord(char) <= REGIONAL_INDICATOR[1]:
+            run += 1
+        else:
+            break
+    return run % 2 == 1
+
+def to_clusters(text, limit):
+    """`text` cut to at most `limit` code points, ending on a whole character."""
+    cut = text[:limit]
+    while cut and ends_mid_cluster(cut):
+        cut = cut[:-1]
+    return cut
+
 # Where a sentence ends, per script. A Latin sentence closes on `.`, `!` or
-# `?` and writes whitespace or nothing after it; a CJK or Devanagari one
-# closes on its own stop character and writes nothing after it at all, so an
-# ASCII-only rule reads a Japanese purpose as one long sentence and leaves
-# the mod browser's description holding two of them, cut mid-phrase.
+# `?` and writes whitespace or nothing after it; a CJK, Devanagari, Khmer,
+# Mongolian, Ethiopic, Burmese or Tibetan one closes on its own stop
+# character and writes nothing after it at all, so an ASCII-only rule reads
+# a Japanese purpose as one long sentence and leaves the mod browser's
+# description holding two of them, cut mid-phrase.
 ASCII_STOP = ".!?"
-OTHER_STOP = "。！？｡؟۔।॥"
+OTHER_STOP = "。！？．｡؟۔।॥።᠃᠉။ႁႂႃႄႅႆႇႈႉႊႋႌႍႎႏ។៕៿"
 
 
 def first_sentence(text):
@@ -381,20 +458,24 @@ def first_sentence(text):
     return text
 
 # The description is the mod browser's one line: 200 code points, whatever
-# the script, not bytes and not grapheme clusters.
+# the script, not bytes and not grapheme clusters, and the cut lands on a
+# whole character in that script.
 DESCRIPTION_LIMIT = 200
-short = TRAILING_JOINER.sub("", first_sentence(purpose)[:DESCRIPTION_LIMIT])
+short = to_clusters(first_sentence(purpose), DESCRIPTION_LIMIT)
 
 # The author token names the Harmony id, a lowercase ASCII string. Decomposing
 # first turns an accented name into its base letters, so Müller and its
-# decomposed spelling both reduce to muller rather than mller.
+# decomposed spelling both reduce to muller rather than mller. Folding rather
+# than lowering is what keeps one author's name from reaching another's id:
+# lower() maps a German ß to nothing, so "Weiß" and "Wei" both reduced to
+# "wei", and two different authors were given one Harmony id.
 author_id = re.sub(r"[^a-z0-9]", "",
-                   unicodedata.normalize("NFKD", from_shell("ANVIL_AUTHOR")).lower())
+                   unicodedata.normalize("NFKD", the_author).casefold())
 tokens = {
     "__MOD_NAME__": from_shell("ANVIL_NAME"),
     "__MOD_NAME_LOWER__": from_shell("ANVIL_NAME").lower(),
-    "__MOD_DISPLAY_NAME__": from_shell("ANVIL_DISPLAY"),
-    "__MOD_AUTHOR__": from_shell("ANVIL_AUTHOR"),
+    "__MOD_DISPLAY_NAME__": display,
+    "__MOD_AUTHOR__": the_author,
     "__MOD_AUTHOR_LOWER__": author_id or "author",
     "__MOD_PURPOSE__": purpose,
     "__MOD_PURPOSE_SHORT__": short,

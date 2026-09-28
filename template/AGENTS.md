@@ -276,8 +276,15 @@ to the interpreter limit).
   surrogate that any UTF-8 write rejects.
 - Truncate text on a character boundary, never at a code point that only
   completes the one before it (combining mark, zero-width joiner, variation
-  selector, emoji modifier, regional indicator). `new-mod.sh` does this for
-  the `ModInfo.xml` description, which the game renders.
+  selector, emoji modifier, regional indicator). Test for the mark by its
+  Unicode category, not by a list of ranges: every script a list does not
+  name truncates mid-word. `new-mod.sh` does this for the `ModInfo.xml`
+  description, which the game renders.
+- A name is identity, so it carries nothing that draws nothing. A display
+  name or an author with a bidi override, a zero-width space or a BOM in it
+  is a second string that reads as the first; the scaffolder stops on such a
+  config (`ci/scaffold-text.py` holds it). The zero-width joiner is not in
+  that set: it is how an emoji sequence is written.
 - Compare identifiers with `Ordinal` / `OrdinalIgnoreCase`
   (`StringComparer`, `StringComparison`), never with `ToLower()`: the game's
   item and setting names are keys, and a lowercase copy is a second spelling

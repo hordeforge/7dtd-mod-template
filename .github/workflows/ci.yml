@@ -89,3 +89,9 @@ jobs:
         # a config value the user typed in an encoding that is not UTF-8 has
         # to scaffold as valid UTF-8, not as a traceback and no mod
         run: ci/scaffolder-encoding.sh
+      - name: Scaffolder text boundaries
+        # the description limit cuts at 200 code points, so a purpose in a
+        # script where one character is several code points has to end on a
+        # whole one; a name that draws nothing has to be refused, and an
+        # author name has to fold into the Harmony id
+        run: python3 ci/scaffold-text.py

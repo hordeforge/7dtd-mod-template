@@ -97,6 +97,10 @@ check: preflight scaffold
 	# and the last one after it: a config value in an encoding that is not
 	# UTF-8 has to scaffold as valid UTF-8.
 	ci/scaffolder-encoding.sh
+	# and the one after that: a purpose the 200 code-point description limit
+	# cuts inside a character, a name that draws nothing, an author name
+	# reaching the Harmony id.
+	LC_ALL=C TZ=UTC python3 ci/scaffold-text.py
 	@echo "OK -> every CI step passed locally."
 
 clean:

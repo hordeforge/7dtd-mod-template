@@ -31,6 +31,11 @@ shape above, so the search cannot quietly stop matching.
 - `scripts/verify-patch-targets.py` parses its own command line with
   `argparse`, as `verify-patched-config.py` already did, instead of a
   hand-rolled `usage()` and argument loop that reimplemented it.
+- `ci/scaffold-text.py` pins the text boundaries `ci/check-smoke-mod.py`
+  does not reach: a purpose the 200 code-point description limit cuts inside
+  a character (a ZWJ emoji sequence, a flag, a Devanagari matra), a display
+  name or author carrying a character that draws nothing, and an author name
+  folding into the Harmony id. `make check` and CI both run it.
 - `ci/check-smoke-mod.py` pins what the scaffolder makes of the smoke
   config's text: the ModInfo fields a reader of `ci/smoke.conf` expects, the
   full purpose still reaching the mod, and the Harmony id the author name
@@ -188,6 +193,23 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- The scaffolder cut the mod browser's 200 code-point description inside a
+  character whenever the purpose was written in a script where one character
+  is several code points: a Devanagari matra, a Thai vowel sign or a flag's
+  regional indicator landed in `ModInfo.xml` on its own, and an emoji ZWJ
+  sequence was left holding the first of its elements. The cut now walks back
+  to a whole character in any script, and the mark test is the Unicode
+  category rather than a list of ranges, so a script the list did not name
+  truncates with it. The sentence-end set covers Khmer, Mongolian, Ethiopic,
+  Burmese and Tibetan stops, and not only CJK and Devanagari.
+- The author name reached the Harmony id through `lower()`, which maps a
+  German sharp s to nothing: "Weiß" and "Wei" both reduced to `wei` and two
+  authors were given one id. It is case-folded now.
+- A display name or an author carrying a character that draws nothing (a
+  bidi override, a zero-width space, a BOM) scaffolded as a second string
+  that reads as the first, in the two fields a player tells one mod from
+  another by. The run stops on such a config with exit 2 and the code
+  points it found.
 - Nine scripts under `template/scripts/` dropped every argument they were
   given: `scripts/build.sh --help` staged a modlet, `--dry-run` ran the full
   build and looked accepted, and `scripts/playtest.sh --help` forwarded the
