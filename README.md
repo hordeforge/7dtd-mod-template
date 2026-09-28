@@ -19,7 +19,7 @@ experimental.
 ## Quick start
 
 ```bash
-gh repo clone hordeforge/7dtd-mod-template
+git clone https://github.com/hordeforge/7dtd-mod-template.git
 cd 7dtd-mod-template
 cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ./new-mod.sh mymod.conf
@@ -62,9 +62,13 @@ exactly what CI does. `make check` is that workflow, step for step, so a green
 local run is a green CI run.
 
 ```bash
-make check      # scaffold + every gate + the package layout check (~10s)
+make check      # scaffold + every gate + the package layout check (~25s)
 make help       # the targets above, and what they need
 ```
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the contributor's version of the
+same: the edit loop against a single gate, what a pull request has to carry,
+and how the pinned versions are bumped.
 
 `make check` needs `bash`, `make`, `git`, `python3`, `shellcheck`, `ruff`,
 `zip` and `unzip` on `PATH`; `make preflight` names whichever is missing before
@@ -112,6 +116,7 @@ and both are gated against the mod's `CHANGELOG.md` by `make test`.
 ├── new-mod.sh       # the scaffolder
 ├── newmod.conf.example
 ├── Makefile         # `make check`: this repo's gates, which are CI's
+├── CONTRIBUTING.md  # the contributor's path: preflight, edit loop, PR requirements
 └── CHANGELOG.md     # what each tag changed for a mod scaffolded from an older one
 ```
 

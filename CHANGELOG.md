@@ -23,6 +23,11 @@ shape above, so the search cannot quietly stop matching.
 
 ### Added
 
+- `CONTRIBUTING.md` for the human contributor: the `make preflight` setup
+  step and the host tools it needs, the single-gate edit loop
+  (`make scaffold`, then `make test TF=<substring>` inside the smoke mod),
+  what a pull request has to carry, and how `RUFF_VERSION` is bumped
+  (Dependabot does not cover it; `actions/checkout` is bumped by tag commit).
 - `ci/check-smoke-mod.py` pins what the scaffolder makes of the smoke
   config's text: the ModInfo fields a reader of `ci/smoke.conf` expects, the
   full purpose still reaching the mod, and the Harmony id the author name
