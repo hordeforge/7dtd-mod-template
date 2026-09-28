@@ -28,6 +28,7 @@ import os
 import re
 import sys
 from datetime import date
+from typing import NamedTuple
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "template", "scripts", "lib"))
@@ -95,16 +96,29 @@ def version_key(version: str) -> tuple[int, ...]:
     return (*key, 0) if not rest else (*key, 1)
 
 
-def sections(text: str) -> list[dict[str, object]]:
+class Section(NamedTuple):
+    """One `## [...]` header: what it names, where it starts, its body lines.
+
+    A dict of `str` to `object` said nothing about which key holds a list, so
+    every use of the body carried a suppression a reader could not check and a
+    typo in a key would have failed at runtime instead of at the name.
+    """
+
+    version: str
+    date: str
+    line: int
+    body: list[str]
+
+
+def sections(text: str) -> list[Section]:
     """Every `## [...]` section with the line it starts on and its body."""
-    found: list[dict[str, object]] = []
+    found: list[Section] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
         match = SECTION.match(line)
         if match:
-            found.append({"version": match["version"], "date": match["date"],
-                          "line": lineno, "body": []})
+            found.append(Section(match["version"], match["date"], lineno, []))
         elif found:
-            found[-1]["body"].append(line)  # type: ignore[union-attr]
+            found[-1].body.append(line)
     return found
 
 
@@ -133,20 +147,20 @@ def main() -> int:
     # Unreleased is the next change's home, and it is the first one: a
     # version section above it would make it read as already released.
     check("unreleased-is-the-first-section",
-          bool(found) and found[0]["version"] == "Unreleased",
-          f"first section is {found[0]['version']!r}" if found else "no section")
+          bool(found) and found[0].version == "Unreleased",
+          f"first section is {found[0].version!r}" if found else "no section")
 
     for section in found:
-        version = str(section["version"])
+        version = section.version
         if version == "Unreleased":
             continue
         check(f"released-version-is-semver[{version}]",
               bool(SEMVER.fullmatch(version)), repr(version))
         check(f"released-version-has-a-date[{version}]",
-              is_calendar_date(section["date"]),
-              f"header line {section['line']} is not `## [{version}] - YYYY-MM-DD` "
+              is_calendar_date(section.date),
+              f"header line {section.line} is not `## [{version}] - YYYY-MM-DD` "
               f"with a day the calendar has")
-        body = "\n".join(section["body"])  # type: ignore[arg-type]
+        body = "\n".join(section.body)
         groups = [m["name"] for m in
                   (GROUP.match(line) for line in body.splitlines()) if m]
         check(f"released-version-groups-are-known[{version}]",
@@ -158,11 +172,11 @@ def main() -> int:
 
     # Newest first: two sections out of order, or a version edited after it
     # shipped, is a tag and a changelog that disagree.
-    released = [s for s in found if s["version"] != "Unreleased"]
-    ordered = sorted(released, key=lambda s: version_key(str(s["version"])), reverse=True)
+    released = [s for s in found if s.version != "Unreleased"]
+    ordered = sorted(released, key=lambda s: version_key(s.version), reverse=True)
     check("released-versions-decrease-down-the-file",
-          [str(s["version"]) for s in released] == [str(s["version"]) for s in ordered],
-          " -> ".join(str(s["version"]) for s in released))
+          [s.version for s in released] == [s.version for s in ordered],
+          " -> ".join(s.version for s in released))
 
     # A move is only a move if a reader can find it. Every entry that says
     # so has to open with the marker the README's search command looks for,

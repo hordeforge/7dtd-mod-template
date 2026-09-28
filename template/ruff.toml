@@ -27,6 +27,16 @@ select = [
 	"DTZ",  # flake8-datetimez: a naive datetime silently means local time
 	"ERA",  # eradicate: commented-out code rots where it lies
 	"G",    # flake8-logging-format: a %s where the message takes an arg
+	# flake8-bandit by sub-group. The three below are the defect families it
+	# leaves clean: an unverified TLS connection, an unsafe deserializer, a
+	# tarball extracted without checking its members, an unescaped template.
+	# S1, S3 and S6 stay unselected on purpose: this tree holds hardcoded
+	# fixtures, parses XML it generated itself, and shells out deliberately, so
+	# the whole linter would mean a growing ignore list over findings that are
+	# the design rather than defects.
+	"S2",   # flake8-bandit: tarfile.extractall, Flask debug
+	"S5",   # flake8-bandit: insecure TLS, unsafe deserialization
+	"S7",   # flake8-bandit: template autoescaping (XSS)
 	"PGH",  # blanket noqa/type: ignore: a bare ignore is a suppression without a scope
 	"RSE",  # flake8-raise: a raise inside redundant parens reads as a tuple
 	"TID",  # flake8-tidy-imports: a relative import breaks the moment a script is run as one

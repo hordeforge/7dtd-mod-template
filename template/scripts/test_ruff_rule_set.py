@@ -62,6 +62,9 @@ REQUIRED = (
     "DTZ",   # naive datetimes
     "ERA",   # commented-out code
     "G",     # logging format
+    "S2",    # tarfile.extractall, Flask debug
+    "S5",    # insecure TLS, unsafe deserialization
+    "S7",    # template autoescaping
     "PGH",   # blanket noqa / type: ignore
     "RSE",   # redundant parens on raise
     "TID",   # relative imports

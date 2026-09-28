@@ -219,6 +219,14 @@ shape above, so the search cannot quietly stop matching.
   which `ci/check-changelog.py` holds in place. Before, the only path from
   "I am re-scaffolding from a newer tag" to the changes that move my mod's
   contract was reading the whole file.
+- `ruff.toml` selects flake8-bandit's `S2`, `S5` and `S7`: the defect
+  families the tree already passes (an unverified TLS connection, an unsafe
+  deserializer, a `tarfile.extractall`, an unescaped template). `S1`, `S3`
+  and `S6` stay off on purpose: the tree holds hardcoded fixtures, parses XML
+  it generated itself and shells out deliberately, so the whole linter would
+  mean a growing ignore list over findings that are the design.
+  `scripts/test_ruff_rule_set.py` pins the three so they cannot be dropped
+  the way the rest of the list is protected.
 
 ### Fixed
 
@@ -249,6 +257,13 @@ shape above, so the search cannot quietly stop matching.
   traps are installed on the line after the `mktemp` now, and the gate that
   signs the run the instant the directory appears no longer fails
   intermittently.
+- `TomlSettings.TryRead` carried its `<summary>` and `<remarks>` block twice,
+  so the generated documentation read the same paragraph in a row.
+- `ci/check-changelog.py` held each section in a `dict[str, object]`, which
+  said nothing about which key held the body lines: appending to it and
+  joining it each carried a `# type: ignore` no checker in this repository
+  ever read. The section is a `NamedTuple` now, and both suppressions are
+  gone with the `str()` coercions they were covering.
 - The static gate's two memoized answers were keyed without the tree they
   were read from: the walk was cached under an empty key and each parse under
   its relative path, both of which are relative to `MOD_DIR`. A caller that
