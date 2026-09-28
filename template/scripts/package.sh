@@ -70,30 +70,34 @@ rm -f "$ARCHIVE"
 mapfile -d '' -t DIRS < <(cd "$STAGE" && find . -mindepth 1 -type d -print0 | sort -z)
 mapfile -d '' -t FILES < <(cd "$STAGE" && find . -mindepth 1 -type f -print0 | sort -z)
 
-set_mtime() { # set_mtime <path> <epoch>; GNU touch first, BSD date -r after
-	local path="$1" epoch="$2" stamp
-	if touch -h -d "@$epoch" -- "$path" 2>/dev/null; then
+set_mtime() { # set_mtime <epoch>; GNU touch first, BSD date -r after
+	local epoch="$1" stamp
+	if find . -mindepth 1 -exec touch -h -d "@$epoch" -- {} + 2>/dev/null; then
 		return
 	fi
 	stamp="$(date -u -r "$epoch" +%Y%m%d%H%M.%S)"
-	touch -h -t "$stamp" -- "$path"
+	find . -mindepth 1 -exec touch -h -t "$stamp" -- {} +
 }
 
 (
 	# zip runs from dist/ with the mod directory as the entry prefix, so the
 	# archive extracts to Mods/__MOD_NAME__/ModInfo.xml rather than to
 	# Mods/ModInfo.xml.
+	cd "$STAGE"
+	# Permissions and timestamps are set by one batched find per mode rather
+	# than a chmod and a touch spawned per entry: the per-entry form costs two
+	# process launches per staged file, and a mod shipping assets stages
+	# thousands of them, which is minutes of fork/exec for a build step that
+	# otherwise takes seconds. The archive bytes are the same either way (same
+	# modes, same mtimes); only the number of processes differs.
+	find . -mindepth 1 -type d -exec chmod 0755 -- {} +
+	find . -mindepth 1 -type f -exec chmod 0644 -- {} +
+	set_mtime "$SOURCE_DATE_EPOCH"
+
 	cd "$ROOT/dist"
 	entries=()
 	for entry in ${DIRS[@]+"${DIRS[@]}"} ${FILES[@]+"${FILES[@]}"}; do
-		rel="${entry#./}"
-		if [[ -d "$STAGE/$rel" ]]; then
-			chmod 0755 -- "$STAGE/$rel"
-		else
-			chmod 0644 -- "$STAGE/$rel"
-		fi
-		set_mtime "$STAGE/$rel" "$SOURCE_DATE_EPOCH"
-		entries+=("$MOD_NAME/$rel")
+		entries+=("$MOD_NAME/${entry#./}")
 	done
 	# entries are listed explicitly, in the order fixed above; zip never
 	# recurses, so nothing readdir-shaped reaches the archive.

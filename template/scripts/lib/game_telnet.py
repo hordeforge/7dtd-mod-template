@@ -240,10 +240,16 @@ class GameTelnet:
                         required: bool = True) -> str:
         deadline = time.monotonic() + timeout
         seen = ""
+        # Each read is searched from just before the previous one ended, which
+        # is all a marker spanning a recv() boundary needs; re-searching the
+        # whole buffer on every chunk is quadratic in however much the server
+        # printed before the marker turned up.
+        overlap = max(len(marker) for marker in markers) - 1
         while time.monotonic() < deadline:
             if self._readable():
+                before = len(seen)
                 seen += self._recv()
-                if any(marker in seen for marker in markers):
+                if any(marker in seen[max(0, before - overlap):] for marker in markers):
                     return seen
             else:
                 time.sleep(0.05)
