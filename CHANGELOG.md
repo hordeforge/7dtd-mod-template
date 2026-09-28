@@ -231,6 +231,21 @@ shape above, so the search cannot quietly stop matching.
   Armenian, Ethiopic, Greek, Khmer, Myanmar or Tibetan reached the
   description whole and was cut mid-phrase. Those scripts' own stops are
   recognized now.
+- A second `new-mod.sh` run could report `OK` over a mod nested one level
+  down. The existence check ran before the clone, the substitution pass and
+  the commit, so a run started in that window passed it too, and
+  `mv src dst` with an existing directory `dst` moves `src` *inside* it:
+  the target held `<Name>/<Name>/ModInfo.xml`, which the game never loads and
+  no later run can clean up. The target is re-checked immediately before the
+  move, the result of the move is verified, and a run that loses the race
+  anyway puts its own copy back and exits 2. `ci/scaffolder-rerun.sh` holds
+  all three paths (the sequential rerun, the race, and a partial tool
+  checkout), and `make check` and CI run it.
+- A hordeforge tool checkout interrupted mid-clone leaves a directory with no
+  `.git` in it, and the next run reported `Found <repo>` and moved on, so
+  `PLAYTEST_ROOT` and the rest pointed at a checkout holding none of the
+  tools with nothing said about it. A directory that is not a git checkout is
+  now reported as one, with the fix named.
 - Nine scripts under `template/scripts/` dropped every argument they were
   given: `scripts/build.sh --help` staged a modlet, `--dry-run` ran the full
   build and looked accepted, and `scripts/playtest.sh --help` forwarded the

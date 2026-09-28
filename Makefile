@@ -105,12 +105,16 @@ check: preflight scaffold
 	# cuts inside a character, a name that draws nothing, an author name
 	# reaching the Harmony id.
 	LC_ALL=C TZ=UTC python3 ci/scaffold-text.py
-	# and the last: what a scaffold config may hold. An unknown key, a yes/no
-	# value outside yes/no/empty and a required key nobody can answer for all
-	# have to stop the run before anything is written, an empty optional key
-	# has to take its default, and every key the scaffolder writes into a new
-	# mod's .local.env has to be one the mod's own example documents.
+	# and the one after that: what a scaffold config may hold. An unknown key,
+	# a yes/no value outside yes/no/empty and a required key nobody can
+	# answer for all have to stop the run before anything is written, an empty
+	# optional key has to take its default, and every key the scaffolder
+	# writes into a new mod's .local.env has to be one the mod's own example
+	# documents.
 	LC_ALL=C TZ=UTC python3 ci/check-scaffold-config.py
+	# and the last: a second run has to refuse, not nest a second mod inside
+	# the first.
+	ci/scaffolder-rerun.sh
 	@echo "OK -> every CI step passed locally."
 
 clean:

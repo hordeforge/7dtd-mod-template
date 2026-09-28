@@ -231,7 +231,14 @@ hordeforge_root="${hordeforge_root/#\~/$HOME}"
 if [[ "$clone" == "yes" ]]; then
 	mkdir -p "$hordeforge_root"
 	for repo in 7dtd-playtest 7dtd-asset-pipeline 7dtd-engine-research; do
-		if [[ -d "$hordeforge_root/$repo" ]]; then
+		if [[ -e "$hordeforge_root/$repo" && ! -e "$hordeforge_root/$repo/.git" ]]; then
+			# A directory without a .git is what an interrupted clone leaves
+			# behind, and a second run used to report "Found" for it and move
+			# on, leaving every later gate pointed at a checkout that has
+			# none of the tools in it. Said out loud instead, because the
+			# directory is the user's and removing it is not this run's call.
+			warn "$hordeforge_root/$repo exists but is not a git checkout; remove or finish it, or the mod's tooling cannot run"
+		elif [[ -d "$hordeforge_root/$repo" ]]; then
 			echo "Found $repo."
 		elif command -v gh >/dev/null 2>&1; then
 			echo "Cloning hordeforge/$repo ..."
@@ -662,7 +669,33 @@ git -C "$MOD_DIR" commit -q -m "Scaffold $name from hordeforge/7dtd-mod-template
 
 # The mod exists at its real path only now, and whole. The stage directory is
 # left to the EXIT trap.
+#
+# The target is re-checked here, and the outcome of the move is verified, not
+# just attempted. The existence test above ran before the clone, the
+# substitution pass and the commit, so a second run started in that window
+# passed it too: `mv src dst` with an existing directory dst moves src
+# *inside* it, and the loser of that race would report OK over a mod nested
+# one level down that the game never loads and no later run can clean up.
+# Both runs now end the same way: the winner's mod is where it belongs, and
+# the loser puts its own copy back in the stage and names the collision.
+if [[ -e "$MOD_FINAL" ]]; then
+	echo "ERROR: $MOD_FINAL was created while this run was scaffolding." >&2
+	echo "       move it aside, or pick a different target_dir in $CONF." >&2
+	exit 2
+fi
 mv "$MOD_DIR" "$MOD_FINAL"
+if [[ -d "$MOD_FINAL/$name" ]]; then
+	# The move nested rather than placed, so the target existed after all and
+	# a concurrent run got there first. Put this copy back where the EXIT
+	# trap deletes it and leave the other run's mod untouched.
+	# ${name:?} in both: an empty one would make this an rm -rf of the target
+	# itself, and name is checked for emptiness long before here.
+	mv "${MOD_FINAL:?}/${name:?}" "$MOD_DIR" 2>/dev/null ||
+		rm -rf "${MOD_FINAL:?}/${name:?}"
+	echo "ERROR: $MOD_FINAL already exists; nothing was written." >&2
+	echo "       pick a different target_dir in $CONF, or move the existing one aside." >&2
+	exit 2
+fi
 
 echo
 echo "OK -> $MOD_FINAL"

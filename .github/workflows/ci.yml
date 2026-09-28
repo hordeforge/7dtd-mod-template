@@ -107,3 +107,7 @@ jobs:
         # scaffolder writes into a new mod's .local.env is documented by the
         # mod's own .local.env.example
         run: python3 ci/check-scaffold-config.py
+      - name: Scaffolder re-run
+        # a second run onto the same target has to refuse and leave the first
+        # mod whole; `mv` into an existing directory nests instead
+        run: ci/scaffolder-rerun.sh
