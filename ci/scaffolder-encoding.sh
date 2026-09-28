@@ -71,9 +71,8 @@ for relative in ("README.md", "ModInfo.xml", "README.txt", "docs/design.md"):
 # The substituted values came through, with each undecodable byte shown as the
 # replacement character rather than dropped: a scaffold that silently lost the
 # author's name would be a different failure.
-fields = {tag: (node.get("value") or "")
-          for node in ET.parse(f"{mod}/ModInfo.xml").getroot()
-          for tag in (node.tag,)}
+fields = {node.tag: (node.get("value") or "")
+          for node in ET.parse(f"{mod}/ModInfo.xml").getroot()}
 if not fields.get("Author", "").startswith("Jos"):
     bad.append(f'ModInfo.xml: Author is {fields.get("Author")!r}, not the name given')
 if not fields.get("Description", "").startswith("A caf"):

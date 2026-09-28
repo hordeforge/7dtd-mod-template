@@ -194,11 +194,8 @@ run_serial() {
 		out="$tmpdir/$name.out"
 		err="$tmpdir/$name.err"
 		start=$(now_seconds)
-		if python3 "$test_script" >"$out" 2>"$err"; then
-			status=0
-		else
-			status=$?
-		fi
+		status=0
+		python3 "$test_script" >"$out" 2>"$err" || status=$?
 		elapsed=""
 		(( timings )) && elapsed=" ($(( $(now_seconds) - start ))s)"
 		if (( status == 0 )); then
@@ -227,11 +224,8 @@ run_parallel() {
 		err="$tmpdir/$name.err"
 		(
 			start=$(now_seconds)
-			if python3 "$test_script" >"$out" 2>"$err"; then
-				status=0
-			else
-				status=$?
-			fi
+			status=0
+			python3 "$test_script" >"$out" 2>"$err" || status=$?
 			# The report is read back in glob order, so which worker finished
 			# first must not reach the output: the status file is keyed by
 			# name, never appended to.

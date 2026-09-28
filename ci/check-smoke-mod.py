@@ -24,7 +24,10 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
-FAILURES: list[str] = []
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "template", "scripts", "lib"))
+from gate import check
+from gate import main as report
 
 # What ci/smoke.conf asks for, and what the substitution owes ModInfo.xml.
 # Change either side and this fails, which is the point: the config is the
@@ -35,15 +38,6 @@ EXPECTED_DESCRIPTION = "このモッドはテンプレートから動くbmodレ�
 EXPECTED_SECOND_SENTENCE = "Throwaway CI smoke mod"
 
 CONF_KEY = re.compile(r"^(?P<key>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$")
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    """Record one assertion; `detail` explains a failure and is dropped on a pass."""
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def conf_values(path: str) -> dict[str, str]:
@@ -171,8 +165,7 @@ def main() -> int:
     check("no-build-cache-ships-inside-the-mod", not caches,
           f"found {caches}; new-mod.sh prunes them, so one survived")
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

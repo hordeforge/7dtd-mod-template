@@ -28,7 +28,10 @@ import os
 import re
 import sys
 
-FAILURES: list[str] = []
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "template", "scripts", "lib"))
+from gate import check
+from gate import main as report
 
 # The groups Keep a Changelog defines. A section under any other name is a
 # group a reader of the notes does not know to look for.
@@ -48,15 +51,6 @@ ENTRY = re.compile(r"^- \S")
 # clean upgrade.
 BREAKING_PREFIX = "**Breaking for a mod"
 ANY_BREAKING = re.compile(r"\*\*Breaking\w*")
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    """Record one assertion; `detail` explains a failure and is dropped on a pass."""
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def version_key(version: str) -> tuple[int, ...]:
@@ -139,8 +133,7 @@ def main() -> int:
     check("breaking-entries-use-the-documented-marker", not stray,
           f"{len(stray)} entries open with something other than {BREAKING_PREFIX!r}")
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

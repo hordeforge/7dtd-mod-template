@@ -14,7 +14,8 @@ does:
 `FAILURES` is process-wide and never reset, so a module that reports twice
 counts every check twice, and a check after `report()` still reaches the
 process exit code. One `main()` per process, which is how `make test` runs
-each gate.
+each gate. The template repository's own `ci/check-*.py` import this file too,
+for the same reason.
 """
 
 from __future__ import annotations
