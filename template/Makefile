@@ -7,13 +7,14 @@ ROOT := $(CURDIR)
 # a recipe that dies mid-way must not leave a half-written target behind
 .DELETE_ON_ERROR:
 
-.PHONY: help build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
+.PHONY: help build package test lint-shell lint-py validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
 
 help:
 	@echo "Offline gates (no game install needed; run these before every commit):"
 	@echo "  make test                   every scripts/test_*.py must exit 0"
 	@echo "  make test TF=<substring>    only the tests whose name matches (e.g. make test TF=telnet)"
 	@echo "  make lint-shell             shellcheck, full severity"
+	@echo "  make lint-py                ruff over every tracked Python script"
 	@echo ""
 	@echo "Modlet build (needs the game install in .local.env, plus a dotnet SDK for C#):"
 	@echo "  make build                  stage dist/__MOD_NAME__/"
@@ -49,6 +50,10 @@ test:
 # Shellcheck over every tracked shell script (full severity).
 lint-shell:
 	$(ROOT)/scripts/lint-shell.sh
+
+# Ruff over every tracked Python script, under the mod's own ruff.toml.
+lint-py:
+	$(ROOT)/scripts/lint-py.sh
 
 # Stage the deployable modlet under dist/__MOD_NAME__/ (compiles the DLL
 # when src/ exists; needs .local.env for the game install).

@@ -12,6 +12,7 @@ directory itself — `make build` stages the deployable copy under
 ```bash
 make test                   # offline gates (scripts/test_*.py)
 make lint-shell             # shellcheck, full severity
+make lint-py                # ruff over every tracked Python script
 make build                  # stage dist/__MOD_NAME__/ (a DLL build needs .local.env, see below)
 make package                # dist/__MOD_NAME__.zip — extracts to Mods/__MOD_NAME__/
 make validate-xml           # every Config xpath against the installed game
@@ -21,7 +22,7 @@ make install-server         # provision the dedicated server via SteamCMD (EAC o
 make server-smoke           # deploy + boot the server briefly, prove the mod loaded
 ```
 
-Host tools: `python3`, `git`, `make`, `shellcheck`, `zip`; a .NET SDK (`dotnet`
+Host tools: `python3`, `git`, `make`, `shellcheck`, `ruff`, `zip`; a .NET SDK (`dotnet`
 on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.

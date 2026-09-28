@@ -95,7 +95,8 @@ class Target:
         self.injected = injected
 
     def label(self) -> str:
-        arguments = "" if self.argument_types is None else "(" + ", ".join(self.argument_types) + ")"
+        arguments = ("" if self.argument_types is None
+                     else "(" + ", ".join(self.argument_types) + ")")
         return f"{self.declaring_type}.{self.method}{arguments}"
 
 
@@ -281,7 +282,7 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
         for index, line in enumerate(lines, start=1):
             attribute = PATCH_ATTRIBUTE.search(line.strip())
             if attribute:
-                pending.append((index,) + parse_attribute(attribute.group("args")))
+                pending.append((index, *parse_attribute(attribute.group("args"))))
                 continue
 
             declaration = CLASS_DECLARATION.match(line)
@@ -405,7 +406,8 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     .DeclaredMethod would return.
     """
     pattern = re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
-    return [line.strip() for line in body if pattern.match(line) and not line.strip().startswith("[")]
+    return [line.strip() for line in body
+            if pattern.match(line) and not line.strip().startswith("[")]
 
 
 MODIFIERS = ("params", "this", "in", "out", "ref")
@@ -473,7 +475,8 @@ def main(argv: list[str]) -> int:
     if runtime_error is not None:
         print("ERROR: ilspycmd is installed but cannot run.")
         print(runtime_error)
-        print("Install its target .NET runtime, or install Unity Hub with an editor SDK so this verifier can use its local fallback.")
+        print("Install its target .NET runtime, or install Unity Hub with an editor "
+              "SDK so this verifier can use its local fallback.")
         return 2
 
     if not (root / SOURCE_DIR).is_dir():

@@ -19,13 +19,15 @@ and needs no server.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "lib"))
 
-import game_telnet  # noqa: E402  (import needs the path above)
+# resolved against the lib/ path the line above adds
+import game_telnet
 
 FAILURES: list[str] = []
 
@@ -42,7 +44,7 @@ class StubSocket:
     """Records what a caller did to the descriptor; never opens a real one."""
 
     def __init__(self, send_raises: BaseException | None = None,
-                 close_raises: BaseException | None = None):
+                 close_raises: BaseException | None = None) -> None:
         self.sent: list[bytes] = []
         self.closed = False
         self._send_raises = send_raises
@@ -118,21 +120,15 @@ def negative_control() -> None:
     """The old shape (no finally) really does leak, so the gates above bite."""
 
     def legacy_close(sock: StubSocket) -> None:
-        try:
+        with contextlib.suppress(OSError):
             sock.sendall(b"exit\r\n")
-        except OSError:
-            pass
-        try:
+        with contextlib.suppress(OSError):
             sock.close()
-        except OSError:
-            pass
 
     sock = StubSocket(send_raises=game_telnet.TelnetError("send failed"))
-    try:
+    # The point of the control: the old shape escapes, skipping its close.
+    with contextlib.suppress(game_telnet.TelnetError):
         legacy_close(sock)
-    except game_telnet.TelnetError:
-        # The point of the control: the old shape escapes, skipping its close.
-        pass
     check("negative control: the unfixed close leaks the descriptor",
           not sock.closed)
 

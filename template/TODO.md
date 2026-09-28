@@ -21,7 +21,7 @@ __MOD_PURPOSE__
 
 ## Testing
 
-- [ ] Keep `make test` and `make lint-shell` green on every change.
+- [ ] Keep `make test`, `make lint-shell` and `make lint-py` green on every change.
 - [ ] First in-game validation: `make build`, deploy per
       `docs/reference/environment.md`, verify the log is clean of XPath
       errors AND the change is visible in game.

@@ -84,8 +84,11 @@ def main() -> int:
     check("localization-inside-config",
           not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
           "move it to Config/Localization.csv; the engine ignores a root-level file")
+    stray_localization = "Localization.txt" if os.path.isfile(
+        os.path.join(MOD_DIR, "Localization.txt")) else ""
     check("no-localization-txt",
-          not os.path.isfile(os.path.join(MOD_DIR, "Localization.txt")),
+          not any(rel_f.endswith("Localization.txt")
+                  for rel_f in [*files, stray_localization]),
           "V3 uses Localization.csv")
 
     check("no-legacy-xui-dir",

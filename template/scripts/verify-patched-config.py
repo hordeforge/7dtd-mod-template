@@ -230,7 +230,7 @@ def main() -> int:
         return 1
     total = sum(applied.values())
     print(f"  PASS: all {total} shipped patch elements are present in the running")
-    print(f"        game's own configuration, in their intended parents.")
+    print("        game's own configuration, in their intended parents.")
     return 0
 
 

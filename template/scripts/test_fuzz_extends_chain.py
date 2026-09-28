@@ -36,7 +36,8 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-import xml_extends  # noqa: E402  (resolved against the lib/ path above)
+# resolved against the lib/ path the line above adds
+import xml_extends
 
 DEFAULT_ITERATIONS = 2000
 SEED = 20260928

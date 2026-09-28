@@ -41,7 +41,7 @@ Entry points, all with the file that creates them.
 - `new-mod.sh <config-file>`: the file is the first and only argument
   (`new-mod.sh:19-24`).
 - `make` targets in `template/Makefile`: `build`, `package`, `test`, `lint-shell`,
-  `validate-xml`, `verify-patched-config`, `validate-patch-targets`,
+  `lint-py`, `validate-xml`, `verify-patched-config`, `validate-patch-targets`,
   `install-server`, `deploy-server`, `server-smoke`, and the shamway asset targets
   behind the `ANVIL:ASSETS` markers.
 
@@ -236,6 +236,7 @@ Controls that exist in the code, with what each one actually covers.
 | `EACEnabled=false` required before server testing | `install-server.sh:31`, `server-smoke.sh:30` | A config that would keep the anti-cheat on is caught before a Harmony mod is loaded into it. It also *is* the reason the server lane has no anti-cheat; see threat 3. |
 | `TreatWarningsAsErrors`, analyzers on, `DebugType=none` | `__MOD_NAME__.csproj:9-12` | No symbols shipped with the mod. |
 | shellcheck over every tracked script, and the incident-to-gate harness | `lint-shell.sh`, `test_rules_have_gates.py` | Catches shell defects and rules that were written as prose only. |
+| ruff over every tracked Python script under the shipped `ruff.toml`, blocking in CI | `lint-py.sh`, `ruff.toml` | Catches Python defects in the mod's own build-time tooling, which is the only code a mod author edits before any game code exists. |
 | Deterministic gate harness: every AGENTS.md incident names a `test_*.py` | `test_rules_have_gates.py:29-35` | Keeps written rules from rotting into unenforceable prose. |
 
 Gaps, ranked by exploitability then impact. These are recorded here; the fixes

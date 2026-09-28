@@ -47,7 +47,7 @@ def tracked_py() -> list[str]:
     """Every tracked *.py under this mod, sorted — never filesystem order."""
     done = subprocess.run(
         ["git", "-C", MOD_DIR, "ls-files", "-z", "--", "*.py"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True, text=True, timeout=60, check=False,
     )
     if done.returncode != 0:
         raise SystemExit("ERROR: git ls-files failed: " + done.stderr)
@@ -162,28 +162,21 @@ def negative_controls() -> None:
         ("duplicate dict-literal key", "D = {True: 'a', True: 'b'}\n"),
         (
             "unreachable statement after return",
-            "def f(x):\n"
-            "    return x\n"
-            "    print('dead')\n",
+            "def f(x):\n" + "    return x\n" + "    print('dead')\n",
         ),
         (
             "unreachable statement after raise",
-            "def f(x):\n"
-            "    raise ValueError(x)\n"
-            "    return x\n",
+            "def f(x):\n" + "    raise ValueError(x)\n" + "    return x\n",
         ),
         ("assert on a tuple literal", "assert (1, 2)\n"),
         (
             "bare except",
-            "def f(x):\n"
-            "    try:\n"
-            "        return int(x)\n"
-            "    except:\n"
-            "        return 0\n",
+            "def f(x):\n" + "    try:\n" + "        return int(x)\n"
+            + "    except:\n" + "        return 0\n",
         ),
         ("mutable default argument", "def f(x, acc=[]):\n    return acc\n"),
         ("mutable default argument", "def f(x, acc=dict()):\n    return acc\n"),
-        ("==/!= None comparison", "ok = (x != None)\n" "def f(x):\n" "    return ok\n"),
+        ("==/!= None comparison", "ok = (x != None)\ndef f(x):\n    return ok\n"),
     )
     for kind, snippet in cases:
         hits = findings(snippet)

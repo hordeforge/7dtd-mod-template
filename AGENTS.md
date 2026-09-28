@@ -38,8 +38,8 @@ Any change to `template/` or `new-mod.sh` is proven by scaffolding:
 ./new-mod.sh ci/smoke.conf   # scaffolds into the gitignored .scratch/, clone=no
 ```
 
-Then, in the generated mod: `make test` and `make lint-shell` must pass, and
-`make package` must produce a zip that extracts to
+Then, in the generated mod: `make test`, `make lint-shell` and `make lint-py`
+must pass, and `make package` must produce a zip that extracts to
 `Mods/<Name>/ModInfo.xml`. CI runs exactly this. Never mark template work
 done on inspection alone.
 

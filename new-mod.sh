@@ -236,6 +236,6 @@ git -C "$MOD_DIR" commit -q -m "Scaffold $name from hordeforge/7dtd-mod-template
 
 echo
 echo "OK -> $MOD_DIR"
-echo "Next: cd $MOD_DIR && make test && make lint-shell"
+echo "Next: cd $MOD_DIR && make test && make lint-shell && make lint-py"
 echo "      (make help lists every target; make build needs the game install in .local.env)"
 echo "Start with TODO.md (the purpose is seeded there); AGENTS.md has the working rules."

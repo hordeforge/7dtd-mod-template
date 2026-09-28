@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-import xml.etree.ElementTree as element_tree
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -11,7 +11,7 @@ def main() -> int:
 
     source = Path(sys.argv[1])
     target = Path(sys.argv[2])
-    tree = element_tree.parse(source)
+    tree = ET.parse(source)
     settings = tree.getroot()
     eac = settings.find("property[@name='EACEnabled']")
     if eac is None:
@@ -19,7 +19,7 @@ def main() -> int:
         return 1
 
     eac.set("value", "false")
-    element_tree.indent(tree, space="\t")
+    ET.indent(tree, space="\t")
     tree.write(target, encoding="utf-8", xml_declaration=True)
     return 0
 

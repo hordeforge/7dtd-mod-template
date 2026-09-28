@@ -1,0 +1,27 @@
+# Ruff is the Python gate for this modlet, the shellcheck of scripts/*.py.
+# `make lint-py` runs it; every group below is one the tree already passes, so
+# a new file that trips one is a real defect, not style drift.
+line-length = 100
+target-version = "py39"
+
+[lint]
+select = [
+	"E",    # pycodestyle errors
+	"W",    # pycodestyle warnings
+	"F",    # pyflakes
+	"I",    # import order
+	"B",    # flake8-bugbear
+	"A",    # flake8-builtins
+	"ANN",  # flake8-annotations: every def carries a signature
+	"C4",   # flake8-comprehensions
+	"PIE",  # flake8-pie
+	"PT",   # flake8-pytest-style
+	"PLE",  # pylint errors
+	"PLW",  # pylint warnings
+	"RET",  # flake8-return
+	"SIM",  # flake8-simplify
+	"UP",   # pyupgrade
+	"ISC",  # flake8-implicit-str-concat
+	"ICN",  # flake8-import-conventions
+	"RUF",  # ruff's own rules, including RUF100 (stale noqa)
+]

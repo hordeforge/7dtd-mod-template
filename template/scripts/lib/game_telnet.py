@@ -25,6 +25,7 @@ Standard library only — no telnetlib, which was removed in Python 3.13.
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import select
 import socket
@@ -69,7 +70,7 @@ class GameTelnet:
     """A minimal client for the 7DTD telnet console."""
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 password: str = "", timeout: float = 10.0):
+                 password: str = "", timeout: float = 10.0) -> None:
         self.host = host
         self.port = port
         self.password = password
@@ -90,11 +91,11 @@ class GameTelnet:
 
     # -- connection -------------------------------------------------------
 
-    def __enter__(self) -> "GameTelnet":
+    def __enter__(self) -> GameTelnet:
         self.connect()
         return self
 
-    def __exit__(self, *_exc) -> None:
+    def __exit__(self, *_exc: object) -> None:
         self.close()
 
     def connect(self, wait: float = 120.0) -> None:
@@ -162,10 +163,8 @@ class GameTelnet:
                 except OSError:
                     pass
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 sock.close()
-            except OSError:
-                pass
 
     # -- io ---------------------------------------------------------------
 

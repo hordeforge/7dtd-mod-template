@@ -15,7 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-import game_telnet  # noqa: E402
+# resolved against the lib/ path the line above adds
+import game_telnet
 
 PASSWORD = "hunter2-console-password"
 

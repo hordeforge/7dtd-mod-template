@@ -214,8 +214,11 @@ interpreter limit).
 
 ## Testing
 
-Offline gates: `make test` (every `scripts/test_*.py`) and
-`make lint-shell` (shellcheck, full severity) must pass before any commit.
+Offline gates: `make test` (every `scripts/test_*.py`), `make lint-shell`
+(shellcheck, full severity) and `make lint-py` (ruff under the mod's
+`ruff.toml`) must pass before any commit. A suppression is a comment or a
+`# noqa: RULE` naming the rule and the reason; a bare `# noqa` never
+silences a line.
 The suite's report carries no elapsed time, so two runs over an unchanged
 tree print byte-identical output; `OFFLINE_TEST_TIMINGS=1` adds the seconds
 for a human and is the one non-reproducible mode

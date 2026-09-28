@@ -34,6 +34,7 @@ import os
 import random
 import string
 import sys
+from types import ModuleType
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_ITERATIONS = 3000
@@ -58,7 +59,7 @@ DEFAULTS = (
 JUNK = string.printable + "\t\x00 ﻿"
 
 
-def load_verifier():
+def load_verifier() -> ModuleType:
     """Import the hyphenated script by path; it has no package of its own."""
     path = os.path.join(SCRIPT_DIR, "verify-patch-targets.py")
     spec = importlib.util.spec_from_file_location("verify_patch_targets", path)
@@ -155,7 +156,7 @@ def main() -> int:
         attribute_text = attribute(rng)
         for text in (attribute_text, mutate(rng, attribute_text)):
             try:
-                declaring_type, _method, argument_types = module.parse_attribute(text)
+                declaring_type, _method, _argument_types = module.parse_attribute(text)
             except Exception as exc:
                 fail("parse_attribute", text, f"{type(exc).__name__}: {exc}")
                 continue

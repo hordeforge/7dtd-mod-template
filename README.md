@@ -25,8 +25,8 @@ cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ./new-mod.sh mymod.conf
 ```
 
-Then, in the generated mod: `make test` and `make lint-shell` are green out
-of the box, and `make help` lists every target. `make build` / `make package`
+Then, in the generated mod: `make test`, `make lint-shell` and `make lint-py`
+are green out of the box, and `make help` lists every target. `make build` / `make package`
 produce the deployable modlet; they need the game install recorded in
 `.local.env` and, for a C# mod, a .NET SDK on `PATH`.
 
@@ -80,7 +80,8 @@ core.
   meta-gate (incident rules name their gate; every gate runs twice,
   byte-identical), the session-id gate, and the upstream-tooling scan that
   stops the mod re-implementing what sibling hordeforge repos own.
-  `make lint-shell` is full-severity shellcheck.
+  `make lint-shell` is full-severity shellcheck, `make lint-py` is ruff
+  over the mod's Python under the shipped `ruff.toml`.
 - **Install-dependent checks**: `make validate-xml` (every Config xpath
   against the installed game), `make verify-patched-config` (every shipped
   patch element proven applied from a loaded save's `ConfigsDump` — a patch
