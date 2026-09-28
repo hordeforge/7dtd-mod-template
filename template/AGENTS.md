@@ -214,7 +214,16 @@ SEVEN_DAYS_TO_DIE_SAVES_DIR="/absolute/proton/saves"
 
 `.local.env.example` is the full inventory: these path keys plus every
 non-path knob the scripts read, each with its valid values. A key already set
-in the environment wins over the file.
+in the environment wins over the file, so a one-off
+`SEVEN_DAYS_TO_DIE_DIR=... make build` needs no edit.
+
+A target loads the file **unconditionally**, never only when the key it
+needs happens to be unset: a conditional load drops every other key in the
+file whenever that one was already exported, so a documented setting
+resolves to nothing without a word.
+`scripts/test_shell_local_env.py` fails a target that reintroduces that
+shape, and `scripts/test_local_env_keys.py` fails a key that is documented
+in `.local.env.example` and read by no script at all.
 
 Never commit the file or copy its absolute values into tracked files;
 `scripts/test_local_path_inventory.py` enforces the documented keys and the

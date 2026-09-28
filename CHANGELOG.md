@@ -455,6 +455,16 @@ shape above, so the search cannot quietly stop matching.
   before it completes.
 - A smoke rerun inside the same second no longer overwrites the log of the
   run before it, and the two no longer count as one against the log quota.
+- A documented `.local.env` key that no script reads is now a gate failure
+  (`scripts/test_local_env_keys.py`) instead of a setting that silently does
+  nothing. `ILSPYCMD` was in `.local.env.example` and written by the
+  scaffolder, and nothing read it. It now selects the executable, ahead of a
+  `PATH` lookup and the global-tools directory, and a path that is not a file
+  is reported rather than silently replaced.
+- `scripts/test_shell_local_env.py` fails any target that loads `.local.env`
+  only when the key it needs is unset. `build.sh`, `playtest.sh` and the
+  server lane each had that shape once, which dropped every other key in the
+  file whenever that one was already exported.
 - `make lint-py` passes on a current ruff. Three test scripts carried
   `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
   scaffold; the two that did need it now put their path constants after the

@@ -21,10 +21,12 @@ SEVEN_DAYS_TO_DIE_SAVES_DIR=""   # Proton Saves/; derived from the game dir when
 
 `.local.env.example` is the commented inventory of the same keys plus every
 other environment knob the scripts read (the server lane, `make playtest`,
-`make test`, `make package`), each with its valid values.
-`scripts/test_local_path_inventory.py` fails if a path key goes undocumented,
-and `scripts/test_env_inventory.py` fails if any script reads a key the
-example does not list.
+`make test`, `make package`), each with its valid values. Three gates hold
+the inventory honest: `scripts/test_local_path_inventory.py` fails if a path
+key goes undocumented, `scripts/test_env_inventory.py` fails if any script
+reads a key the example does not list, and `scripts/test_local_env_keys.py`
+fails the other direction, a key the example documents that no script reads
+and that therefore does nothing however the file is edited.
 
 An environment variable already set wins over `.local.env`, so a one-off
 `SEVEN_DAYS_TO_DIE_SERVER_DIR=/srv/7dtd make server-smoke` needs no file
@@ -33,8 +35,17 @@ shell target uses, and `scripts/lib/local_env.py` is its Python counterpart
 for the three targets written in Python; the two agree on the rule that
 matters (a value already in the environment wins over the file) and differ on
 a set-but-empty one, which the shell reader treats as a win and the Python
-reader as unset. A `.local.env` that cannot be parsed stops the target and
-names the file instead of dying on a `/dev/fd` path.
+reader as unset. Every target loads the file unconditionally: loading only
+when the key a target needed was unset silently dropped every other key in
+the file, and `scripts/test_shell_local_env.py` fails a target that
+reintroduces that shape. A `.local.env` that cannot be parsed stops the
+target and names the file instead of dying on a `/dev/fd` path.
+
+`scripts/verify-patch-targets.py` finds `ilspycmd` in one order: the
+`ILSPYCMD` key, then a `PATH` lookup, then the `~/.dotnet/tools` directory
+`dotnet tool install -g` writes to. A key pointing at a missing file, or at
+one not named `ilspycmd`, is reported as the stale value rather than
+silently replaced by a different `ilspycmd`.
 
 `new-mod.sh` writes this file at scaffold time, mode 0600. On a machine
 where it is missing, blank, or invalid: **ask the user for the absolute

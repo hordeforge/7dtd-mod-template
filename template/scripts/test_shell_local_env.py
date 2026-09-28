@@ -23,10 +23,12 @@ No game install and no server: the loader only reads a temp directory.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate import check
@@ -41,6 +43,19 @@ PROBE = ('source "$1"; load_local_env "$2"; '
 # The narrow reader, in the environment load_local_env would have produced, so
 # a key the two answer differently is caught rather than shipped.
 NARROW_PROBE = ('source "$1"; local_env_value "$2" "$3"; printf "|end\\n"')
+
+# An `if` whose condition asks whether a configuration key is set or empty:
+# `if [[ -z "$KEY" ]]`, `if [[ -v KEY ]]`, `if [[ -n ${KEY:-} ]]`. This is the
+# shape that made the load conditional; `if [[ -d "$SRC" ]]` is not a question
+# about a key and must not match.
+KEY_TEST = re.compile(
+    r"\bif\b[^#]*?(\[\[\s+-[znv]\s|\[\[\s+-v\s+[A-Z]|-[znv]\s+\"?\$\{?[A-Z][A-Z0-9_]*)")
+
+# A block opener, and the matching closer, at the start of a statement. Only
+# line-leading keywords count, so a `; then` closing a one-line `if` does not
+# open a block that nothing closes.
+BLOCK_OPEN = re.compile(r"^(?:if|for|while|until|case)\b")
+BLOCK_CLOSE = re.compile(r"^(?:fi|done|esac)\b")
 
 
 def load(root: str, preset: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -190,7 +205,45 @@ def main() -> int:
               and "SEVEN_DAYS_TO_DIE_DIR" not in done.stdout,
               done.stdout + done.stderr)
 
+    check("no target loads .local.env conditionally", *conditional_loads())
+
     return report()
+
+
+def conditional_loads() -> tuple[bool, str]:
+    """Whether no `load_local_env` call sits inside a test of a key.
+
+    A caller that loaded the file only when one key was unset dropped every
+    other key in it whenever that key was already exported, so a documented
+    setting resolved to nothing without a word. `build.sh` read that way and
+    then told a failing build to "point DOTNET_ROOT in .local.env at one".
+
+    The test is the condition, not the nesting: a load inside a function
+    body, or under `if [[ -d "$SRC" ]]`, is unconditional with respect to
+    configuration and is fine. Only a load guarded by a question about a
+    key's own value is the defect.
+    """
+    guarded: list[str] = []
+    for path in sorted(Path(MOD_DIR, "scripts").rglob("*.sh")):
+        # The innermost open block, and the condition of each. A load is
+        # guarded when the nearest open `if` asked about a key; an inner block
+        # opened for another reason (a `for` over files, a `while` reading a
+        # dump) supersedes the outer condition rather than adding to it.
+        blocks: list[str | None] = []
+        for number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if BLOCK_OPEN.match(stripped):
+                match = KEY_TEST.search(stripped)
+                blocks.append(match.group(0) if match else None)
+            if "load_local_env" in stripped:
+                for condition in blocks:
+                    if condition is not None:
+                        guarded.append(f"{path.name}:{number} under {condition}")
+            while blocks and BLOCK_CLOSE.match(stripped):
+                blocks.pop()
+    return not guarded, "; ".join(guarded)
 
 
 if __name__ == "__main__":

@@ -120,6 +120,7 @@ with the expected signature.
 
 REQUIRES
   ilspycmd    dotnet tool install -g ilspycmd --version 11.1.0.9782
+              or set ILSPYCMD (env or .local.env) to the executable.
 
 EXAMPLES
   scripts/verify-patch-targets.py
@@ -427,6 +428,48 @@ def editor_version_key(path: Path) -> tuple:
 
 
 ILSPY_PROBE_TIMEOUT_SECONDS = 60
+ILSPY_KEY = "ILSPYCMD"
+ILSPY_NAME = "ilspycmd"
+
+
+def resolve_ilspycmd(root: Path) -> str | None:
+    """Put a usable ilspycmd on PATH, or return the message naming the fix.
+
+    Three sources, in one documented order: the ILSPYCMD key (the
+    environment, then `.local.env`), a PATH lookup, then the global-tools
+    directory `dotnet tool install -g` writes to. The key is listed in
+    `.local.env.example` and new-mod.sh fills it from `command -v`, but
+    nothing read it, so a tool on any other path resolved to "not found"
+    however the file was configured.
+
+    Returns None once one of them names a real file. A key that points at a
+    missing file, or at one not named `ilspycmd` (the tool is run by that
+    name off PATH), is reported as the stale value rather than silently
+    replaced by another ilspycmd from PATH: a configured path is the user's
+    statement about where the tool is.
+    """
+    configured = local_env.value(root, ILSPY_KEY)
+    if configured:
+        candidate = Path(configured)
+        if not candidate.is_file():
+            return (f"{ILSPY_KEY} points at {candidate}, which is not a file. "
+                    f"Correct it in .local.env, or unset it to search PATH.")
+        if candidate.name != ILSPY_NAME:
+            return (f"{ILSPY_KEY} points at {candidate}; it must name the "
+                    f"{ILSPY_NAME} executable itself.")
+    elif shutil.which(ILSPY_NAME) is None:
+        candidate = Path.home() / ".dotnet" / "tools" / ILSPY_NAME
+        if not candidate.is_file():
+            return (f"{ILSPY_NAME} not found on PATH, at {candidate}, and "
+                    f"{ILSPY_KEY} is unset. Install it with:\n"
+                    f"  {ilspy_install_command()}")
+    else:
+        candidate = Path(shutil.which(ILSPY_NAME) or ILSPY_NAME)
+    # Prepended, not appended: the key is a statement about which ilspycmd to
+    # use, and appending left any other one already on PATH ahead of it, so a
+    # configured ILSPYCMD was resolved and then not the tool that ran.
+    os.environ["PATH"] = str(candidate.parent) + os.pathsep + os.environ.get("PATH", "")
+    return None
 
 
 def probe_ilspy() -> tuple[int | None, str]:
@@ -585,14 +628,11 @@ def main(argv: list[str]) -> int:
         print(f"ERROR: {assembly} not found.", file=sys.stderr)
         return 1
 
-    # `ilspycmd` installs to ~/.dotnet/tools, which is not always on PATH.
-    if shutil.which("ilspycmd") is None:
-        candidate = Path.home() / ".dotnet" / "tools" / "ilspycmd"
-        if not candidate.is_file():
-            print("ERROR: ilspycmd not found. Install it with:", file=sys.stderr)
-            print("  " + ilspy_install_command(), file=sys.stderr)
-            return 1
-        os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + str(candidate.parent)
+    ilspy_error = resolve_ilspycmd(root)
+    if ilspy_error is not None:
+        print("ERROR: ilspycmd not usable.", file=sys.stderr)
+        print(ilspy_error, file=sys.stderr)
+        return 1
 
     runtime_error = ensure_ilspy_runtime()
     if runtime_error is not None:
