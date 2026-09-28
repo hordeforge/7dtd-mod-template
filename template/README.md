@@ -12,7 +12,7 @@ directory itself — `make build` stages the deployable copy under
 ```bash
 make test                   # offline gates (scripts/test_*.py)
 make lint-shell             # shellcheck, full severity
-make build                  # stage dist/__MOD_NAME__/ (needs .local.env, see below)
+make build                  # stage dist/__MOD_NAME__/ (a DLL build needs .local.env, see below)
 make package                # dist/__MOD_NAME__.zip — extracts to Mods/__MOD_NAME__/
 make validate-xml           # every Config xpath against the installed game
 make verify-patched-config  # every patch element proven applied, from a save's ConfigsDump
@@ -39,7 +39,9 @@ command `__MOD_NAME_LOWER__` lists, changes, and reloads them.
 
 Live suites, when this mod has them, go through
 [hordeforge/7dtd-playtest](https://github.com/hordeforge/7dtd-playtest).
-One invocation is one concern: one suite id.
+One invocation is one concern: one suite id. The template ships no
+playtest target, so the mod adds `playtest` to its `Makefile` as a thin
+wrapper over the sibling tool (`PLAYTEST_ROOT` in `.local.env`).
 
 ```bash
 make playtest SUITE=<one-id>

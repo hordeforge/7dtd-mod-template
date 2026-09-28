@@ -9,9 +9,17 @@ by the tracked `.local.env.example`) with these keys:
 ```dotenv
 SEVEN_DAYS_TO_DIE_DIR=""         # client game-install root (required to build C#)
 SEVEN_DAYS_TO_DIE_SERVER_DIR=""  # optional SteamCMD Linux dedicated server
-UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
 HORDEFORGE_ROOT=""               # directory holding the hordeforge tool checkouts
+PLAYTEST_ROOT=""                 # per-repo overrides, derived from HORDEFORGE_ROOT
+CONNECT_ROOT=""
+ASSET_PIPELINE_ROOT=""
+DOTNET_ROOT=""                   # toolchain locations, when not on PATH
+ILSPYCMD=""
+UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
 ```
+
+`.local.env.example` is the commented inventory of the same keys, and
+`scripts/test_local_path_inventory.py` fails if one goes undocumented.
 
 `new-mod.sh` writes this file at scaffold time, mode 0600. On a machine
 where it is missing, blank, or invalid: **ask the user for the absolute

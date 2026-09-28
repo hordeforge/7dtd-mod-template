@@ -34,7 +34,8 @@ One run does the whole setup:
 
 1. Resolves your local hordeforge checkout directory (or asks for one) and
    clones the missing tool repos the workflow needs — `7dtd-playtest`,
-   `7dtd-asset-pipeline`, and optionally `7dtd-engine-research`.
+   `7dtd-asset-pipeline`, and `7dtd-engine-research` (set `clone="no"` to
+   skip this).
 2. Creates the mod directory from [`template/`](template/) with every
    name/author placeholder substituted. `csharp=yes` includes the net48
    Harmony DLL project; `assets=yes` includes the shamway asset targets.

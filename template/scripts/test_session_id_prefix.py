@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """No shell script may hardcode an agent family into a playtest session id.
 
-The session id is what the shared playtest lock file publishes as
-the holder. An upstream wrapper once hardcoded a family, so
-every run took the shared client
-under a family that was not the one running, and a session reading the lock
-was told the wrong holder.
-
+The session id is what the shared playtest lock file publishes as the
+holder. An upstream wrapper once hardcoded a family, so every run claimed
+the shared client under a family that was not the one running, and a
+session reading the lock was told the wrong holder.
 
 The prefix comes from the environment. `AGENTS.md`'s "Parallel-session IDs"
 requires a real family per session; this gate only stops the wrapper from
