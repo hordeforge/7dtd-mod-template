@@ -3,20 +3,28 @@
 
 `run-offline-tests.sh` decides PASS/FAIL for every other scripts/test_*.py,
 so a regression in its exit-code plumbing would silence the entire suite at
-once — the exact failure nothing else here can catch. Its docstring pins four
-guarantees; this gate drives each one against fixture copies of the runner in
-a throwaway directory, never against the shared tree:
+once — the exact failure nothing else here can catch. This gate drives the
+guarantees its docstring lists against fixture copies of the runner in a
+throwaway directory, never against the shared tree:
 
 1. every fixture test passing, no filter -> exit 0;
 2. one fixture test failing -> nonzero, and the FAIL line names it;
 3. a filter matching no test name -> exit 1 (must not read as a green run);
 4. a filter naming a subset -> only that subset runs;
-5. two runs over the same tree print byte-identical stdout.
+5. two runs over the same tree print byte-identical stdout;
+6. the elapsed seconds it reports do not come from the wall clock.
 
 (5) is the gate the runner owes AGENTS.md's "every gate is deterministic" rule:
 a report carrying an elapsed time or a finish-order-dependent line makes two
 runs of an unchanged tree differ, so a diff of one run against another proves
 nothing.
+
+(6) pins the clock the durations are measured on. `date +%s` follows the wall
+clock, so an NTP step or a manual clock change mid-run reports a negative or
+inflated duration; the runner reads /proc/uptime instead, where the kernel
+provides one. The check is skipped where that file is absent, and the
+`date` shim is what makes the assertion a real one: a runner that reached for
+the wall clock fails loudly instead of quietly reporting the same number.
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -120,6 +129,28 @@ def main() -> int:
             and TIMING.search(clean.stdout) is None,
             f"default={clean.stdout!r} timed={timed.stdout!r}",
         )
+
+        if os.path.exists("/proc/uptime"):
+            shim = os.path.join(root, "shim")
+            os.makedirs(shim, exist_ok=True)
+            broken_date = os.path.join(shim, "date")
+            with open(broken_date, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\necho 'date must not measure' >&2\nexit 1\n")
+            os.chmod(broken_date, os.stat(broken_date).st_mode | stat.S_IEXEC)
+            shimmed_env = {
+                **DEFAULT_ENV,
+                "OFFLINE_TEST_TIMINGS": "1",
+                "PATH": f"{shim}{os.pathsep}{os.environ['PATH']}",
+            }
+            monotonic = run_runner(good, env=shimmed_env)
+            check(
+                "elapsed seconds come from a monotonic clock, not `date`",
+                monotonic.returncode == 0
+                and TIMING.search(monotonic.stdout) is not None
+                and "date must not measure" not in monotonic.stderr,
+                f"exit={monotonic.returncode} stdout={monotonic.stdout!r} "
+                f"stderr={monotonic.stderr!r}",
+            )
 
         filtered = runs["filtered"]
         check(

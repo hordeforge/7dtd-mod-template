@@ -25,10 +25,27 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Elapsed time is measured on a monotonic clock. `date +%s` is the wall
+# clock: an NTP step or a manual clock change during a run reports a negative
+# or wildly inflated duration for a test that took a moment. /proc/uptime is
+# the only monotonic reading a POSIX shell can get without another process;
+# where it is absent the wall clock is the fallback, and no worse than before.
+now_seconds() {
+	local uptime
+	if [[ -r /proc/uptime ]]; then
+		read -r uptime _ < /proc/uptime || uptime=""
+		if [[ "$uptime" == *.* ]]; then
+			printf '%s\n' "${uptime%%.*}"
+			return
+		fi
+	fi
+	date +%s
+}
+
 filters=("$@")
 failed=()
 ran=0
-overall_start=$(date +%s)
+overall_start=$(now_seconds)
 
 tests=()
 for test_script in "$SCRIPT_DIR"/test_*.py; do
@@ -66,14 +83,14 @@ run_serial() {
 	local test_script name start status elapsed
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
-		start=$(date +%s)
+		start=$(now_seconds)
 		if python3 "$test_script"; then
 			status=0
 		else
 			status=$?
 		fi
 		elapsed=""
-		(( timings )) && elapsed=" ($(( $(date +%s) - start ))s)"
+		(( timings )) && elapsed=" ($(( $(now_seconds) - start ))s)"
 		if (( status == 0 )); then
 			printf 'PASS %s%s\n' "$name" "$elapsed"
 		else
@@ -94,7 +111,7 @@ run_parallel() {
 		out="$tmpdir/$name.out"
 		err="$tmpdir/$name.err"
 		(
-			start=$(date +%s)
+			start=$(now_seconds)
 			if python3 "$test_script" >"$out" 2>"$err"; then
 				status=0
 			else
@@ -103,7 +120,7 @@ run_parallel() {
 			# The report is read back in glob order, so which worker finished
 			# first must not reach the output: the status file is keyed by
 			# name, never appended to.
-			printf '%s %s\n' "$status" "$(( $(date +%s) - start ))" \
+			printf '%s %s\n' "$status" "$(( $(now_seconds) - start ))" \
 				> "$tmpdir/$name.status"
 		) &
 		active=$((active + 1))
@@ -148,7 +165,7 @@ else
 fi
 
 if (( timings )); then
-	printf '%s offline tests run in %ss.\n' "$ran" "$(( $(date +%s) - overall_start ))"
+	printf '%s offline tests run in %ss.\n' "$ran" "$(( $(now_seconds) - overall_start ))"
 else
 	printf '%s offline tests run.\n' "$ran"
 fi
