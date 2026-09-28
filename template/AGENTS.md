@@ -100,18 +100,26 @@ gate cannot check for you.
 
 The parsers that read hand-written input have fuzz gates, seeded so the run
 is reproducible and lengthened with `HARMONY_FUZZ_ITERS` /
-`EXTENDS_FUZZ_ITERS` / `XPATH_FUZZ_ITERS`:
+`EXTENDS_FUZZ_ITERS` / `XPATH_FUZZ_ITERS` / `TELNET_FUZZ_ITERS`:
 `scripts/test_fuzz_harmony_parsers.py` over the C# attribute and signature
 splitting in `scripts/verify-patch-targets.py`,
 `scripts/test_fuzz_extends_chain.py` over the `Extends` walk in
-`scripts/lib/xml_extends.py`, and `scripts/test_fuzz_xpath_targets.py` over
-the xpath resolver in `scripts/validate-xml-targets.py`. A new parser takes a
+`scripts/lib/xml_extends.py`,
+`scripts/test_fuzz_xpath_targets.py` over the xpath resolver in
+`scripts/validate-xml-targets.py`, and
+`scripts/test_fuzz_telnet_stream.py` over the console byte stream in
+`scripts/lib/game_telnet.py` (the one input here that is neither a file nor
+mod-authored: another machine's console, read a byte at a time through the
+real `_recv`). A new parser takes a
 gate in the same pass that adds it: malformed input must come back as a named
 error or a resolved entry, never as a traceback that kills the gate before it
 can report. A parser is total over its own input grammar, not only
 crash-free: `ElementTree`'s `find` answers `text()` with a `KeyError` and an
 unclosed predicate with a `TypeError`, so a gate that catches only
-`SyntaxError` does not hold.
+`SyntaxError` does not hold. A gate that only proves the parser does not
+crash holds half the contract: assert the answer too (a chunked decode equals
+the whole-stream decode, a line ends where the protocol says), or a parser
+returning the wrong text is indistinguishable from a correct one.
 - **Prove a gate can fail** before trusting it — against a fixture or a
   scratchpad copy, never by breaking the shared tree.
 

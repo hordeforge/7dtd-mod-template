@@ -87,6 +87,22 @@ def wire_lines(text: str) -> list[str]:
     return WIRE_LINE_BREAKS.split(text)
 
 
+def command_output(raw: str, command: str) -> str:
+    """`raw`, as read off the wire, reduced to a command's output.
+
+    Three kinds of line are dropped: blank ones, the server's echo of the
+    command itself, and the engine's `Executing command` notice. Nothing
+    re-derives them, so a caller needing the raw stream has to read it itself.
+    """
+    lines = [line.rstrip("\r") for line in wire_lines(raw)]
+    cleaned = [
+        line for line in lines
+        if line.strip() and line.strip() != command
+        and "Executing command" not in line
+    ]
+    return "\n".join(cleaned)
+
+
 def is_loopback(host: str) -> bool:
     """Whether `host` names this machine, so traffic never leaves it.
 
@@ -333,18 +349,8 @@ class GameTelnet:
     def run(self, command: str, settle: float = DEFAULT_SETTLE_SECONDS) -> str:
         """Run a console command and return its output.
 
-        Three kinds of line are dropped rather than returned: blank lines, the
-        server's echo of the command itself, and the engine's own
-        `Executing command` notice. Nothing re-derives them, so a caller
-        needing the raw stream has to read it itself.
+        The three line kinds `command_output` drops are dropped here too.
         """
         self._drain(PRE_COMMAND_DRAIN_SECONDS)
         self.send_raw(command)
-        output = self._drain(settle)
-        lines = [line.rstrip("\r") for line in wire_lines(output)]
-        cleaned = [
-            line for line in lines
-            if line.strip() and line.strip() != command
-            and "Executing command" not in line
-        ]
-        return "\n".join(cleaned)
+        return command_output(self._drain(settle), command)
