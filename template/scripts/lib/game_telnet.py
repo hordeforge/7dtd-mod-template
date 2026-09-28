@@ -34,6 +34,7 @@ import select
 import socket
 import sys
 import time
+from typing import Callable
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8081
@@ -48,6 +49,25 @@ DRAIN_TOTAL_CAP_SECONDS = 30.0
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
 REDACTED = "<redacted>"
+
+# Every interval this client waits on, named once. They are the client's whole
+# observable timing, so a caller simulating a session overrides them through
+# the clock rather than waiting them out.
+# Between two attempts to reach a listener that has not opened yet.
+CONNECT_RETRY_SECONDS = 2.0
+# How long the banner is collected for once the ready marker has been seen.
+BANNER_DRAIN_SECONDS = 0.5
+# How long the console is given to finish the previous command before a new one.
+PRE_COMMAND_DRAIN_SECONDS = 0.1
+# How long a command's output is collected for when the caller names no window.
+DEFAULT_SETTLE_SECONDS = 0.8
+# What a wait costs when nothing has arrived yet.
+POLL_INTERVAL_SECONDS = 0.05
+# How long select may block before the loop looks at the clock again.
+READABLE_WAIT_SECONDS = 0.2
+# The read timeout _drain installs, short enough that a chunk arriving inside
+# the window is collected rather than waited for.
+DRAIN_READ_TIMEOUT_SECONDS = 0.3
 
 
 class TelnetError(RuntimeError):
@@ -90,11 +110,21 @@ class GameTelnet:
     """A minimal client for the 7DTD telnet console."""
 
     def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 password: str = "", timeout: float = 10.0) -> None:
+                 password: str = "", timeout: float = 10.0,
+                 now: Callable[[], float] = time.monotonic,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
         self.host = host
         self.port = port
         self.password = password
         self.timeout = timeout
+        # The clock is a parameter, not a call to time: every wait in this
+        # client is a deadline, and a deadline read from the real clock can only
+        # be exercised by waiting it out, so a retry that lands on the third
+        # attempt and a marker split across two packets are untestable and a
+        # run cannot be replayed. Defaults are the real clock, so production
+        # wiring is unchanged.
+        self._now = now
+        self._sleep = sleep
         self._sock: socket.socket | None = None
         self.closed_by_server = False
         # TCP delivers a byte stream, not characters: a multi-byte UTF-8
@@ -131,20 +161,20 @@ class GameTelnet:
         self.close()
         # Deadlines use the monotonic clock: an NTP step mid-wait would make a
         # wall-clock deadline expire instantly or hang for the skew duration.
-        deadline = time.monotonic() + wait
+        deadline = self._now() + wait
         last: Exception | None = None
         # A new session starts at a character boundary: bytes carried over
         # from a previous connection would open the first line with a
         # replacement character.
         self._decoder.reset()
-        while time.monotonic() < deadline:
+        while self._now() < deadline:
             try:
                 self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
                 self._sock.settimeout(self.timeout)
                 break
             except OSError as exc:
                 last = exc
-                time.sleep(2.0)
+                self._sleep(CONNECT_RETRY_SECONDS)
         else:
             raise TelnetError(
                 f"could not connect to the telnet console at {self.host}:{self.port} "
@@ -167,7 +197,7 @@ class GameTelnet:
                 self.send_raw(self.password)
             # Drain the banner so the first command's output is not mixed with it.
             self._read_until_any(READY_MARKERS, timeout=self.timeout, required=False)
-            self._drain(0.5)
+            self._drain(BANNER_DRAIN_SECONDS)
         except Exception:
             # The socket is open but the session never became usable, so
             # release it here: __exit__ does not run when __enter__ raised,
@@ -190,7 +220,7 @@ class GameTelnet:
                 # must not skip the close below.
                 try:
                     sock.sendall(b"exit\r\n")
-                    time.sleep(CLOSE_SETTLE_SECONDS)
+                    self._sleep(CLOSE_SETTLE_SECONDS)
                 except OSError:
                     pass
         finally:
@@ -240,12 +270,12 @@ class GameTelnet:
         so a busy console yields everything printed up to the cap and the
         caller gets its answer instead of no answer at all.
         """
-        started = time.monotonic()
+        started = self._now()
         end = started + seconds
         chunks: list[str] = []
         if self._sock is not None:
-            self._sock.settimeout(0.3)
-            while time.monotonic() < end and time.monotonic() - started < DRAIN_TOTAL_CAP_SECONDS:
+            self._sock.settimeout(DRAIN_READ_TIMEOUT_SECONDS)
+            while self._now() < end and self._now() - started < DRAIN_TOTAL_CAP_SECONDS:
                 try:
                     chunk = self._recv() if self._readable() else ""
                 except TelnetError:
@@ -257,9 +287,9 @@ class GameTelnet:
                     # command's output cost a quadratic number of character
                     # copies before the first byte was returned.
                     chunks.append(chunk)
-                    end = time.monotonic() + seconds
+                    end = self._now() + seconds
                 else:
-                    time.sleep(0.05)
+                    self._sleep(POLL_INTERVAL_SECONDS)
             if self._sock is not None and not self.closed_by_server:
                 self._sock.settimeout(self.timeout)
         return "".join(chunks)
@@ -267,11 +297,11 @@ class GameTelnet:
     def _readable(self) -> bool:
         if self._sock is None:
             return False
-        return bool(select.select([self._sock], [], [], 0.2)[0])
+        return bool(select.select([self._sock], [], [], READABLE_WAIT_SECONDS)[0])
 
     def _read_until_any(self, markers: tuple[str, ...], timeout: float,
                         required: bool = True) -> str:
-        deadline = time.monotonic() + timeout
+        deadline = self._now() + timeout
         # Each read is searched from just before the previous one ended, which
         # is all a marker spanning a recv() boundary needs; re-searching the
         # whole buffer on every chunk is quadratic in however much the server
@@ -281,7 +311,7 @@ class GameTelnet:
         overlap = max(len(marker) for marker in markers) - 1
         chunks: list[str] = []
         tail = ""
-        while time.monotonic() < deadline:
+        while self._now() < deadline:
             if self._readable():
                 chunk = self._recv()
                 if chunk:
@@ -291,7 +321,7 @@ class GameTelnet:
                         return "".join(chunks)
                     tail = window[-overlap:] if overlap else ""
             else:
-                time.sleep(0.05)
+                self._sleep(POLL_INTERVAL_SECONDS)
         seen = "".join(chunks)
         if not required:
             return seen
@@ -300,7 +330,7 @@ class GameTelnet:
 
     # -- commands ---------------------------------------------------------
 
-    def run(self, command: str, settle: float = 0.8) -> str:
+    def run(self, command: str, settle: float = DEFAULT_SETTLE_SECONDS) -> str:
         """Run a console command and return its output.
 
         Three kinds of line are dropped rather than returned: blank lines, the
@@ -308,7 +338,7 @@ class GameTelnet:
         `Executing command` notice. Nothing re-derives them, so a caller
         needing the raw stream has to read it itself.
         """
-        self._drain(0.1)
+        self._drain(PRE_COMMAND_DRAIN_SECONDS)
         self.send_raw(command)
         output = self._drain(settle)
         lines = [line.rstrip("\r") for line in wire_lines(output)]
