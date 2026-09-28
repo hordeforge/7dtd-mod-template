@@ -24,11 +24,13 @@ make server-smoke           # deploy + boot the server briefly, prove the mod lo
 
 Host tools: `bash` 4.4+ (checked by `scripts/lib/require-bash.sh`; macOS ships
 3.2 as its system bash, so install a current one with `brew install bash`),
-`python3` 3.9+ (the floor `ruff.toml` pins), `git`, `make`, `shellcheck`,
+`python3` 3.9+ (the floor `ruff.toml` pins), `git`, `make`, `shellcheck`
+(0.9.0+, the floor the template repo's CI declares),
 `ruff` (0.16.4, the version CI pins), `zip`; a .NET SDK (`dotnet`
 on PATH, `dotnet --list-sdks` prints one) in the feature band `global.json`
-pins, for C# mods, `ilspycmd`
-(`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
+pins, for C# mods, `ilspycmd` 11.1.0.9782
+(`dotnet tool install -g ilspycmd --version 11.1.0.9782`) for patch-target
+validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.
 
 `ruff.toml` names the rule set, not a ruff version. A newer ruff resolves
@@ -36,6 +38,18 @@ those rules differently, so run the gate with the version the template's CI
 pins (`RUFF_VERSION` in the template repo's `.github/workflows/ci.yml`) rather
 than whatever is on PATH, and expect a version bump to surface as gate
 failures worth reading before they are accepted.
+
+`shellcheck` is a floor rather than a pin for the same reason from the other
+side: CI takes the runner image's binary, and an older one silently reports
+fewer style findings, so anything below 0.9.0 is not a supported gate. A
+newer one only ever finds more, and `make preflight` says so when your shell's
+copy is not the one CI runs.
+
+`ilspycmd` is pinned exactly because the gate reads signatures out of the text
+it writes: `scripts/verify-patch-targets.py` names the version it was checked
+against in its output and warns when the installed one is not it, and
+`scripts/test_ilspycmd_pin.py` holds every install line in the script to that
+pin.
 
 `make package` is reproducible: entries go in sorted order with
 `SOURCE_DATE_EPOCH` timestamps, so the same source yields the same bytes

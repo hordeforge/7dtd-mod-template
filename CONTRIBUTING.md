@@ -16,7 +16,9 @@ make check       # everything CI runs, in CI's order
 `make preflight` is the setup step. It needs `bash`, `make`, `git`, `python3`,
 `shellcheck`, `ruff`, `zip` and `unzip` on `PATH`, and it compares your local
 `ruff --version` against the `RUFF_VERSION` pinned in
-`.github/workflows/ci.yml`, warning when they differ. A rule the modlet's
+`.github/workflows/ci.yml`, warning when they differ, and your
+`shellcheck --version` against the `SHELLCHECK_VERSION` floor the same file
+declares, failing below it and warning above it. A rule the modlet's
 `ruff.toml` selects can resolve differently between the two, so a green local
 run is not the CI verdict while they are apart. Nothing is installed for you:
 put ruff where your shell already looks for tools rather than globally.
@@ -61,7 +63,11 @@ carry a fix you made inside `.scratch/` back to `template/` by hand.
 
 `RUFF_VERSION` in `.github/workflows/ci.yml` is the one pin a bump tool will
 not open for you. Raise it, run `make lint-py` inside a scaffolded mod, and
-say in the changelog which findings moved. `actions/checkout` is pinned by
+say in the changelog which findings moved. `SHELLCHECK_VERSION` in the same
+block is a floor rather than a pin, because CI runs the runner image's
+shellcheck: raise it when a feature the gates rely on needs a newer one, and
+read the style findings a newer image reports before accepting them.
+`actions/checkout` is pinned by
 commit, not by tag, and Dependabot bumps it monthly carrying that tag's commit;
 do not hand-edit the SHA.
 

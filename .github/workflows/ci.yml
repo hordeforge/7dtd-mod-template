@@ -28,6 +28,12 @@ jobs:
       # one of them turns the gate red for every open PR. Bump it here and
       # run `make lint-py` in a scaffolded mod before committing the bump.
       RUFF_VERSION: "0.16.4"
+      # The floor for shellcheck, which the runner's image supplies rather
+      # than this workflow installing it. An older one reports fewer style
+      # findings, so a gate on it is quietly weaker than the one a
+      # contributor runs; a newer one reports more, which the drift step
+      # below turns into a note rather than a red run.
+      SHELLCHECK_VERSION: "0.9.0"
     steps:
       # Pinned by commit, not by tag: a tag is mutable, so a moved one swaps the
       # code this job runs for whatever an attacker or a mistake put there.
@@ -58,7 +64,18 @@ jobs:
       - name: Offline gates
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" test
       - name: Shellcheck
-        run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-shell
+        run: |
+          local_version="$(shellcheck --version | sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p')"
+          if [ "$(printf '%s\n%s\n' "$SHELLCHECK_VERSION" "$local_version" | sort -V | head -n1)" \
+               != "$SHELLCHECK_VERSION" ]; then
+            echo "::error::shellcheck $local_version is older than the $SHELLCHECK_VERSION floor"
+            exit 1
+          fi
+          if [ "$local_version" != "$SHELLCHECK_VERSION" ]; then
+            echo "::notice::shellcheck $local_version, floor is $SHELLCHECK_VERSION; a newer" \
+                 "shellcheck can add style findings, so read any new one before accepting it"
+          fi
+          make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-shell
       - name: Install ruff
         # pinned: a floating ruff changes which findings the gate reports, so
         # the gate would start failing on an unchanged tree

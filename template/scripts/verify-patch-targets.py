@@ -52,6 +52,42 @@ ARGUMENT_TYPE_ARRAY = re.compile(r"new\s+Type\[\]\s*\{(?P<items>.*)\}", re.DOTAL
 # as a failed check for that target, not as a killed run.
 DECOMPILE_TIMEOUT_SECONDS = 300
 
+# A decompiler version, not "latest". Every signature this gate matches is
+# text the installed ilspycmd wrote, so a floating tool decides whether a
+# target passes. The pin is what a reader can reproduce; ilspy_pin_warning
+# says so when the installed one is not it.
+ILSPYCMD_VERSION = "11.1.0.9782"
+ILSPY_VERSION = re.compile(r"\d+(?:\.\d+)+")
+
+
+def ilspy_install_command() -> str:
+    """The pinned install line, for every place that points at a missing tool."""
+    return f"dotnet tool install -g ilspycmd --version {ILSPYCMD_VERSION}"
+
+
+def installed_ilspy_version(output: str) -> str | None:
+    """The version ilspycmd named in its output, or None when it named none."""
+    found = ILSPY_VERSION.search(output)
+    return found.group(0) if found else None
+
+
+def ilspy_pin_warning(output: str) -> str | None:
+    """Why the installed ilspycmd is not the pinned one; None when it is.
+
+    A different decompiler is not a failed check: the target's declarations
+    are in the assembly, not in the tool. It is a warning because the
+    verdict was read out of tool output the pin does not describe, so a
+    disagreement with the game's own code is worth a look before it is
+    accepted.
+    """
+    found = installed_ilspy_version(output)
+    if found == ILSPYCMD_VERSION:
+        return None
+    if found is None:
+        return f"ilspycmd named no version ({output.strip() or 'no output'})"
+    return (f"ilspycmd {found}, this template pins {ILSPYCMD_VERSION}; the "
+            "signatures below are that version's reading of the assembly")
+
 
 def is_method_signature(line: str) -> bool:
     """Whether a line starts a static *method* declaration.
@@ -83,7 +119,7 @@ Decompile each Harmony patch target's declaring type out of the selected
 with the expected signature.
 
 REQUIRES
-  ilspycmd    dotnet tool install -g ilspycmd
+  ilspycmd    dotnet tool install -g ilspycmd --version 11.1.0.9782
 
 EXAMPLES
   scripts/verify-patch-targets.py
@@ -554,7 +590,7 @@ def main(argv: list[str]) -> int:
         candidate = Path.home() / ".dotnet" / "tools" / "ilspycmd"
         if not candidate.is_file():
             print("ERROR: ilspycmd not found. Install it with:", file=sys.stderr)
-            print("  dotnet tool install -g ilspycmd", file=sys.stderr)
+            print("  " + ilspy_install_command(), file=sys.stderr)
             return 1
         os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + str(candidate.parent)
 
@@ -567,7 +603,14 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 1
 
+    code, ilspy_version = probe_ilspy()
+    if code == 0:
+        pin_warning = ilspy_pin_warning(ilspy_version)
+        if pin_warning is not None:
+            print(f"WARNING  {pin_warning}", file=sys.stderr)
+
     print(f"ASSEMBLY  {assembly}")
+    print(f"TOOL      ilspycmd {installed_ilspy_version(ilspy_version) or 'unknown'}")
     print(f"TARGETS   {len(targets)} attributes across {len(patch_classes)} patch classes")
     print()
 

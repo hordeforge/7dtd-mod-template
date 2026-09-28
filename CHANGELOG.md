@@ -113,6 +113,19 @@ shape above, so the search cannot quietly stop matching.
 
 ### Changed
 
+- `scripts/verify-patch-targets.py` pins the decompiler it reads
+  signatures out of (`ilspycmd` 11.1.0.9782) instead of telling a reader to
+  install whatever is newest, prints the version it ran against, and warns
+  when that is not the pinned one. `scripts/test_ilspycmd_pin.py` holds every
+  install line in the script to the pin, so a bump cannot leave one behind
+  saying "latest". **Breaking for a mod scaffolded before this:** a mod that
+  validated its patch targets against a different ilspycmd now says so in its
+  output, and the mod's own `CHANGELOG.md` needs this entry when it re-takes
+  the script.
+- CI declares `SHELLCHECK_VERSION`, the floor it runs the runner image's
+  shellcheck against, fails below it, and notes a newer one; `make preflight`
+  holds a local shellcheck to the same floor and warns above it, the way it
+  already did for `RUFF_VERSION`.
 - `global.json` pins the SDK with `rollForward: latestPatch` instead of
   `latestFeature`, so the build stays in the 8.0.1xx feature band the README
   already claimed and a host with only a newer band installed no longer
@@ -239,6 +252,13 @@ shape above, so the search cannot quietly stop matching.
   silently fell back to derived defaults. `load_local_env` already keeps a key
   the environment set, so it is now called unconditionally, which is the
   precedence rule the docs state.
+- `scripts/verify-reproducible.sh` ran its first packaging pass as
+  `env -u SOURCE_DATE_EPOCH variant ...`, and `env` execs a program while
+  `variant` is a shell function, so every run died with
+  `env: 'variant': No such file or directory` before it compared anything.
+  The pass now unsets the variable in a subshell, and
+  `scripts/test_verify_reproducible.py` passes again instead of reporting
+  that the run never started.
 - The scaffolder cut the mod browser's 200 code-point description inside a
   character whenever the purpose was written in a script where one character
   is several code points: a Devanagari matra, a Thai vowel sign or a flag's

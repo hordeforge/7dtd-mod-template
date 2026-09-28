@@ -55,6 +55,26 @@ preflight:
 		echo "WARNING: local ruff $$local, CI pins $$pinned; a rule the" >&2; \
 		echo "         mod's ruff.toml selects can resolve differently, so a" >&2; \
 		echo "         green local run is not the CI verdict." >&2; \
+	fi; \
+	floor="$$(sed -n 's/^ *SHELLCHECK_VERSION: *"\([^"]*\)".*/\1/p' "$(ROOT)/.github/workflows/ci.yml")"; \
+	if [ -z "$$floor" ]; then \
+		echo "ERROR: no SHELLCHECK_VERSION line in .github/workflows/ci.yml, so" >&2; \
+		echo "       the shellcheck floor could not be read. Restore the line." >&2; \
+		exit 1; \
+	fi; \
+	local_sc="$$(shellcheck --version | sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p')"; \
+	if [ -z "$$local_sc" ]; then \
+		echo "ERROR: shellcheck printed no version; cannot compare it to $$floor." >&2; \
+		exit 1; \
+	fi; \
+	if [ "$$(printf '%s\n%s\n' "$$floor" "$$local_sc" | sort -V | head -n1)" != "$$floor" ]; then \
+		echo "ERROR: local shellcheck $$local_sc is older than the $$floor floor" >&2; \
+		echo "       this template supports. Install $$floor or newer." >&2; \
+		exit 1; \
+	elif [ "$$local_sc" != "$$floor" ]; then \
+		echo "WARNING: local shellcheck $$local_sc, CI's floor is $$floor; a newer" >&2; \
+		echo "         shellcheck can add style findings, so a green local run is" >&2; \
+		echo "         not the CI verdict." >&2; \
 	fi
 
 # A fresh tree every run: a stale .scratch/anvil-smoke must never be what makes

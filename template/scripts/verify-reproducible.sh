@@ -110,7 +110,12 @@ for entry in "${TREE[@]}"; do
 	fi
 done
 
-from_git="$(env -u SOURCE_DATE_EPOCH variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback')" ||
+# A subshell, not `env -u`: env execs a program, and variant is a shell
+# function, so `env ... variant` is "No such file or directory" on every run.
+from_git="$(
+	unset SOURCE_DATE_EPOCH
+	variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback'
+)" ||
 	{ echo "ERROR: a packaging pass failed; nothing was compared." >&2; exit 1; }
 
 from_pinned="$(SOURCE_DATE_EPOCH="$COMMIT_EPOCH" variant "$ROOT" "SOURCE_DATE_EPOCH=$COMMIT_EPOCH")" ||
