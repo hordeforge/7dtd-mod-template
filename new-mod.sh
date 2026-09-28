@@ -356,19 +356,27 @@ OTHER_STOP = "。！？｡؟۔।॥"
 def first_sentence(text):
     """`text` up to its first sentence end, or all of it when it has none.
 
-    A stop is not an end where a digit (`v1.2`) or a lone capital (the `A.`
-    of an initial) precedes it, and an ASCII stop is one only where
-    whitespace or the end of the text follows it.
+    A stop is not an end where a digit (`v1.2`) or a lone capital (the `J.` of
+    an initial) ends the word before it, and an ASCII stop is one only where
+    whitespace or the end of the text follows it. The unit is the last word,
+    not the whole prefix: `J` alone in "A mod about J. R. R. Tolkien" is an
+    initial, while a single-character *prefix* is only the first word of the
+    purpose, so measuring the prefix cut the description at the first
+    middle initial and left the browser showing "A mod about J.".
     """
     for index, char in enumerate(text):
         if char not in ASCII_STOP + OTHER_STOP:
             continue
         if char in ASCII_STOP and index + 1 < len(text) and not text[index + 1].isspace():
             continue
-        before = text[:index].rstrip()
-        if before and char in ASCII_STOP and (before[-1].isdigit()
-                                              or (before[-1].isupper() and len(before) == 1)):
-            continue
+        words = text[:index].split()
+        if words and char in ASCII_STOP:
+            # The last character, not the whole word: `v1.2` ends the word in
+            # a digit while the word itself is `v1`, and a plain isdigit() on
+            # it never fires.
+            word = words[-1]
+            if word[-1].isdigit() or (word.isupper() and len(word) == 1):
+                continue
         return text[:index + 1]
     return text
 

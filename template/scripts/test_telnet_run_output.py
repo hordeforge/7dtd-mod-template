@@ -10,7 +10,8 @@ in it fails checks against text nobody typed.
 
 Driven over real sockets with a console that reproduces that preamble: the
 question is what a caller receives, and a fake socket agrees with whichever
-filter the client happens to have.
+filter the client happens to have. The last case is a console that never
+stops printing, for the collection window that must still end.
 """
 
 from __future__ import annotations
@@ -61,6 +62,15 @@ def console(listener: socket.socket) -> None:
                 return
 
 
+def endless_console(connection: socket.socket) -> None:
+    """A console with no end to its output, until the client hangs up."""
+    while True:
+        try:
+            connection.sendall(b"tick\r\n")
+        except OSError:
+            return
+
+
 def ask(command: str) -> str:
     """`GameTelnet.run` for `command` against a fresh fake console."""
     listener = socket.socket()
@@ -79,6 +89,38 @@ def ask(command: str) -> str:
         server.join(timeout=5)
 
 
+def endless_console_returns() -> tuple[bool, str]:
+    """(ok, detail) for a console that never stops printing.
+
+    The window `_drain` collects over is extended by every chunk, so a console
+    that keeps printing refreshed it forever and `run` never returned: the
+    oracle session hung on a stream that was never going to stop. The
+    collection is bounded by DRAIN_TOTAL_CAP_SECONDS, lowered here so the
+    bound is what the gate measures rather than the half-minute it ships as.
+    """
+    shipped = game_telnet.DRAIN_TOTAL_CAP_SECONDS
+    game_telnet.DRAIN_TOTAL_CAP_SECONDS = 0.4
+    left, right = socket.socketpair()
+    client = game_telnet.GameTelnet()
+    client._sock = right
+    printing = threading.Thread(target=endless_console, args=(left,), daemon=True)
+    printing.start()
+    try:
+        client.send_raw("giveself")
+        output = client._drain(0.1)
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    finally:
+        game_telnet.DRAIN_TOTAL_CAP_SECONDS = shipped
+        printing.join(timeout=5)
+        client._sock = None
+        left.close()
+        right.close()
+    if not output:
+        return False, "the bounded collection returned nothing"
+    return True, ""
+
+
 def main() -> int:
     output = ask("giveself")
 
@@ -90,6 +132,9 @@ def main() -> int:
           output == "Spawn count: 3\nEntityID: 42", repr(output))
     check("no blank line or trailing carriage return reaches the caller",
           "\r" not in output and "" not in output.split("\n"), repr(output))
+
+    ok, detail = endless_console_returns()
+    check("a console that never stops printing still ends the collection", ok, detail)
 
     return report()
 

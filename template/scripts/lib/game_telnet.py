@@ -41,6 +41,10 @@ DEFAULT_PORT = 8081
 PASSWORD_PROMPT = ("Please enter password:",)
 # How long the server is given to act on the farewell before the socket drops.
 CLOSE_SETTLE_SECONDS = 0.2
+# The ceiling on one collection, whatever the idle window says. Generous
+# against a settle of well under a second, and short enough that a console
+# printing without pause costs a caller a bounded wait.
+DRAIN_TOTAL_CAP_SECONDS = 30.0
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
 REDACTED = "<redacted>"
@@ -225,12 +229,23 @@ class GameTelnet:
         failure and a server hangup therefore end the window the same way, and
         both leave the connection marked closed: nothing that follows can
         recover a session whose reads have already failed.
+
+        The window is an *idle* window, so it is extended by every chunk that
+        arrives. That extension is what makes a long answer come back whole,
+        and without a ceiling it is also what never ends it: a console that
+        keeps printing (a server announcing a status line, a command whose
+        output runs for minutes) refreshed `end` on every read and `run()`
+        never returned, hanging the oracle session on a stream that was never
+        going to stop. DRAIN_TOTAL_CAP_SECONDS bounds the whole collection,
+        so a busy console yields everything printed up to the cap and the
+        caller gets its answer instead of no answer at all.
         """
-        end = time.monotonic() + seconds
+        started = time.monotonic()
+        end = started + seconds
         chunks: list[str] = []
         if self._sock is not None:
             self._sock.settimeout(0.3)
-            while time.monotonic() < end:
+            while time.monotonic() < end and time.monotonic() - started < DRAIN_TOTAL_CAP_SECONDS:
                 try:
                     chunk = self._recv() if self._readable() else ""
                 except TelnetError:
