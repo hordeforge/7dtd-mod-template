@@ -47,18 +47,14 @@ command `__MOD_NAME_LOWER__` lists, changes, and reloads them.
 
 Live suites, when this mod has them, go through
 [hordeforge/7dtd-playtest](https://github.com/hordeforge/7dtd-playtest).
-One invocation is one concern: one suite id. The template ships no
-playtest target, so the mod adds `playtest` to its `Makefile` as a thin
-wrapper over the sibling tool (`PLAYTEST_ROOT` in `.local.env`).
+One invocation is one concern: one suite id. The `playtest` target is a
+thin wrapper over the sibling tool (`PLAYTEST_ROOT` in `.local.env`); a suite
+of this mod's own is a JSON file at `suites/<id>.json`, which the target
+passes along when it exists.
 
 ```bash
 make playtest SUITE=<one-id>
 ```
-
-`playtest` is a target this mod adds to its Makefile together with its first
-live suite (a thin wrapper over the runner in `$PLAYTEST_ROOT`, with this
-mod's suite file — see [`AGENTS.md`](AGENTS.md) "One concern per playtest
-run"). A mod with no live suite yet has no such target.
 
 Do not comma-list unrelated ids on `SUITE=` / `PLAYTEST_SUITE`. Several
 features are several invocations. A prefab in the camera (`*_look`) and

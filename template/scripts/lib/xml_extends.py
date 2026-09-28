@@ -13,13 +13,20 @@ removes inherited scalar properties *and* whole `<property class=...>`
 blocks by name (verified against the game engine).
 
 An `Extends` chain that re-enters a name is a config defect, not a walk to
-follow: `resolve` raises `ExtendsCycle` naming the chain instead of recursing
-until the interpreter gives up.
+follow: `resolve` stops at the entry that closes the cycle instead of
+recursing until the interpreter gives up.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+
+
+class ExtendsCycle(ValueError):
+    """An `Extends` chain re-entered a name, so the walk cannot continue.
+
+    The message names the chain that closed, back to the repeated entry.
+    """
 
 
 def entries(xml_text: str, tag: str) -> dict[str, ET.Element]:
@@ -73,10 +80,6 @@ def parent_of(node: ET.Element) -> tuple[str | None, set[str]]:
                 name.strip() for name in excluded.split(",") if name.strip()
             }
     return None, set()
-
-
-class ExtendsCycle(RuntimeError):
-    """An `Extends` chain that re-enters a name already on the path."""
 
 
 def resolve(

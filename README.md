@@ -25,6 +25,9 @@ cp newmod.conf.example mymod.conf   # fill in name, purpose, target_dir
 ./new-mod.sh mymod.conf
 ```
 
+`./new-mod.sh --help` lists what the config file may hold and what each
+exit status means.
+
 Then, in the generated mod: `make test`, `make lint-shell` and `make lint-py`
 are green out of the box, and `make help` lists every target. `make build` / `make package`
 produce the deployable modlet; they need the game install recorded in

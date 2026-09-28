@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""Derive a mod-owned serverconfig.xml with EAC off, for DLL testing.
+
+Usage:
+    scripts/configure-server-config.py SOURCE_CONFIG TARGET_CONFIG
+
+Copies the dedicated server's own serverconfig.xml and forces
+EACEnabled=false, so a mod's Harmony patch is exercised rather than refused
+by the anti-cheat. The source must already carry an EACEnabled property;
+a vanilla serverconfig that does not is an error, not something to invent.
+
+Exit status: 0 written, 1 the source cannot be used, 2 wrong arguments.
+"""
+
 import os
 import sys
 import tempfile
@@ -7,8 +20,12 @@ from pathlib import Path
 
 
 def main() -> int:
+    if len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
     if len(sys.argv) != 3:
-        print("Usage: configure-server-config.py SOURCE_CONFIG TARGET_CONFIG", file=sys.stderr)
+        print("usage: configure-server-config.py SOURCE_CONFIG TARGET_CONFIG", file=sys.stderr)
+        print("       (scripts/configure-server-config.py --help)", file=sys.stderr)
         return 2
 
     source = Path(sys.argv[1])
@@ -21,7 +38,7 @@ def main() -> int:
     settings = tree.getroot()
     eac = settings.find("property[@name='EACEnabled']")
     if eac is None:
-        print("ERROR: server configuration has no EACEnabled property.", file=sys.stderr)
+        print(f"ERROR: {source} has no EACEnabled property.", file=sys.stderr)
         return 1
 
     eac.set("value", "false")

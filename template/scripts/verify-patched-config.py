@@ -58,7 +58,12 @@ def configured_game_dir() -> str:
 
 
 class VerifyError(RuntimeError):
-    pass
+    """Input the check could not run on, as opposed to a patch that failed.
+
+    Everything raised here is a state problem (no save loaded, malformed
+    Config/ XML), so it exits 1. Exit 2 stays reserved for argparse rejecting
+    the command line, which is what a script's caller branches on.
+    """
 
 
 def expected_elements() -> dict[str, int]:
@@ -239,4 +244,4 @@ if __name__ == "__main__":
         sys.exit(main())
     except VerifyError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
-        sys.exit(2)
+        sys.exit(1)

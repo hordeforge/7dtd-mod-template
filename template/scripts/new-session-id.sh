@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Generate a unique parallel-session ID: PREFIX-UTC_TIMESTAMP-RANDOM_SUFFIX.
+#
+# Usage: scripts/new-session-id.sh PREFIX
+#        scripts/new-session-id.sh --help
 set -euo pipefail
 
 usage() {
@@ -7,17 +11,29 @@ Generate a unique parallel-session ID.
 
 USAGE
   scripts/new-session-id.sh PREFIX
+  scripts/new-session-id.sh --help
 
 PREFIX
   Lowercase agent-family name: e.g. claude, codex.
 
 OUTPUT
-  PREFIX-UTC_TIMESTAMP-RANDOM_SUFFIX
+  PREFIX-UTC_TIMESTAMP-RANDOM_SUFFIX, on stdout.
+
+EXIT STATUS
+  0  the id was printed
+  2  wrong arguments, or PREFIX is not a lowercase word
 
 Use the generated value when claiming a TODO task. The ID records the active
 session; it does not replace the task's [-] ownership marker.
 HELP
 }
+
+case "${1:-}" in
+-h | --help)
+	usage
+	exit 0
+	;;
+esac
 
 if (($# != 1)); then
 	usage >&2

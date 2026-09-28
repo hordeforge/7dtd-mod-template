@@ -2,6 +2,7 @@
 # Scaffold a new 7DTD mod from template/ — the full setup in one run.
 #
 # Usage: ./new-mod.sh <config-file>
+#        ./new-mod.sh --help
 #
 # The config file is always an argument, never a hardcoded name, so several
 # configs can coexist. Format: shell key=value (see newmod.conf.example).
@@ -12,16 +13,52 @@
 # directory with every placeholder substituted, seeds the mod's purpose
 # into README/design/TODO, writes the machine-local .local.env, and makes
 # the initial git commit.
+#
+# Exit status: 0 the mod was scaffolded, 1 a step failed part way (its own
+# exit status), 2 the command line or the config file was wrong.
 set -euo pipefail
 
 ANVIL="$(cd "$(dirname "$0")" && pwd)"
+SELF="${0##*/}"
+
+usage() {
+	cat <<USAGE
+usage: $SELF <config-file>
+
+Scaffold a new 7 Days To Die mod from template/.
+
+arguments:
+  <config-file>  shell key=value config, see newmod.conf.example. Missing
+                 required keys are prompted for on a tty and fail the run
+                 without one.
+
+options:
+  -h, --help     show this help and exit
+
+exit status:
+  0  the mod was scaffolded
+  1  a step failed part way (that step's own exit status)
+  2  wrong arguments, or the config file is missing or invalid
+USAGE
+}
+
+case "${1:-}" in
+-h | --help)
+	usage
+	exit 0
+	;;
+esac
 
 if (($# != 1)); then
-	echo "usage: $0 <config-file>   (see newmod.conf.example)" >&2
+	usage >&2
 	exit 2
 fi
 CONF="$1"
-[[ -f "$CONF" ]] || { echo "ERROR: config file not found: $CONF" >&2; exit 2; }
+[[ -f "$CONF" ]] || {
+	echo "ERROR: config file not found: $CONF" >&2
+	echo "       see newmod.conf.example, or run '$SELF --help'." >&2
+	exit 2
+}
 
 # defaults, then the config overrides
 name="" display_name="" author="" purpose="" target_dir=""

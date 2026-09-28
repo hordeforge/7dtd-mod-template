@@ -8,8 +8,11 @@
 # declared with PLAYTEST_CONCERN_SUITES holding exactly the same tokens, so
 # unrelated features are separate runs.
 #
-# Usage: make playtest SUITE=<one-id>
+# Usage: make playtest SUITE=<one-id> [EXTRA_ARGS=<playtest_run.py flags>]
 #        scripts/playtest.sh <one-id> [extra playtest_run.py flags]
+#
+# Exit status: 0 the suite passed, 1 the run or its prerequisites failed,
+# 2 no suite was named.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,7 +22,7 @@ if (($#)); then
 	shift
 fi
 if [[ -z "$suite" ]]; then
-	echo "usage: make playtest SUITE=<one-id>" >&2
+	echo "usage: make playtest SUITE=<one-id> [EXTRA_ARGS=<playtest_run.py flags>]" >&2
 	exit 2
 fi
 

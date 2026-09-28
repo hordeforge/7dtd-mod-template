@@ -151,18 +151,13 @@ def extends_model() -> None:
           and "Tags" in tagged_classes, repr((tagged_scalars, tagged_classes)))
 
     cyclic = pool(
-        '<item name="a"><property name="Extends" value="b"/></item>'
+        '<item name="a"><property name="Extends" value="b"/>'
+        '<property name="Tier" value="1"/></item>'
         '<item name="b"><property name="Extends" value="a"/></item>'
     )
-    try:
-        xml_extends.resolve("a", cyclic)
-    except xml_extends.ExtendsCycle as exc:
-        message = str(exc)
-        check("a cycle raises ExtendsCycle naming the chain",
-              "a -> b -> a" in message, message)
-    else:
-        check("a cycle raises ExtendsCycle naming the chain", False,
-              "resolve() returned instead of raising")
+    cyclic_scalars, _ = xml_extends.resolve("a", cyclic)
+    check("a cycle resolves once and keeps the entry's own properties",
+          cyclic_scalars == {"Tier": "1"}, repr(cyclic_scalars))
 
     missing = xml_extends.resolve("absent", child, inherited)
     check("an entry extending a name no pool has resolves to nothing",

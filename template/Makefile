@@ -17,28 +17,32 @@ help:
 	@echo "  make lint-py                ruff over every tracked Python script"
 	@echo ""
 	@echo "Modlet build (needs the game install in .local.env, plus a dotnet SDK for C#):"
-	@echo "  make build                  stage dist/__MOD_NAME__/"
-	@echo "  make package                dist/__MOD_NAME__.zip, extracts to Mods/__MOD_NAME__/ModInfo.xml"
+	@echo "  make build                   stage dist/__MOD_NAME__/"
+	@echo "  make package                 dist/__MOD_NAME__.zip, extracts to Mods/__MOD_NAME__/ModInfo.xml"
 	@echo ""
 	@echo "Install-dependent gates (need .local.env):"
-	@echo "  make validate-xml           every Config xpath against the installed game"
-	@echo "  make verify-patched-config  every patch element proven applied, from a save's ConfigsDump"
-	@echo "  make validate-patch-targets every [HarmonyPatch] target against Assembly-CSharp (ilspycmd)"
+	@echo "  make validate-xml            every Config xpath against the installed game"
+	@echo "  make verify-patched-config   every patch element proven applied, from a save's ConfigsDump"
+	@echo "  make validate-patch-targets  every [HarmonyPatch] target against Assembly-CSharp (ilspycmd)"
 	@echo ""
 	@echo "Dedicated-server lane (needs SEVEN_DAYS_TO_DIE_SERVER_DIR in .local.env):"
-	@echo "  make install-server         provision the server via SteamCMD (EAC off)"
-	@echo "  make deploy-server          stage the package into the server's Mods/"
-	@echo "  make server-smoke           boot it briefly and prove the mod loaded from its log"
+	@echo "  make install-server          provision the server via SteamCMD (EAC off)"
+	@echo "  make deploy-server           stage the package into the server's Mods/"
+	@echo "  make server-smoke            boot it briefly and prove the mod loaded from its log"
 	@echo ""
-	@echo "  make clean                  remove dist/ and the C# bin/ obj/"
+	@echo "Live playtest (needs PLAYTEST_ROOT in .local.env; one run is one concern):"
+	@echo "  make playtest SUITE=<id>     run one hordeforge/7dtd-playtest suite; EXTRA_ARGS=<flags>"
+	@echo "                              adds playtest_run.py flags, e.g. --headed"
+	@echo ""
+	@echo "  make clean                   remove dist/ and the C# bin/ obj/"
 
 # ANVIL:ASSETS-BEGIN
 # help lines for the asset targets live in their own recipe so the whole
 # block (markers included) is stripped from a mod without assets.
 	@echo ""
 	@echo "Asset bundles (shamway):"
-	@echo "  make build-assets           build the asset bundles"
-	@echo "  make validate-assets        validate bundles and icon sizes"
+	@echo "  make build-assets            build the asset bundles"
+	@echo "  make validate-assets         validate bundles and icon sizes"
 # ANVIL:ASSETS-END
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
