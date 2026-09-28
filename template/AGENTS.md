@@ -316,6 +316,17 @@ run writes one log into the server install's `logs/` and keeps the newest
 `SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS` (default 5); the game's own logs are
 never touched.
 
+A number typed into `.local.env` is parsed as a decimal integer before any
+`$(( ))` sees it (`decimal_uint` in `scripts/server-common.sh`), never with a
+`^[0-9]+$` match. A leading zero is an octal prefix to shell arithmetic, so
+`KEEP_LOGS=08` used to fail the expansion and prune nothing, and a digit run
+past 64 bits wraps rather than failing, so an epoch just over 2^64 was
+compared as a wrapped one inside the accepted range. `SOURCE_DATE_EPOCH`,
+`SEVEN_DAYS_TO_DIE_SERVER_{APP_ID,RUN_SECONDS,KEEP_LOGS}` and
+`OFFLINE_TEST_JOBS` all go through it, and
+`scripts/test_package_epoch.py` plus `scripts/test_smoke_log_pruning.py` hold
+the outcomes.
+
 Live behavior: deploy per `docs/reference/environment.md` and check the
 game log — a clean log alone does not prove an XPath matched; verify in
 game. Live suites, when this mod grows them, go through

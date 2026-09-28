@@ -37,11 +37,15 @@ source "$SCRIPT_DIR/server-common.sh"
 load_server_environment
 resolve_steamcmd
 
-APP_ID="${SEVEN_DAYS_TO_DIE_SERVER_APP_ID:-294420}"
+APP_ID_RAW="${SEVEN_DAYS_TO_DIE_SERVER_APP_ID:-294420}"
 # It goes straight onto the SteamCMD command line, so a value that is not a
 # Steam app id has to fail here rather than as an opaque SteamCMD error.
-if ! [[ "$APP_ID" =~ ^[0-9]+$ ]] || (( APP_ID < 1 )); then
-	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_APP_ID must be a positive integer, got '$APP_ID'." >&2
+#
+# decimal_uint, not a ^[0-9]+$ match: a leading zero is an octal prefix to
+# `$(( ))`, so an app id written `0294420` fails the expansion below.
+APP_ID="$(decimal_uint "$APP_ID_RAW")" || APP_ID=""
+if [[ -z "$APP_ID" ]] || (( APP_ID < 1 )); then
+	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_APP_ID must be a positive integer, got '$APP_ID_RAW'." >&2
 	exit 1
 fi
 

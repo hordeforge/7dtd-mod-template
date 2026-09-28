@@ -219,6 +219,19 @@ shape above, so the search cannot quietly stop matching.
   developer who had run the gates in the template tree shipped
   `.ruff_cache/` (and `.shamway/`, `.local/`) inside every mod the
   scaffolder produced. `ci/check-smoke-mod.py` now fails on any of them.
+- A number typed into `.local.env` is read as the decimal integer it spells.
+  A leading zero is an octal prefix to shell arithmetic, so
+  `SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS=08` failed the `$((keep + 1))` in
+  `prune_smoke_logs`, printed `value too great for base`, and pruned nothing
+  at all, leaving `logs/` to grow by one file per smoke run; the same value
+  for `RUN_FOR_SECONDS` or `APP_ID` ended the run. Past 64 bits the
+  arithmetic wraps rather than failing, so a `SOURCE_DATE_EPOCH` just over
+  2^64 passed the 1980-2107 range check as a wrapped value inside it, and
+  `OFFLINE_TEST_JOBS=18446744073709551616` came back as 0 and ran the whole
+  suite serially. `decimal_uint` in `scripts/server-common.sh` normalizes
+  once and every reader of a number from `.local.env` goes through it;
+  `scripts/test_package_epoch.py` and `scripts/test_smoke_log_pruning.py`
+  hold the outcomes.
 - `validate-xml-targets.py` caught only `SyntaxError` around
   `ElementTree`'s `find`, which answers `text()` and a bare `()` with a
   `KeyError` and an unclosed predicate with a `TypeError`. Both are the same

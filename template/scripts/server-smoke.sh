@@ -36,20 +36,25 @@ source "$SCRIPT_DIR/server-common.sh"
 
 load_server_environment
 
-RUN_FOR_SECONDS="${SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS:-90}"
-KEEP_LOGS="${SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS:-5}"
 SERVER_BIN="$SERVER_DIR/7DaysToDieServer.x86_64"
 LOG_DIR="$SERVER_DIR/logs"
 
-if ! [[ "$RUN_FOR_SECONDS" =~ ^[0-9]+$ ]] || (( RUN_FOR_SECONDS < 1 )); then
-	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS must be a positive integer." >&2
+RUN_FOR_SECONDS_RAW="${SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS:-90}"
+KEEP_LOGS_RAW="${SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS:-5}"
+# Through decimal_uint, not a ^[0-9]+$ match: a leading zero is an octal prefix
+# to `$(( ))`, so a `RUN_FOR_SECONDS` of `090` is a syntax error the run dies
+# on, and a `KEEP_LOGS` of `08` is one that prunes nothing at all.
+RUN_FOR_SECONDS="$(decimal_uint "$RUN_FOR_SECONDS_RAW")" || RUN_FOR_SECONDS=""
+if [[ -z "$RUN_FOR_SECONDS" ]] || (( RUN_FOR_SECONDS < 1 )); then
+	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS must be a positive integer, got '$RUN_FOR_SECONDS_RAW'." >&2
 	exit 1
 fi
 # Checked here, not only inside prune_smoke_logs: a typo'd value is a no-op
 # there, and the run it fails to prune is the one that grows logs/ without
 # bound, once per smoke run, forever.
-if ! [[ "$KEEP_LOGS" =~ ^[0-9]+$ ]]; then
-	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS must be a non-negative integer, got '$KEEP_LOGS'." >&2
+KEEP_LOGS="$(decimal_uint "$KEEP_LOGS_RAW")" || KEEP_LOGS=""
+if [[ -z "$KEEP_LOGS" ]]; then
+	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS must be a non-negative integer, got '$KEEP_LOGS_RAW'." >&2
 	exit 1
 fi
 command -v timeout >/dev/null 2>&1 || { echo "ERROR: timeout is required." >&2; exit 1; }

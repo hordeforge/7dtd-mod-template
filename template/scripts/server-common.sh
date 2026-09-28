@@ -59,6 +59,26 @@ load_local_env() {
 	done
 }
 
+# decimal_uint <value>
+#
+# Print <value> as the plain decimal integer it spells, and succeed; fail when
+# it is not a decimal integer or is too long for the shell's arithmetic.
+#
+# Every caller of this takes a number a person typed into .local.env and feeds
+# it to `$(( ))`, and `$(( ))` is not a decimal parser. A leading zero is an
+# octal prefix, so a KEEP_LOGS of `08` is not eight: the expansion fails, the
+# quota it was meant to enforce is silently never applied, and under `set -e`
+# the run dies on a value that was never wrong. A digit run longer than 64 bits
+# wraps instead, so `18446744073709551616` reads as `0` and a SOURCE_DATE_EPOCH
+# just past 2107 is accepted as one just after 1970. Both are wrong answers to
+# a value nobody mistyped, so the digits are normalized once, here, and every
+# caller compares the result.
+decimal_uint() {
+	local value="$1"
+	[[ "$value" =~ ^0*([0-9]{1,19})$ ]] || return 1
+	printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
 # load_server_environment
 #
 # Set the globals the server-*.sh callers read ($ROOT, $SERVER_DIR,
@@ -203,11 +223,15 @@ swap_into_place() {
 # fixed width, so a reverse byte sort of the names is a reverse time sort.
 # Globbing keeps paths with spaces in them intact, and it needs no GNU find:
 # -printf is GNU-only and absent on the BSD find in macOS.
+#
+# <keep> goes through decimal_uint: `$((keep + 1))` reads a leading zero as an
+# octal prefix, so a quota of `08` failed the expansion and pruned nothing at
+# all rather than keeping eight.
 prune_smoke_logs() {
 	local log_dir="$1" keep="$2" log candidate
 	local -a logs=() stale=()
 
-	[[ "$keep" =~ ^[0-9]+$ ]] || return 0
+	keep="$(decimal_uint "$keep")" || return 0
 	shopt -s nullglob
 	# -f, because `find -type f` was what this replaced: a directory that
 	# happens to carry a log name is not a log and must not use up a slot.

@@ -121,7 +121,11 @@ max_jobs=${OFFLINE_TEST_JOBS:-}
 if [[ -z "$max_jobs" ]]; then
 	max_jobs="$(local_env_value OFFLINE_TEST_JOBS)"
 fi
-if [[ ! "$max_jobs" =~ ^[1-9][0-9]*$ ]]; then
+# `[1-9][0-9]{0,18}` rather than `[1-9][0-9]*`: a 19-digit-plus value wraps in
+# `$(( ))` rather than failing, so a run count of 18446744073709551616 came
+# back as 0 and silently ran the whole suite serially. Past 18 digits the value
+# is not a job count, and falling through to the nproc default is the answer.
+if [[ ! "$max_jobs" =~ ^[1-9][0-9]{0,18}$ ]]; then
 	max_jobs=$(nproc 2>/dev/null || printf '8')
 	(( max_jobs > 8 )) && max_jobs=8
 fi

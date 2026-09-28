@@ -90,8 +90,14 @@ if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
 		SOURCE_DATE_EPOCH="$FALLBACK_EPOCH"
 	fi
 fi
-[[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] || {
-	echo "ERROR: SOURCE_DATE_EPOCH must be seconds since the epoch, got '$SOURCE_DATE_EPOCH'." >&2
+SOURCE_DATE_EPOCH_RAW="$SOURCE_DATE_EPOCH"
+# decimal_uint, not a ^[0-9]+$ match: a leading zero is an octal prefix to the
+# range check below, so `020260101` is read as octal and compared as a
+# different date, and a digit run past 64 bits wraps into the range instead of
+# being rejected.
+SOURCE_DATE_EPOCH="$(decimal_uint "$SOURCE_DATE_EPOCH_RAW")" || SOURCE_DATE_EPOCH=""
+[[ -n "$SOURCE_DATE_EPOCH" ]] || {
+	echo "ERROR: SOURCE_DATE_EPOCH must be seconds since the epoch, got '$SOURCE_DATE_EPOCH_RAW'." >&2
 	exit 1
 }
 if (( SOURCE_DATE_EPOCH < MIN_DOS_EPOCH || SOURCE_DATE_EPOCH > MAX_DOS_EPOCH )); then

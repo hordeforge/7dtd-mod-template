@@ -131,6 +131,28 @@ def main() -> int:
         check("a non-numeric keep is a no-op, not a delete-everything",
               listing(log_dir) == [prefix + "20260101-000000.log"])
 
+    # A leading zero is an octal prefix to `$(( ))`, so a quota of `08` used to
+    # fail the expansion, print "value too great for base" to stderr and prune
+    # nothing at all, leaving logs/ to grow by one file per run. It reads as
+    # eight, and it prunes to eight.
+    with tempfile.TemporaryDirectory() as log_dir:
+        padded = [touch(log_dir, prefix + f"20260101-0000{n:02d}.log") for n in range(10)]
+        stderr = prune(log_dir, "08")
+        check("a zero-padded keep prunes as the number it reads as",
+              stderr == ""
+              and sorted(os.path.basename(p) for p in padded[2:])
+              == sorted(n for n in listing(log_dir) if n.startswith(prefix)),
+              stderr or repr(listing(log_dir)))
+
+    # Past 64 bits the arithmetic wraps rather than failing, so a digit run
+    # that long is refused instead of compared as whatever it wraps to.
+    with tempfile.TemporaryDirectory() as log_dir:
+        only = touch(log_dir, prefix + "20260101-000000.log")
+        stderr = prune(log_dir, "18446744073709551616")
+        check("a keep past 64 bits is a no-op, not a wrapped count",
+              stderr == "" and listing(log_dir) == [os.path.basename(only)],
+              stderr or repr(listing(log_dir)))
+
     with tempfile.TemporaryDirectory() as log_dir:
         stderr = prune(log_dir, "3")
         check("an empty log directory is not an error", stderr == "", stderr)

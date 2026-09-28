@@ -126,6 +126,30 @@ def main() -> int:
               done.returncode == 0 and stamps == [(2016, 1, 1, 0, 0, 0)],
               f"exit={done.returncode} stamps={stamps} stderr={done.stderr!r}")
 
+    # A leading zero is an octal prefix to the range check, so `01451606400`
+    # used to be compared as an octal number and land in a different year, and
+    # a digit run past 64 bits wrapped into the accepted range instead of being
+    # rejected. Both store a date nobody asked for, silently and reproducibly.
+    with tempfile.TemporaryDirectory() as root:
+        script = stage_mod(root)
+        done = package(script, "01451606400")
+        archive = os.path.join(root, "dist", MOD_NAME + ".zip")
+        stamps = entry_stamps(archive) if os.path.exists(archive) else None
+        check("a zero-padded epoch is stored as the date it reads as",
+              done.returncode == 0 and stamps == [(2016, 1, 1, 0, 0, 0)],
+              f"exit={done.returncode} stamps={stamps} stderr={done.stderr!r}")
+
+    # 2^64 + 1451606400 is 18446744075161158016, and `$(( ))` wraps it to
+    # 1451606400: an epoch the range check reads as squarely inside 1980-2107,
+    # for an input that names a date 584 billion years out.
+    with tempfile.TemporaryDirectory() as root:
+        script = stage_mod(root)
+        done = package(script, str((1 << 64) + 1451606400))
+        archive = os.path.join(root, "dist", MOD_NAME + ".zip")
+        check("an epoch that wraps into the range is rejected, not wrapped",
+              done.returncode != 0 and not os.path.exists(archive),
+              f"exit={done.returncode} stderr={done.stderr!r}")
+
     return report()
 
 
