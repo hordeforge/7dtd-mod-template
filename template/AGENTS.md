@@ -89,6 +89,16 @@ Corollaries, each enforced by `scripts/test_rules_have_gates.py`:
 - Every gate is **deterministic** — no clock, iteration-order, or
   random-seed dependence; the meta-gate runs each gate twice and requires
   byte-identical output.
+
+The parsers that read hand-written input have fuzz gates, seeded so the run
+is reproducible and lengthened with `HARMONY_FUZZ_ITERS` /
+`EXTENDS_FUZZ_ITERS`:
+`scripts/test_fuzz_harmony_parsers.py` over the C# attribute and signature
+splitting in `scripts/verify-patch-targets.py`, and
+`scripts/test_fuzz_extends_chain.py` over the `Extends` walk in
+`scripts/lib/xml_extends.py`. A new parser takes a gate in the same pass
+that adds it: malformed input must come back as a parse error or a resolved
+entry, never as a traceback that kills the gate before it can report.
 - **Prove a gate can fail** before trusting it — against a fixture or a
   scratchpad copy, never by breaking the shared tree.
 

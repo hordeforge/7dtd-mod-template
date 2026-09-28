@@ -68,17 +68,36 @@ def resolve(
 
     Pools are searched in order, so the mod's own entries shadow nothing and
     a mod item extending a vanilla one resolves through the vanilla pool.
+
+    The walk is iterative and tracks the names it has already visited: a
+    mod-authored `Extends` cycle (`a` extends `b`, `b` extends `a`) is
+    malformed input, and a recursive walk turned it into a RecursionError
+    that killed the offline gate instead of reporting the bad patch. A cycle
+    is cut at the entry that closes it, so the entries the mod wrote still
+    resolve and the rest of the chain is inherited.
     """
-    node = next((pool[name] for pool in pools if name in pool), None)
-    if node is None:
-        return {}, {}
-    parent_name, excluded = parent_of(node)
+    chain: list[tuple[ET.Element, set[str]]] = []
+    seen: set[str] = set()
+    current = name
+    while current not in seen:
+        node = next((pool[current] for pool in pools if current in pool), None)
+        if node is None:
+            break
+        seen.add(current)
+        parent_name, excluded = parent_of(node)
+        chain.append((node, excluded))
+        if not parent_name or parent_name == current:
+            break
+        current = parent_name
+
     scalars: dict[str, str] = {}
     classes: dict[str, dict[str, str]] = {}
-    if parent_name and parent_name != name:
-        inherited_scalars, inherited_classes = resolve(parent_name, *pools)
-        scalars = {k: v for k, v in inherited_scalars.items() if k not in excluded}
-        classes = {k: v for k, v in inherited_classes.items() if k not in excluded}
-    scalars.update(own_scalars(node))
-    classes.update(own_classes(node))
+    for node, excluded in reversed(chain):
+        # `param1` removes what was inherited; this entry's own properties
+        # are written after, so a name it both excludes and sets still lands.
+        for excluded_name in excluded:
+            scalars.pop(excluded_name, None)
+            classes.pop(excluded_name, None)
+        scalars.update(own_scalars(node))
+        classes.update(own_classes(node))
     return scalars, classes

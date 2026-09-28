@@ -33,11 +33,16 @@ PATCH_ATTRIBUTE = re.compile(r"\[HarmonyPatch\((?P<args>.*)\)\]\s*$")
 CLASS_DECLARATION = re.compile(r"^\s*(?:static\s+|internal\s+|public\s+|sealed\s+)*class\s+(\w+)")
 TYPEOF = re.compile(r"typeof\(\s*([\w.]+)\s*\)")
 QUOTED = re.compile(r'"([^"]+)"')
-PATCH_METHOD = re.compile(r"^\s*static\s+(?!class\b)")
+PATCH_METHOD = re.compile(r"^\s*(?:[A-Za-z_]\w*\s+)*static\s+(?!class\b)")
 
 
 def is_method_signature(line: str) -> bool:
     """Whether a line starts a static *method* declaration.
+
+    Access modifiers come before `static`, so `public static void Prefix`
+    is a declaration and not a field. Anchoring on `static` alone skipped
+    every patch method written that way, so the injected-parameter check
+    below it silently verified nothing.
 
     `static` alone also matches member fields, e.g.
     `static readonly PlaceConfirmState Confirm = new PlaceConfirmState();`.
@@ -143,11 +148,106 @@ def injected_parameters(lines: list[str], attribute_line: int) -> list[str]:
     return parameter_names(signature)
 
 
+OPENERS = "([<{"
+CLOSERS = ")]>}"
+DEFAULT_ASSIGNMENT = re.compile(r"(?<![<>!=])=(?!=)")
+
+
+def mask_literals(text: str) -> str:
+    """Blank out string and char literal bodies, keeping every offset.
+
+    A default value may hold a string full of brackets and commas
+    (`string sep = "),"`); scanning the raw text would count those as
+    structure and misplace the end of the parameter list.
+    """
+    masked = list(text)
+    index = 0
+    length = len(text)
+    while index < length:
+        quote = text[index]
+        if quote not in "\"'":
+            index += 1
+            continue
+        start = index
+        index += 1
+        while index < length and text[index] != quote:
+            index += 2 if text[index] == "\\" else 1
+        index = min(index + 1, length)
+        for position in range(start, index):
+            masked[position] = " "
+    return "".join(masked)
+
+
+def argument_list(signature: str) -> list[str] | None:
+    """The call arguments of `signature`, one entry each, or None.
+
+    Unbalanced text is None rather than an exception: a truncated
+    decompilation or a half-typed declaration is something to report, not a
+    crash. Splitting is bracket-aware because a C# parameter list carries
+    commas inside generic arguments and default values (`List<int>`,
+    `int x = Foo(1, 2)`), and a plain `split(",")` turns one parameter into
+    several phantom ones.
+    """
+    masked = mask_literals(signature)
+    start = masked.find("(")
+    if start < 0:
+        return None
+
+    depth = 0
+    for index in range(start, len(masked)):
+        character = masked[index]
+        if character in OPENERS:
+            depth += 1
+        elif character in CLOSERS:
+            depth -= 1
+            if depth == 0:
+                return split_top_level(signature, start + 1, index)
+    return None
+
+
+def split_top_level(signature: str, start: int, end: int) -> list[str]:
+    masked = mask_literals(signature)
+    depth = 0
+    entries: list[str] = []
+    cursor = start
+    for index in range(start, end):
+        character = masked[index]
+        if character in OPENERS:
+            depth += 1
+        elif character in CLOSERS:
+            depth -= 1
+        elif character == "," and depth == 0:
+            entries.append(signature[cursor:index])
+            cursor = index + 1
+    if signature[cursor:end].strip() or entries:
+        entries.append(signature[cursor:end])
+    return entries
+
+
+def without_default(entry: str) -> str:
+    return DEFAULT_ASSIGNMENT.split(entry.strip(), 1)[0].strip()
+
+
+def strip_namespace(type_text: str) -> str:
+    """`Game.World` -> `World`, leaving dotted names inside generics alone."""
+    depth = 0
+    for index, character in enumerate(type_text):
+        if character in OPENERS:
+            depth += 1
+        elif character in CLOSERS:
+            depth -= 1
+        elif character == "." and depth == 0:
+            return type_text[index + 1:].strip()
+    return type_text.strip()
+
+
 def parameter_names(signature: str) -> list[str]:
-    inner = signature[signature.index("(") + 1:signature.rindex(")")]
+    entries = argument_list(signature)
+    if entries is None:
+        return []
     names = []
-    for entry in inner.split(","):
-        words = entry.strip().split("=")[0].strip().split()
+    for entry in entries:
+        words = without_default(entry).split()
         if len(words) >= 2:
             names.append(words[-1])
     return names
@@ -273,31 +373,30 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     return [line.strip() for line in body if pattern.match(line) and not line.strip().startswith("[")]
 
 
-def parameter_types(signature: str) -> list[str]:
-    inner = signature[signature.index("(") + 1:signature.rindex(")")]
-    if not inner.strip():
-        return []
-    types: list[str] = []
-    depth = 0
-    current = ""
-    for character in inner:
-        if character in "<([":
-            depth += 1
-        elif character in ">)]":
-            depth -= 1
-        if character == "," and depth == 0:
-            types.append(current)
-            current = ""
-        else:
-            current += character
-    types.append(current)
+MODIFIERS = ("params", "this", "in", "out", "ref")
 
-    result = []
-    for entry in types:
-        words = entry.strip().split("=")[0].strip().split()
-        # Drop the parameter name, keep the (possibly `ref`/`out`) type.
-        result.append(words[-2].split(".")[-1] if len(words) >= 2 else words[-1])
-    return result
+
+def parameter_types(signature: str) -> list[str]:
+    entries = argument_list(signature)
+    if entries is None:
+        return []
+    types = []
+    for entry in entries:
+        declaration = without_default(entry)
+        if not declaration:
+            continue
+        # Drop the parameter name, keep the (possibly `ref`/`out`) type. The
+        # type itself may hold spaces (`Dictionary<string, ItemClass>`), so
+        # only the trailing identifier is removed.
+        words = declaration.split()
+        if len(words) >= 2:
+            words = words[:-1]
+        while words and words[0] in MODIFIERS:
+            words = words[1:]
+        if not words:
+            continue
+        types.append(strip_namespace(" ".join(words)))
+    return types
 
 
 def main(argv: list[str]) -> int:
