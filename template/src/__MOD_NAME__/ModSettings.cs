@@ -10,10 +10,11 @@ namespace __MOD_NAME__
 	/// <c>Config/__MOD_NAME__.toml</c> in the installed mod folder.
 	///
 	/// The engine's XML patcher never sees the file; the DLL reads it at
-	/// <c>InitMod</c> and again whenever it is saved (a mtime/length watch
-	/// polled from <c>ModEvents.UnityUpdate</c>, debounced so a half-written
-	/// save is not read). A reload resets to shipped defaults, then applies
-	/// the file; a broken save keeps the current values. The console command
+	/// <c>InitMod</c> and again whenever it is saved (the file text is
+	/// re-read from <c>ModEvents.UnityUpdate</c> and compared with what is
+	/// applied, debounced so a half-written save is not applied). A reload
+	/// resets to shipped defaults, then applies the file; a broken save keeps
+	/// the current values. The console command
 	/// (<c>__MOD_NAME_LOWER__ settings|set|reload</c>) shares the same value
 	/// grammar through <see cref="TrySet"/>.
 	///
@@ -38,12 +39,16 @@ namespace __MOD_NAME__
 		public const float FileReloadDebounceSeconds = 0.35f;
 
 		static string watchedPath;
-		static string lastReadFailure;
-		static DateTime appliedWriteUtc;
-		static long appliedLength = -1;
+		// What the applied values came from; the only "unchanged" test.
 		static string appliedText;
-		static DateTime seenWriteUtc;
-		static long seenLength = -1;
+		// The last read failure already logged, so a file the engine cannot
+		// open does not print the same line on every poll.
+		static string lastReadFailure;
+		// The last file text that was not applied, and the time it was first
+		// seen: the debounce clock, plus a rejected text that must not be
+		// parsed (and logged) again until it changes.
+		static string pendingText;
+		static string rejectedText;
 		static float seenAt = -1f;
 		static float nextPollAt;
 
@@ -100,54 +105,23 @@ namespace __MOD_NAME__
 
 			if (!SdFile.Exists(watchedPath))
 			{
-				if (appliedLength < 0 && !startup)
+				if (appliedText == null && !startup)
 				{
 					message = "defaults (no " + RelativePath + ")";
 					return false;
 				}
 				ResetToDefaults();
-				appliedWriteUtc = default(DateTime);
-				appliedLength = -1;
 				appliedText = null;
-				seenWriteUtc = default(DateTime);
-				seenLength = -1;
+				pendingText = null;
+				rejectedText = null;
 				LogCurrent("defaults (no " + RelativePath + ")");
 				message = RelativePath + " is missing; using defaults.";
 				Applied?.Invoke();
 				return true;
 			}
 
-			DateTime writeUtc;
-			long length;
-			string failure;
-			if (!TryStamp(watchedPath, out writeUtc, out length, out failure))
-			{
-				// A file the engine cannot even stat is unreadable for every
-				// poll until it is fixed, and the poll path below returns
-				// without logging: without this the mod would run on defaults
-				// forever and say nothing about why.
-				ReportReadFailure("cannot read " + RelativePath + ": " + failure);
-				message = "could not stat " + RelativePath + ": " + failure;
-				return false;
-			}
-
-			if (!force && writeUtc == appliedWriteUtc && length == appliedLength)
-				return false;
-
-			if (!force)
-			{
-				if (writeUtc != seenWriteUtc || length != seenLength)
-				{
-					seenWriteUtc = writeUtc;
-					seenLength = length;
-					seenAt = Time.unscaledTime;
-					return false;
-				}
-				if (Time.unscaledTime - seenAt < FileReloadDebounceSeconds)
-					return false;
-			}
-
 			string text;
+			string failure;
 			if (!TryReadText(watchedPath, out text, out failure))
 			{
 				ReportReadFailure("cannot read " + RelativePath + ": " + failure);
@@ -161,17 +135,41 @@ namespace __MOD_NAME__
 				return false;
 			}
 
+			// The text itself decides whether anything changed. A mtime+length
+			// stamp cannot: a same-length save landing inside one mtime tick
+			// leaves the stamp identical, and the stale values would then stand
+			// until the next edit. The file is a few hundred bytes, read once
+			// per poll interval.
 			if (!force && text == appliedText)
 			{
-				appliedWriteUtc = writeUtc;
-				appliedLength = length;
+				pendingText = null;
 				return false;
+			}
+
+			// A text that already failed to parse stays rejected: re-reading and
+			// re-logging it every poll would fill the log with one error every
+			// FilePollIntervalSeconds for as long as the broken file sits there.
+			if (!force && text == rejectedText)
+				return false;
+
+			if (!force)
+			{
+				if (text != pendingText)
+				{
+					pendingText = text;
+					seenAt = Time.unscaledTime;
+					return false;
+				}
+				if (Time.unscaledTime - seenAt < FileReloadDebounceSeconds)
+					return false;
 			}
 
 			List<TomlSettings.Entry> entries;
 			string error;
 			if (!TomlSettings.TryRead(text, out entries, out error))
 			{
+				rejectedText = text;
+				pendingText = null;
 				if (startup)
 				{
 					Debug.LogError("[__MOD_NAME__] " + RelativePath + ": " + error + "; using default settings.");
@@ -191,11 +189,9 @@ namespace __MOD_NAME__
 				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage))
 					Debug.LogWarning("[__MOD_NAME__] " + RelativePath + ": " + setMessage);
 			}
-			appliedWriteUtc = writeUtc;
-			appliedLength = length;
 			appliedText = text;
-			seenWriteUtc = writeUtc;
-			seenLength = length;
+			pendingText = null;
+			rejectedText = null;
 			var source = startup ? RelativePath : "reload " + RelativePath;
 			LogCurrent(source);
 			message = source;
@@ -221,26 +217,6 @@ namespace __MOD_NAME__
 				return;
 			lastReadFailure = reason;
 			Debug.LogError("[__MOD_NAME__] " + reason);
-		}
-
-		static bool TryStamp(string path, out DateTime writeUtc, out long length,
-			out string failure)
-		{
-			writeUtc = default(DateTime);
-			length = -1;
-			failure = null;
-			try
-			{
-				writeUtc = SdFile.GetLastWriteTimeUtc(path);
-				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-					length = stream.Length;
-				return true;
-			}
-			catch (Exception ex)
-			{
-				failure = ex.Message;
-				return false;
-			}
 		}
 
 		static bool TryReadText(string path, out string text, out string failure)

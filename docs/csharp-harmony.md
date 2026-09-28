@@ -71,9 +71,12 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
 
 - applied at `InitMod`; a missing file is the normal fresh-install case
   (defaults stand, one log line says so)
-- **saving the file applies without a restart**: a mtime/length watch
-  polled from `ModEvents.UnityUpdate`, debounced so a half-written save is
-  not read; `<mod> reload` re-reads immediately
+- **saving the file applies without a restart**: the file text is re-read
+  from `ModEvents.UnityUpdate` and compared with what is applied, debounced
+  so a half-written save is not applied; `<mod> reload` re-reads
+  immediately. Change detection is the text, not an mtime/length stamp: a
+  same-length save inside one mtime tick leaves the stamp identical, and
+  the old values would then stand until the next edit
 - a reload **resets to shipped defaults, then applies the file**; a broken
   save keeps the current values and logs the error
 - a file the engine cannot stat or open is **logged with the underlying

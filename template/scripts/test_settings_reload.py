@@ -2,11 +2,11 @@
 """Structural proof of the TOML settings contract.
 
 The mod's runtime settings are Config/<Mod>.toml, read by the DLL itself:
-applied at InitMod, re-read on save without a restart (UnityUpdate watch,
-debounced), reset-to-defaults-then-apply, and a broken save keeps the
-current values. A file the engine cannot read at all is logged with its
-cause, not swallowed. The console command shares the value grammar via
-TrySet.
+applied at InitMod, re-read on save without a restart (UnityUpdate watch on
+the file text, debounced), reset-to-defaults-then-apply, and a broken save
+keeps the current values without being reparsed on every poll. A file the
+engine cannot read at all is logged with its cause, not swallowed. The
+console command shares the value grammar via TrySet.
 This gate holds those source-level contracts so a refactor cannot quietly
 drop one; the live behavior itself is proven in game.
 
@@ -52,7 +52,12 @@ def main() -> int:
           and "ModSettings.Poll()" in api
           and "FilePollIntervalSeconds" in settings
           and "FileReloadDebounceSeconds" in settings
-          and "SdFile.GetLastWriteTimeUtc" in settings)
+          and "TryReadText" in settings)
+    check("a change is detected by file text, not by an mtime/length stamp",
+          "text == appliedText" in settings
+          and "SdFile.GetLastWriteTimeUtc" not in settings)
+    check("a broken file is not reparsed and relogged on every poll",
+          "text == rejectedText" in settings)
     check("reload resets to defaults then applies the file",
           "ResetToDefaults();" in settings
           and '"reload " + RelativePath' in settings)
