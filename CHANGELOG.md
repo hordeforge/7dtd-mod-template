@@ -110,6 +110,11 @@ modlet's contract rather than add to it.
 
 ### Fixed
 
+- The telnet client keeps no transcript. `GameTelnet` concatenated every
+  chunk it drained into a `_buffer` field that nothing read, so a long oracle
+  session held its whole output in memory for the length of the session.
+  `scripts/test_telnet_no_retention.py` drives a session over a real socket
+  pair and fails if any per-instance state grows with it.
 - A scaffolder prompt is asked again until the answer is usable, and the
   re-ask spells out what a usable answer looks like. An empty or malformed
   answer used to end the run with a message naming the rule but not its

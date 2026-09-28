@@ -78,7 +78,6 @@ class GameTelnet:
         self.password = password
         self.timeout = timeout
         self._sock: socket.socket | None = None
-        self._buffer = ""
         self.closed_by_server = False
         # TCP delivers a byte stream, not characters: a multi-byte UTF-8
         # sequence can straddle any two recv() boundaries. A per-chunk
@@ -230,7 +229,6 @@ class GameTelnet:
                     time.sleep(0.05)
             if self._sock is not None and not self.closed_by_server:
                 self._sock.settimeout(self.timeout)
-        self._buffer += collected
         return collected
 
     def _readable(self) -> bool:
