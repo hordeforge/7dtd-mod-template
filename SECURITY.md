@@ -26,24 +26,55 @@ all.
 
 Stated so nobody builds on an assumption that the code does not support.
 
-**Handled.** The mod name is restricted to `^[A-Za-z][A-Za-z0-9_]*` before it
-reaches any generated script or `Makefile` (`new-mod.sh:48`). The scaffolder's
-`git add -A` runs after `.local.env` is written, and that file is gitignored, so
-machine-local paths stay out of a generated repository's history
-(`new-mod.sh:184`, `template/.gitignore:5`). Pull-request CI uses the
-`pull_request` trigger, so no repository secrets are exposed to a fork
-(`.github/workflows/ci.yml:5`).
+**Handled.**
 
-**Not handled.** The config file passed to `new-mod.sh` and the machine-local
-`.local.env` are both `source`d as shell code, so both are executable input
-(`new-mod.sh:31`, `template/scripts/build.sh:20`,
-`template/scripts/server-common.sh:11`). The mod's console command carries no
-permission check, so any connected client can change live settings
-(`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:40`). The dedicated-server
-lane requires `EACEnabled=false`, so the server process in that lane runs with
-its anti-cheat off by design (`template/scripts/server-smoke.sh:30`). NuGet
-auditing is disabled and no dependency lockfile is committed
-(`template/src/__MOD_NAME__/__MOD_NAME__.csproj:10`).
+- The mod name is restricted to `^[A-Za-z][A-Za-z0-9_]*` before it reaches
+  any generated script or `Makefile` (`new-mod.sh:143`). `display_name`,
+  `author` and `purpose` are not format-checked; they only reach docs and
+  `README.txt`.
+- The config file is not sourced blind: every key it defines is checked
+  against the scaffolder's known-key list, and `csharp`, `assets` and `clone`
+  must be `yes` or `no`, before the file is executed (`new-mod.sh:71-93`).
+  This catches a typo. It does not make the file data; the `source` at
+  `new-mod.sh:83` still runs whatever the file contains.
+- `.local.env` is gitignored, written `chmod 600`, and the scaffolder's
+  `git add -A` runs after it exists, so machine-local paths stay out of a
+  generated repository's history and out of reach of other accounts on the
+  machine (`new-mod.sh:371-385`, `:395`, `template/.gitignore:5`).
+- The mod's console command states its own admin permission level (0) and is
+  not client-executable, so the engine's `AdminTools.CommandAllowedFor`
+  refuses a connected player before the command runs, and an admin's run
+  edits the server's settings rather than their own
+  (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:25`, `:34`). A gate
+  holds both properties for every console command the mod declares
+  (`template/scripts/test_console_command_permissions.py`).
+- Pull-request CI uses the `pull_request` trigger, so no repository secrets
+  are exposed to a fork, and the job holds only `contents: read` with
+  `persist-credentials: false` (`.github/workflows/ci.yml:5`, `:18-19`,
+  `:32-36`).
+- The telnet console client refuses to be quiet about a cleartext password
+  and redacts it from anything it prints
+  (`template/scripts/lib/game_telnet.py:138-149`, `:93-97`).
+
+**Not handled.**
+
+- The config file passed to `new-mod.sh` and the machine-local
+  `.local.env` are both executed as shell code, so both are executable
+  input. A conf from someone else is a conf that runs on your machine
+  (`new-mod.sh:83`, `template/scripts/server-common.sh:43-50`).
+- A player's own in-game console runs any console command in their own
+  client process; the engine's level check covers the networked and web
+  paths, and telnet, stdin and the local console are operator channels by
+  design (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:65`).
+- The dedicated-server lane requires `EACEnabled=false`, so the server
+  process in that lane runs with its anti-cheat off by design
+  (`template/scripts/server-smoke.sh:38`,
+  `template/scripts/install-server.sh:37`).
+- NuGet auditing is disabled and no dependency lockfile is committed
+  (`template/src/__MOD_NAME__/__MOD_NAME__.csproj:17`).
+- `actions/checkout` is pinned to a release tag, not a commit
+  (`.github/workflows/ci.yml:32`), and the sibling tool checkouts the build
+  invokes are not pinned at all.
 
 Do not run this toolchain on a machine whose `.local.env` or config file came
 from someone else, and do not treat the generated mod DLL as anything other than
