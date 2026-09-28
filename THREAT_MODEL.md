@@ -21,10 +21,10 @@ a dedicated server.
 | 4 | Sibling tool checkouts are cloned and then executed by `make` targets | tool chain to build | `new-mod.sh:65-76`, `template/Makefile:57-68` | Medium-High |
 | 5 | Mod console command has no permission gate: any connected client can rewrite live server settings | player to server process | `template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:40` | Medium |
 | 6 | Telnet console client has no peer authentication; the console password and every command go in cleartext to whatever answers on the port | network to tooling | `template/scripts/lib/game_telnet.py:60`, `:83` | Medium |
-| 7 | `.local.env` is gitignored, and the scaffolder's `git add -A` runs after it is written, so machine paths and any future secret stay out of history | build to VCS | `new-mod.sh:184`, `template/.gitignore:5` | Controlled |
-| 8 | `deploy-server.sh` runs `rm -rf` on a path built from an env-sourced directory; a wrong or hostile `SEVEN_DAYS_TO_DIE_SERVER_DIR` destroys a server tree | env to filesystem | `template/scripts/deploy-server.sh:26` | Medium |
+| 7 | `.local.env` is gitignored, and the scaffolder's `git add -A` runs after it is written, so machine paths and any future secret stay out of history | build to VCS | `new-mod.sh:192`, `template/.gitignore:5` | Controlled |
+| 8 | `deploy-server.sh` runs `rm -rf` on a path built from an env-sourced directory; a wrong or hostile `SEVEN_DAYS_TO_DIE_SERVER_DIR` destroys a server tree | env to filesystem | `template/scripts/deploy-server.sh:30-45` | Medium |
 | 9 | NuGet audit is switched off and no lockfile is committed, so restore-time dependency substitution is unobserved | build to dependency feed | `template/src/__MOD_NAME__/__MOD_NAME__.csproj:10` | Medium |
-| 10 | CI checks out `actions/checkout` by mutable tag, and a pull request runs the PR's copy of the scaffolder | VCS to CI | `.github/workflows/ci.yml:11` | Low-Medium |
+| 10 | CI checks out `actions/checkout` by mutable tag, and a pull request runs the PR's copy of the scaffolder | VCS to CI | `.github/workflows/ci.yml:23` | Low-Medium |
 | 11 | Unvalidated `author`, `display_name` and `purpose` strings are written into tracked docs and the player-facing `README.txt` | operator to artifact | `new-mod.sh:126-156` | Low |
 | 12 | Offline suite executes every `scripts/test_*.py` present, so a file dropped into the mod's scripts directory runs on `make test` | filesystem to build | `template/scripts/run-offline-tests.sh:31` | Low |
 
@@ -54,9 +54,9 @@ Entry points, all with the file that creates them.
 **Environment variables**
 
 - `SEVEN_DAYS_TO_DIE_DIR`, `SEVEN_DAYS_TO_DIE_SERVER_DIR`,
-  `SEVEN_DAYS_TO_DIE_SERVER_CONFIG` (`server-common.sh:6-27`).
+  `SEVEN_DAYS_TO_DIE_SERVER_CONFIG` (`server-common.sh:4-34`).
 - `SEVEN_DAYS_TO_DIE_STEAMCMD`, `SEVEN_DAYS_TO_DIE_STEAMCMD_DIR`
-  (`server-common.sh:30-43`), `SEVEN_DAYS_TO_DIE_SERVER_APP_ID`
+  (`server-common.sh:37-51`), `SEVEN_DAYS_TO_DIE_SERVER_APP_ID`
   (`install-server.sh:14`).
 - `SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS`, the server-smoke window
   (`server-smoke.sh:12`).
@@ -75,7 +75,7 @@ Entry points, all with the file that creates them.
 - outbound TCP to a dedicated server's telnet console, default `127.0.0.1:8081`
   (`game_telnet.py:28-29`, `:68`).
 - inbound `pull_request` GitHub Actions runs, which execute this repository's
-  shell scripts on a hosted runner (`.github/workflows/ci.yml:5-20`).
+  shell scripts on a hosted runner (`.github/workflows/ci.yml:14-41`).
 
 **Files parsed as input**
 
@@ -91,7 +91,7 @@ Entry points, all with the file that creates them.
 **Deployment artifacts**
 
 - `dist/<Mod>.zip` is extracted into the server's `Mods/` directory
-  (`deploy-server.sh:19-27`), where the game loads every DLL it finds.
+  (`deploy-server.sh:18-45`), where the game loads every DLL it finds.
 - the mod DLL is loaded into the client or dedicated server process
   (`ModApi.cs:10-23`).
 
@@ -137,7 +137,7 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
   `server-smoke.sh:30`), so the process is explicitly not running the
   anti-cheat that would otherwise detect a modified client or server binary.
 - **Server world saves and player data** under `SEVEN_DAYS_TO_DIE_SERVER_DIR`.
-  `deploy-server.sh:26` deletes a subtree of that path, and
+  `deploy-server.sh:30-45` deletes a subtree of that path, and
   `server-smoke.sh:15` writes a log into it. A wrong directory is unrecoverable.
 - **Developer workstation filesystem**, reachable through the sourced conf, the
   sourced `.local.env`, and the cloned tool repos.
@@ -166,7 +166,7 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
   inherits execution on the next `make build`, `make deploy-server`, or
   `make server-smoke`.
 - *Tampering:* `SEVEN_DAYS_TO_DIE_SERVER_DIR` decides what
-  `deploy-server.sh:26` deletes and what `server-smoke.sh:41` executes.
+  `deploy-server.sh:33-45` deletes and what `server-smoke.sh:41` executes.
 - *Information disclosure:* `set -a` exports every value in `.local.env` into the
   environment of the build, where it reaches any child process.
 
@@ -207,7 +207,7 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
 
 **VCS to CI (STRIDE)**
 - *Tampering:* the workflow depends on `actions/checkout@v4` by tag
-  (`.github/workflows/ci.yml:11`); a moved tag changes what runs.
+  (`.github/workflows/ci.yml:23`); a moved tag changes what runs.
 - *Elevation of privilege:* a pull request executes the PR's own copy of
   `new-mod.sh` and the mod's test suite. The workflow uses `pull_request`, so no
   repository secrets are exposed, which bounds this to runner compute and
@@ -228,10 +228,10 @@ Controls that exist in the code, with what each one actually covers.
 |---------|----------|--------|
 | Mod name restricted to `[A-Za-z][A-Za-z0-9_]*` before use | `new-mod.sh:48` | Closes shell injection through the one token that reaches `Makefile`, `build.sh:7` and `deploy-server.sh:18-19`. `display_name`, `author` and `purpose` are unvalidated but only reach docs and `README.txt`. |
 | Existing mod directory refused | `new-mod.sh:55` | Prevents clobbering an existing tree by a mistyped name. |
-| `SEVEN_DAYS_TO_DIE_SERVER_DIR` must be absolute | `server-common.sh:20-23` | Catches a relative path resolving somewhere unexpected. |
+| `SEVEN_DAYS_TO_DIE_SERVER_DIR` must be absolute and at least two levels deep | `server-common.sh:20-30` | Catches a relative path resolving somewhere unexpected, and a value like `/` or `/srv` that would make the server lane's deletes machine-wide. |
 | `SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS` must be a positive integer, and the server runs under `timeout` with a kill-after | `server-smoke.sh:17-21`, `:40` | Bounds the server process; a runaway or hung server cannot outlive the target. |
 | SteamCMD result verified (binary and `serverconfig.xml` present) | `install-server.sh:19-26` | A failed or partial download does not read as a good install. |
-| `.local.env` gitignored, and the scaffolder's `git add -A` runs after the file is written | `template/.gitignore:5`, `new-mod.sh:184` | Keeps machine paths and anything later added there out of generated history. |
+| `.local.env` gitignored, and the scaffolder's `git add -A` runs after the file is written | `template/.gitignore:5`, `new-mod.sh:192` | Keeps machine paths and anything later added there out of generated history. |
 | `pull_request` rather than `pull_request_target` | `.github/workflows/ci.yml:5` | Keeps repository secrets out of pull-request CI. |
 | `EACEnabled=false` required before server testing | `install-server.sh:31`, `server-smoke.sh:30` | A config that would keep the anti-cheat on is caught before a Harmony mod is loaded into it. It also *is* the reason the server lane has no anti-cheat; see threat 3. |
 | `TreatWarningsAsErrors`, analyzers on, `DebugType=none` | `__MOD_NAME__.csproj:9-12` | No symbols shipped with the mod. |
@@ -253,13 +253,13 @@ belong to code review, not to this document.
 4. **Dependency substitution is unobserved**: `NuGetAudit=false`
    (`__MOD_NAME__.csproj:10`), no `packages.lock.json`, and the compile-time
    reference set is DLLs read out of a game install (`build.sh:28-34`).
-5. **Destructive delete on an env-derived path** (`deploy-server.sh:26`). The path
+5. **Destructive delete on an env-derived path** (`deploy-server.sh:30-45`). The path
    is only checked for being absolute, never for being a server directory that
    contains `7DaysToDieServer.x86_64` under the target `Mods/` subpath.
 6. **Sibling checkouts execute without pinning** (`new-mod.sh:65-76`,
    `Makefile:56-60`). A moved branch or a compromised repository runs on the
    developer's machine.
-7. **CI action not pinned to a commit** (`.github/workflows/ci.yml:11`).
+7. **CI action not pinned to a commit** (`.github/workflows/ci.yml:23`).
 8. **Unbounded XML entity expansion** on locally trusted files
    (`configure-server-config.py:14`, `test_static_checks.py:22`).
 9. **No audit trail for security-relevant events.** `server-smoke.sh` writes a
@@ -286,9 +286,11 @@ read from the source.
   gets shell execution on the next `make build`, `make package` or
   `make deploy-server` (`build.sh:20`, `server-common.sh:11`).
 - **A mis-set `SEVEN_DAYS_TO_DIE_SERVER_DIR` deletes the wrong tree.**
-  `deploy-server.sh:26` runs `rm -rf "$SERVER_DIR/Mods/$MOD"` on a path the
-  environment supplies; the only check is that it is absolute
-  (`server-common.sh:20-23`).
+  `deploy-server.sh:30-45` removes and replaces `$SERVER_DIR/Mods/$MOD` on a path the
+  environment supplies; the checks are that it is absolute and at least two
+  levels deep (`server-common.sh:20-30`). The deploy itself is a staged swap
+  from `$SERVER_DIR/.deploy-stage/`, never an in-place copy, and a failed swap
+  puts the previous mod back.
 - **A hostile client on a public server flips a mod setting and reloads.**
   `ConsoleCmd__MOD_NAME__.cs:40` accepts `set` and `reload` from any sender, and
   the resulting value is echoed back into the console for that client.
@@ -296,7 +298,7 @@ read from the source.
   output.** `game_telnet.py:68` connects to whatever is listening; `:83-84` sends
   the password; the screenshot checks consume the returned text as the game's
   answer, so forged output reads as a passing check.
-- **A PR author's template change runs in CI.** `.github/workflows/ci.yml:13-28`
+- **A PR author's template change runs in CI.** `.github/workflows/ci.yml:24-31`
   scaffolds and tests the PR's own `template/`. No secrets are in scope, so the
   realistic abuse is runner compute and network egress from the runner.
 - **A dropped `scripts/test_*.py` runs on `make test`.** The suite is a glob over

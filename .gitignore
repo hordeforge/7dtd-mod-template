@@ -1,2 +1,3 @@
 *.local.conf
 __pycache__/
+.scratch/

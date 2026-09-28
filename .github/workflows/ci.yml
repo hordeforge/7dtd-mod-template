@@ -4,6 +4,12 @@ on:
     branches: [main]
   pull_request:
 
+# One run per ref: a newer push supersedes an in-flight run instead of
+# leaving two scaffolds racing for the same directory.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   scaffold-smoke:
     runs-on: ubuntu-24.04
@@ -11,6 +17,8 @@ jobs:
     # secret. Anything beyond read access is an unused grant.
     permissions:
       contents: read
+    # A hung step must fail the run, not hold a runner until GitHub kills it.
+    timeout-minutes: 20
     env:
       # make lint-shell and the packaging step are locale- and
       # timezone-independent by contract
@@ -20,17 +28,12 @@ jobs:
       - uses: actions/checkout@v4.2.2
       - name: Scaffold a throwaway mod
         run: |
-          cat > ci-smoke.conf <<CONF
-          name="CiSmoke"
-          author="ci"
-          purpose="Throwaway CI smoke mod proving the template scaffolds into a working modlet."
-          target_dir="$RUNNER_TEMP/anvil-smoke"
-          csharp="yes"
-          assets="no"
-          clone="no"
-          hordeforge_root="$RUNNER_TEMP/hordeforge"
-          CONF
-          ./new-mod.sh ci-smoke.conf
+          # ci/smoke.conf is the one smoke config (a local run uses it
+          # verbatim); only its two output paths are rerouted onto the runner.
+          sed -e "s#^target_dir=.*#target_dir=\"$RUNNER_TEMP/anvil-smoke\"#" \
+            -e "s#^hordeforge_root=.*#hordeforge_root=\"$RUNNER_TEMP/hordeforge\"#" \
+            ci/smoke.conf > "$RUNNER_TEMP/anvil-smoke.conf"
+          ./new-mod.sh "$RUNNER_TEMP/anvil-smoke.conf"
       - name: Offline gates
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" test
       - name: Shellcheck

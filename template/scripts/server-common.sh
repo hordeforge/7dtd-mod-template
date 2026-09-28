@@ -21,6 +21,13 @@ load_server_environment() {
 		echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_DIR must be an absolute path." >&2
 		exit 1
 	fi
+	# Every server-lane target deletes or writes below $SERVER_DIR, so a
+	# one-level value ("/", "/srv") turns those into machine-wide deletes.
+	depth="${SERVER_DIR//[!\/]/}"
+	if ((${#depth} < 2)); then
+		echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_DIR must be at least two levels deep (e.g. /srv/7dtd-server); '$SERVER_DIR' is too shallow to deploy into safely." >&2
+		exit 1
+	fi
 
 	# Consumed by the sourcing server-*.sh callers, not by this library.
 	# shellcheck disable=SC2034

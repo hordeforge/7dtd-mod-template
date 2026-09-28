@@ -35,7 +35,7 @@ with a concrete value inside `template/`.
 Any change to `template/` or `new-mod.sh` is proven by scaffolding:
 
 ```bash
-./new-mod.sh ci/smoke.conf   # points target_dir at a temp dir, clone=no
+./new-mod.sh ci/smoke.conf   # scaffolds into the gitignored .scratch/, clone=no
 ```
 
 Then, in the generated mod: `make test` and `make lint-shell` must pass, and

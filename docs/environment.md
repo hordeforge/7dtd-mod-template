@@ -52,6 +52,13 @@ directory. Configure it via `SEVEN_DAYS_TO_DIE_SERVER_DIR`; the server's
 Managed directory is `7DaysToDieServer_Data/Managed/`. Set
 `EACEnabled=false` in its serverconfig when smoke-testing DLL mods.
 
+That path must be absolute and at least two levels deep (`/srv/7dtd-server`,
+not `/srv`): every server target writes or deletes below it, so a shallower
+value turns a mistyped path into a machine-wide delete.
+`make deploy-server` stages into `$SERVER_DIR/.deploy-stage/` and swaps the
+folder into `Mods/` rather than copying over it, so an interrupted deploy
+leaves the previous mod in place.
+
 ## Proton prefix / user data (saves, logs, per-user Mods)
 
 The Steam Play prefix lives under the owning library's
