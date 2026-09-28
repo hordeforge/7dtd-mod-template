@@ -254,8 +254,9 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
   `Config/*.xml` (`test_static_checks.py:22`) is a memory-amplification vector.
   The reach is limited: these files come from a local install the developer
   already trusts, or from the mod's own tracked tree. The fuzz gates
-  (`test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py`) bound the
-  `Extends` resolver and the Harmony prefix parser, not the XML entity layer.
+  (`test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py`,
+  `test_fuzz_xpath_targets.py`) bound the `Extends` resolver, the Harmony
+  prefix parser and the XPath resolver, not the XML entity layer.
 
 ## 5. Mitigations mapping
 
@@ -280,7 +281,7 @@ Controls that exist in the code, with what each one actually covers.
 | Deterministic gate harness: every AGENTS.md incident names a `test_*.py` | `test_rules_have_gates.py:29-35` | Keeps written rules from rotting into unenforceable prose. |
 | Mod console command states the admin level and is not client-executable, with a gate over both | `ConsoleCmd__MOD_NAME__.cs:25`, `:34`, `test_console_command_permissions.py` | `AdminTools.CommandAllowedFor` refuses a connected player before dispatch, and an admin's run edits the server's settings rather than their own. |
 | Telnet password redacted from anything the client prints, and a warning before it goes to a non-loopback host | `game_telnet.py:93-97`, `:138-149` | Keeps the console password out of CI logs and terminal output, and makes the cleartext exposure explicit. Neither authenticates the peer. |
-| Fuzz gates over the `Extends` resolver and the Harmony prefix parser | `test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py` | Bounds the two recursive or prefix-driven parsers a mod author feeds from `Config/*.xml`. Says nothing about the XML entity layer. |
+| Fuzz gates over the `Extends` resolver, the Harmony prefix parser and the XPath resolver | `test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py`, `test_fuzz_xpath_targets.py` | Bounds the three recursive, prefix-driven or dialect-driven parsers a mod author feeds from `Config/*.xml` and mod source. Each asserts totality and known answers, so a wrong verdict fails the gate rather than only a crash. Says nothing about the XML entity layer. |
 
 Gaps, ranked by exploitability then impact. These are recorded here; the fixes
 belong to code review, not to this document.

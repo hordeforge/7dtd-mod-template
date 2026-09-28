@@ -22,6 +22,14 @@ asserts both properties at once.
 - **totality** — no parser may raise on any input, well-formed or mutated,
   because an unbalanced or renamed declaration is a normal thing to find in
   mod source, not a crash.
+- **known answers** — the scanners `parameter_types` and `parameter_names`
+  reach only transitively are asserted on their own: `argument_list` must
+  return the number of parameters that were rendered even when a default
+  value's literal carries a comma, a bracket or a collection initialiser, and
+  `strip_namespace` must drop the namespace from a qualified name while
+  leaving a dotted name inside a generic argument alone. A wrong answer here
+  is a patch method compared against a parameter list its author never wrote,
+  and that is not something a fuzzer can see.
 
 Run length is fixed so the gate is deterministic; set HARMONY_FUZZ_ITERS for
 a longer soak (`HARMONY_FUZZ_ITERS=200000 scripts/test_fuzz_harmony_parsers.py`).
@@ -86,6 +94,23 @@ def render(rng: random.Random, parameters: list[tuple[str, str]]) -> str:
     return "public static void Patch(" + rendered + ")"
 
 
+NAMESPACES = ("Game", "World", "Mod", "GameManager", "System")
+MEMBERS = ("World", "Entity", "ItemClass", "Chunk", "Action", "KeyValuePair")
+# One parameter each, and each default value carries a comma or a bracket
+# inside a literal or a collection initialiser. `argument_list` masks literal
+# bodies before counting brackets, so a plain `split(",")` turns each of these
+# into two or three phantom parameters and the verifier compares a Harmony
+# prefix against a parameter list the mod author never wrote.
+ONE_PARAMETER_DEFAULTS = (
+    ' = "),(",',
+    ' = "],["',
+    ' = ")("',
+    ' = new[] { 1, 2 }',
+    ' = new[] { "k,v" }',
+    ' = new Dictionary<string, int> { { "k", 1 } }',
+)
+
+
 def attribute(rng: random.Random) -> str:
     parts = []
     if rng.random() < 0.85:
@@ -147,11 +172,51 @@ def main() -> int:
         if types != wanted:
             fail("parameter_types", text, f"parsed {types!r}, wanted {wanted!r}")
 
+    # A default value whose literal carries the separator, the bracket, or a
+    # collection initialiser: one parameter in, one entry out. These are the
+    # inputs `argument_list` masks literals for, and none of them is a crash,
+    # so a phantom split would otherwise pass as a green gate.
+    for default in ONE_PARAMETER_DEFAULTS:
+        signature = "public static void Patch(string sep" + default + ")"
+        entries = module.argument_list(signature)
+        if entries is None or len(entries) != 1:
+            fail("argument_list", signature,
+                 f"{len(entries) if entries is not None else None} entries for "
+                 "one parameter")
+        names = module.parameter_names(signature)
+        if names != ["sep"]:
+            fail("parameter_names", signature, f"parsed {names!r}")
+
     for _ in range(iterations):
         parameters = parameters_of(rng)
         signature = render(rng, parameters)
         round_trip(signature, parameters)
         tolerate(mutate(rng, signature))
+
+        # argument_list is reached transitively through the two above, but a
+        # phantom split is a wrong answer rather than a crash, so the entry
+        # count is asserted directly against the parameters that were rendered.
+        entries = module.argument_list(signature)
+        if entries is None or len(entries) != len(parameters):
+            fail("argument_list", signature,
+                 f"{len(entries) if entries is not None else None} entries for "
+                 f"{len(parameters)} parameters")
+
+        # strip_namespace splits on the first dot at bracket depth zero, so a
+        # qualified name loses its namespace and a dotted name inside a generic
+        # argument does not. Neither is visible from a crash.
+        qualified = rng.choice(NAMESPACES) + "." + rng.choice(MEMBERS)
+        if module.strip_namespace(qualified) != qualified.split(".", 1)[1]:
+            fail("strip_namespace", qualified,
+                 f"parsed {module.strip_namespace(qualified)!r}")
+        inside = f"Dictionary<{qualified}, {qualified}>"
+        if module.strip_namespace(inside) != inside:
+            fail("strip_namespace", inside,
+                 f"parsed {module.strip_namespace(inside)!r}")
+        plain = rng.choice(TYPES)
+        if module.strip_namespace(plain) != plain:
+            fail("strip_namespace", plain,
+                 f"parsed {module.strip_namespace(plain)!r}")
 
         attribute_text = attribute(rng)
         for text in (attribute_text, mutate(rng, attribute_text)):

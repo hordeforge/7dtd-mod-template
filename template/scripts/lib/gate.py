@@ -2,7 +2,7 @@
 
 One definition of `check` so a gate cannot drift from its neighbours: a PASS
 line on stdout, a FAIL line on stderr, and a non-zero exit from `main`. The
-gates that keep their own bookkeeping (the two fuzz gates, which report a
+gates that keep their own bookkeeping (the fuzz gates, which report a
 seed and a case count with each result, and the two gates whose result depends
 on state `FAILURES` cannot hold) print in the same shape but do not import
 this. Import it by putting this directory on the path; a caller in `scripts/`

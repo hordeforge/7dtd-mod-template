@@ -55,7 +55,18 @@ def parse(path: str) -> ET.Element:
 
 
 def find(root: ET.Element, xpath: str) -> bool | None:
-    """True/False = resolvable; None = beyond ET's XPath subset."""
+    """True/False = resolvable; None = beyond ET's XPath subset.
+
+    Total by contract: an xpath is hand-written mod text, and a node step
+    ET's `ElementPath` does not implement raises out of `find` rather than
+    reporting a syntax error. `text()` and a bare `()` raise `KeyError` on the
+    operator name, an unclosed predicate raises `TypeError` (the compiled
+    selector comes back `None` and is called), and only the grammar-level
+    failures raise `SyntaxError`. Each is the same answer this function owes
+    the caller — check it by hand, do not fail the run — so they all become
+    the `None` that prints as SKIP. `test_fuzz_xpath_targets.py` holds the
+    contract: one escaping exception fails the gate.
+    """
     # strip the vanilla root element name: /items/item/... -> ./item/...
     parts = xpath.split("/")
     if len(parts) < 2 or parts[0] != "":
@@ -69,7 +80,7 @@ def find(root: ET.Element, xpath: str) -> bool | None:
         rel = rel.rsplit("/", 1)[0] or "."
     try:
         return root.find(rel) is not None
-    except SyntaxError:
+    except (SyntaxError, KeyError, TypeError, ValueError, IndexError, AttributeError):
         return None
 
 

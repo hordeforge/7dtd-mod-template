@@ -26,6 +26,12 @@ modlet's contract rather than add to it.
   quote, an accented letter, a CJK sentence end) so the check is a real one.
   `make check` and CI both run it, and CI also runs the modlet's ruff rules
   over `ci/`.
+- A fuzz pass over the XPath resolver in `validate-xml-targets.py`, which
+  turned a malformed `xpath=` on a patch operation into a traceback that
+  killed `make validate-xml` partway through its target list.
+- The Harmony parser fuzz gate now asserts `argument_list` and
+  `strip_namespace` on their own, rather than only reaching them through
+  `parameter_names` and `parameter_types`.
 - `make lint-py` gates the modlet's Python under the shipped `ruff.toml`, and
   CI installs ruff and runs it as a blocking step. **Breaking for a mod
   scaffolded before this:** that mod has no `lint-py` target and no
@@ -131,6 +137,12 @@ modlet's contract rather than add to it.
 
 ### Fixed
 
+- `validate-xml-targets.py` caught only `SyntaxError` around
+  `ElementTree`'s `find`, which answers `text()` and a bare `()` with a
+  `KeyError` and an unclosed predicate with a `TypeError`. Both are the same
+  answer the caller already had for an unparseable xpath: a SKIP.
+- A trailing separator in a C# parameter list no longer reports a phantom
+  parameter, so `Patch(string sep = "),(",)` is one parameter rather than two.
 - The telnet client keeps no transcript. `GameTelnet` concatenated every
   chunk it drained into a `_buffer` field that nothing read, so a long oracle
   session held its whole output in memory for the length of the session.

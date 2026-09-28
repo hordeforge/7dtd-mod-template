@@ -220,8 +220,13 @@ def split_top_level(signature: str, start: int, end: int) -> list[str]:
         elif character == "," and depth == 0:
             entries.append(signature[cursor:index])
             cursor = index + 1
-    if signature[cursor:end].strip() or entries:
-        entries.append(signature[cursor:end])
+    # A trailing separator leaves an empty tail, which is not a parameter:
+    # `Patch(string sep = "),(",)` declares one, and appending the tail anyway
+    # reported two. A signature with no tail at all, `Patch()`, already came
+    # back empty; this makes the two agree.
+    tail = signature[cursor:end]
+    if tail.strip():
+        entries.append(tail)
     return entries
 
 
