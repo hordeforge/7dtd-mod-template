@@ -159,14 +159,14 @@ def extends_model() -> None:
     )
     try:
         xml_extends.resolve("a", cyclic)
+        cycle_error = "resolved instead of raising"
     except xml_extends.ExtendsCycle as exc:
-        # A re-entered name is a config defect, so the model names the chain
-        # that closed instead of recursing until the interpreter gives up.
-        check("a cycle is reported as a named ExtendsCycle, not a traceback",
-              str(exc) == "a -> b -> a", str(exc))
-    else:
-        check("a cycle is reported as a named ExtendsCycle, not a traceback",
-              False, "resolve() returned instead of raising ExtendsCycle")
+        cycle_error = str(exc)
+    # Cutting the chain here would resolve a broken patch as a working one,
+    # so the walk reports the closed chain instead (test_fuzz_extends_chain.py
+    # asserts the same contract under fuzzing).
+    check("a cycle is reported as ExtendsCycle naming the closed chain",
+          cycle_error == "a -> b -> a", repr(cycle_error))
 
     missing = xml_extends.resolve("absent", child, inherited)
     check("an entry extending a name no pool has resolves to nothing",

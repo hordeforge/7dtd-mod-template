@@ -99,7 +99,7 @@ def read_dump(path: str) -> str:
     counts.
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
+        with open(path, encoding="utf-8-sig", errors="replace") as handle:
             return handle.read()
     except OSError as exc:
         raise VerifyError(f"cannot read {path}: {exc}") from exc

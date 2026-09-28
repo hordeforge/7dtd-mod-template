@@ -152,7 +152,7 @@ def main() -> int:
     binding = re.compile(r"\{binding\b|\{#")
     for rel in files:
         if os.sep + "XUi" in rel:
-            with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
+            with open(os.path.join(MOD_DIR, rel), encoding="utf-8-sig") as handle:
                 check("no-legacy-binding-syntax:" + rel,
                       not binding.search(handle.read()),
                       "use V3 {% expression %} bindings")

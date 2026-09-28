@@ -280,7 +280,7 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     patch_classes: set[str] = set()
 
     for source in sorted(source_dir.glob("*.cs")):
-        lines = source.read_text(encoding="utf-8").splitlines()
+        lines = source.read_text(encoding="utf-8-sig").splitlines()
         # A class-level attribute may name only the type; the method names then
         # come from attributes on the individual patch methods. Both reset at
         # every class: a type named by one class must not leak into the next,
@@ -315,10 +315,21 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
 
 
 def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
+    """The decompiled body of `type_name` as lines, cached per type.
+
+    ilspycmd writes UTF-8 regardless of the environment it is launched in, so
+    the output is decoded as UTF-8 here rather than with the locale encoding.
+    Under a C or POSIX locale that decoding is ASCII, and any engine type
+    carrying a non-ASCII string literal (the localized tables are full of
+    them) raised UnicodeDecodeError out of a gate that reports per-target
+    problems instead of tracebacks.
+    """
+
     if type_name not in cache:
         try:
             result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
-                                    capture_output=True, text=True, check=False,
+                                    capture_output=True, encoding="utf-8",
+                                    errors="replace", check=False,
                                     timeout=DECOMPILE_TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired:
             # One slow type must fail its own check, not the run: the caller
@@ -361,7 +372,7 @@ def probe_ilspy() -> tuple[int | None, str]:
     """
     try:
         result = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                                text=True, check=False,
+                                encoding="utf-8", errors="replace", check=False,
                                 timeout=ILSPY_PROBE_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         return None, f"ilspycmd --version did not answer within {ILSPY_PROBE_TIMEOUT_SECONDS}s"

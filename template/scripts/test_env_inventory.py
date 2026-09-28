@@ -50,7 +50,7 @@ def source_files() -> list[Path]:
 
 
 def read_keys(path: Path) -> set[str]:
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     keys = set(PYTHON_KEY.findall(text))
     keys |= set(re.findall(r"""environ\[["']([A-Z][A-Z0-9_]*)["']\]""", text))
     if path.suffix == ".sh":
@@ -68,7 +68,7 @@ def undocumented(sources: dict[str, set[str]], documented: set[str]) -> dict[str
 
 def main() -> int:
     sources = {p.name: read_keys(p) for p in source_files()}
-    documented = set(EXAMPLE_KEY.findall(EXAMPLE.read_text(encoding="utf-8")))
+    documented = set(EXAMPLE_KEY.findall(EXAMPLE.read_text(encoding="utf-8-sig")))
 
     missing = undocumented(sources, documented)
     for name in sorted(missing):

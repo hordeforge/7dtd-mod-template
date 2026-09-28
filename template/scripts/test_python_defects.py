@@ -125,7 +125,7 @@ def tracked_files_stay_clean() -> None:
     syntax_errors: list[str] = []
     for relpath in tracked_py():
         path = os.path.join(MOD_DIR, relpath)
-        with open(path, encoding="utf-8") as handle:
+        with open(path, encoding="utf-8-sig") as handle:
             source = handle.read()
         try:
             problems += [f"{relpath}:{item}" for item in findings(source)]

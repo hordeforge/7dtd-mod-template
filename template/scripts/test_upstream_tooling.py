@@ -84,7 +84,7 @@ def main() -> int:
                 continue
             scanned += 1
             rel = os.path.relpath(path, MOD_DIR)
-            with open(path, encoding="utf-8", errors="replace") as handle:
+            with open(path, encoding="utf-8-sig", errors="replace") as handle:
                 content = handle.read()
             for needle in sorted(BANNED):
                 if not word[needle].search(content):
@@ -101,7 +101,7 @@ def main() -> int:
         exists = os.path.isfile(os.path.join(MOD_DIR, rel))
         check("allow-entry-exists:" + rel, exists, "stale ALLOW entry; remove it")
         if exists:
-            with open(os.path.join(MOD_DIR, rel), encoding="utf-8", errors="replace") as handle:
+            with open(os.path.join(MOD_DIR, rel), encoding="utf-8-sig", errors="replace") as handle:
                 content = handle.read()
             for needle in sorted(ALLOW[rel]):
                 check(f"allow-entry-used:{rel}:{needle}", needle in content,

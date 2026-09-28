@@ -66,7 +66,7 @@ def main() -> int:
 
     for name in scripts:
         path = os.path.join(SCRIPTS, name)
-        with open(path, encoding="utf-8") as handle:
+        with open(path, encoding="utf-8-sig") as handle:
             body = handle.read()
         hits = hardcoded_families(body)
         if not hits:

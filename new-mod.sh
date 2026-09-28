@@ -220,7 +220,6 @@ import html, os, re, sys
 import xml.etree.ElementTree as ET
 mod_dir = sys.argv[1]
 purpose = os.environ["ANVIL_PURPOSE"].strip()
-short = re.split(r"(?<=[.!?])\s", purpose)[0][:200]
 # ModInfo.xml is the mod's single source of truth for its version: the game
 # reads that field and nothing else, and the release readme's first line has
 # to name the same version. Reading it here keeps the two in step at scaffold
@@ -231,6 +230,18 @@ for field in ET.parse(os.path.join(mod_dir, "ModInfo.xml")).getroot():
         version = (field.get("value") or "").strip()
 if not version:
     sys.exit("ERROR: ModInfo.xml has no Version value; the mod's version is undeclared.")
+
+# A code point that can only follow another one: a combining mark, a
+# zero-width joiner or space, a variation selector, an emoji skin-tone
+# modifier, a regional indicator. Cutting the description between one of these
+# and the character it belongs to leaves it stranded, and ModInfo.xml's
+# Description is rendered by the game, so the truncation has to end on a whole
+# character.
+TRAILING_JOINER = re.compile(
+    "(?:[\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20F0"
+    "\uFE00-\uFE0F\U0001F3FB-\U0001F3FF\U0001F1E6-\U0001F1FF]"
+    "|[\u200C\u200D\uFEFF])+$")
+short = TRAILING_JOINER.sub("", re.split(r"(?<=[.!?])\s", purpose)[0][:200])
 tokens = {
     "__MOD_NAME__": os.environ["ANVIL_NAME"],
     "__MOD_NAME_LOWER__": os.environ["ANVIL_NAME"].lower(),

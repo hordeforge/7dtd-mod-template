@@ -25,6 +25,7 @@ Standard library only — no telnetlib, which was removed in Python 3.13.
 
 from __future__ import annotations
 
+import codecs
 import contextlib
 import ipaddress
 import select
@@ -78,6 +79,13 @@ class GameTelnet:
         self._sock: socket.socket | None = None
         self._buffer = ""
         self.closed_by_server = False
+        # TCP delivers a byte stream, not characters: a multi-byte UTF-8
+        # sequence can straddle any two recv() boundaries. A per-chunk
+        # decode turned every such split into U+FFFD, so one non-ASCII
+        # character in a command's output arrived corrupted. This decoder
+        # carries the incomplete tail of a chunk into the next one and still
+        # replaces bytes that are not UTF-8 at all.
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
 
     def _describe(self, line: str) -> str:
         """The line as it may appear in an error message.
@@ -107,6 +115,10 @@ class GameTelnet:
         # wall-clock deadline expire instantly or hang for the skew duration.
         deadline = time.monotonic() + wait
         last: Exception | None = None
+        # A new session starts at a character boundary: bytes carried over
+        # from a previous connection would open the first line with a
+        # replacement character.
+        self._decoder.reset()
         while time.monotonic() < deadline:
             try:
                 self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
@@ -187,7 +199,7 @@ class GameTelnet:
             raise TelnetError(f"reading from the console failed: {exc}") from exc
         if not data:
             raise TelnetError("the server closed the telnet connection")
-        return data.decode("utf-8", "replace")
+        return self._decoder.decode(data)
 
     def _drain(self, seconds: float) -> str:
         """Collect whatever arrives over a short window.

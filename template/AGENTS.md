@@ -231,6 +231,27 @@ engine loads it, and `scripts/test_xml_gates.py` holds that (with the
 chain that re-enters a name now raises rather than recursing to the
 interpreter limit).
 
+## Text conventions
+
+- Text is read and written as `utf-8-sig` (`encoding="utf-8-sig"`): a file a
+  Windows editor saved opens with a BOM, and as a bare U+FEFF it broke the
+  first line of a `.cs`, `.py`, `.md` or `.local.env` file rather than being
+  stripped. Never decode with the locale encoding: `text=True` on
+  `subprocess.run` is ASCII under `LC_ALL=C` (which `scripts/build.sh` and
+  `scripts/package.sh` both export), and one non-ASCII character in a
+  tool's output raised out of a gate.
+- A byte stream is decoded once across its chunks, not once per chunk. TCP
+  splits a character anywhere, so `scripts/lib/game_telnet.py` decodes with an
+  incremental decoder; a per-chunk decode turned every split into U+FFFD.
+- Truncate text on a character boundary, never at a code point that only
+  completes the one before it (combining mark, zero-width joiner, variation
+  selector, emoji modifier, regional indicator). `new-mod.sh` does this for
+  the `ModInfo.xml` description, which the game renders.
+- Compare identifiers with `Ordinal` / `OrdinalIgnoreCase`
+  (`StringComparer`, `StringComparison`), never with `ToLower()`: the game's
+  item and setting names are keys, and a lowercase copy is a second spelling
+  of them.
+
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`), `make lint-shell`

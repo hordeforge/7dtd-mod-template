@@ -32,8 +32,8 @@ def missing_contract_elements(agent_rules: str, ignore_rules: str) -> list[str]:
 
 
 def main() -> int:
-    agent_rules = (MOD_DIR / "AGENTS.md").read_text(encoding="utf-8")
-    ignore_rules = (MOD_DIR / ".gitignore").read_text(encoding="utf-8")
+    agent_rules = (MOD_DIR / "AGENTS.md").read_text(encoding="utf-8-sig")
+    ignore_rules = (MOD_DIR / ".gitignore").read_text(encoding="utf-8-sig")
     missing = missing_contract_elements(agent_rules, ignore_rules)
     if missing:
         print("FAIL local path inventory contract: " + ", ".join(missing))

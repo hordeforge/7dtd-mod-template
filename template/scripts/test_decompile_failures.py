@@ -8,6 +8,14 @@ killed the verifier partway through its target list and reported nothing
 about the targets it never reached — the silent-green shape this suite
 exists to prevent, one hung engine type away.
 
+The same applies to how the decompiled bytes are read back. `subprocess.run`
+hands over bytes; `text=True` decodes them with the locale's encoding, which
+under LC_ALL=C is ASCII, so any engine type carrying a non-ASCII string
+literal (the localized tables are full of them) raised UnicodeDecodeError
+out of a gate that reports per-target problems instead of tracebacks. The
+check below stands in for the real decoding the way `subprocess` does it, so
+it fails on `text=True` under a C locale and passes on an explicit UTF-8.
+
 `subprocess.run` is replaced, so nothing is executed and the answer does
 not depend on the host's ilspycmd.
 """
@@ -15,6 +23,7 @@ not depend on the host's ilspycmd.
 from __future__ import annotations
 
 import importlib.util
+import locale
 import os
 import subprocess
 import sys
@@ -23,6 +32,27 @@ from types import ModuleType
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSEMBLY = "Assembly-CSharp.dll"
+# A localized string literal as ilspycmd writes it: UTF-8, whatever the
+# environment it ran in.
+BODY = '\tpublic string Label { get { return "Café"; } }\n'
+
+
+def decoding_run(
+        stdout: bytes) -> Callable[..., subprocess.CompletedProcess[str]]:
+    """A `subprocess.run` stand-in that decodes exactly as subprocess does.
+
+    `text=True` picks the locale encoding, `encoding=` takes what the caller
+    asked for, and bytes are what the child really produced.
+    """
+    def run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        def decode(data: bytes) -> str:
+            if kwargs.get("text"):
+                return data.decode(locale.getpreferredencoding(False), "replace")
+            return data.decode(kwargs["encoding"], kwargs.get("errors", "strict"))
+        return subprocess.CompletedProcess(
+            args=["ilspycmd"], returncode=0,
+            stdout=decode(stdout), stderr=decode(b""))
+    return run
 
 
 def load_verifier() -> ModuleType:
@@ -108,6 +138,23 @@ def main() -> int:
         verifier.subprocess.run = real_run
     check("a successful decompile caches and returns its body",
           body == [] and cache == {"World": []}, repr(cache))
+
+    # Decoded as UTF-8 whatever the locale is, so a C-locale gate (this
+    # repository's own build.sh and package.sh export LC_ALL=C) still reads a
+    # decompiled string literal instead of raising on it.
+    locale.setlocale(locale.LC_ALL, "C")
+    cache = {}
+    verifier.subprocess.run = decoding_run(BODY.encode())
+    try:
+        body = verifier.decompile(verifier.Path(ASSEMBLY), "World", cache)
+    except Exception as exc:  # a raw escape is the defect
+        body, detail = None, f"{type(exc).__name__}: {exc}"
+    else:
+        detail = repr(body)
+    finally:
+        verifier.subprocess.run = real_run
+    check("a non-ASCII decompiled body is read as UTF-8 under a C locale",
+          body == BODY.splitlines(), detail)
 
     print(f"{len(failures)} failures.")
     return 1 if failures else 0

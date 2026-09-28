@@ -49,7 +49,7 @@ ENFORCED_ELSEWHERE: dict[str, str] = {
 
 
 def sections(path: str) -> list[tuple[str, str]]:
-    with open(path, encoding="utf-8") as handle:
+    with open(path, encoding="utf-8-sig") as handle:
         parts = re.split(r"^## (.+)$", handle.read(), flags=re.M)
     return [(parts[i].strip(), parts[i + 1]) for i in range(1, len(parts), 2)]
 

@@ -36,7 +36,7 @@ def main() -> int:
         path = os.path.join(SRC, name)
         if not os.path.isfile(path):
             return ""
-        with open(path, encoding="utf-8") as handle:
+        with open(path, encoding="utf-8-sig") as handle:
             return handle.read()
 
     settings = read("ModSettings.cs")

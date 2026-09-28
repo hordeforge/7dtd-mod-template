@@ -69,7 +69,7 @@ def command_sources() -> list[tuple[str, str]]:
     for name in sorted(os.listdir(SRC)):
         if not (name.startswith("ConsoleCmd") and name.endswith(".cs")):
             continue
-        with open(os.path.join(SRC, name), encoding="utf-8") as handle:
+        with open(os.path.join(SRC, name), encoding="utf-8-sig") as handle:
             sources.append((name, handle.read()))
     return sources
 

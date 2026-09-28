@@ -48,7 +48,7 @@ def main() -> int:
     if not os.path.isfile(path):
         check("AGENTS.md exists", False, "missing")
     else:
-        with open(path, encoding="utf-8") as handle:
+        with open(path, encoding="utf-8-sig") as handle:
             gone = missing_elements(handle.read())
         check("AGENTS.md states the full shared-checkout worktree rule",
               gone == [], "missing " + repr(gone))

@@ -35,7 +35,7 @@ def missing_from(text: str) -> list[str]:
 
 
 def main() -> int:
-    with open(AGENTS, encoding="utf-8") as handle:
+    with open(AGENTS, encoding="utf-8-sig") as handle:
         text = handle.read()
     check(
         "negative control: an AGENTS.md without the rule fails",
