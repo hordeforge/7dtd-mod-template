@@ -70,6 +70,10 @@ modlet's contract rather than add to it.
   `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
   scaffold; the two that did need it now put their path constants after the
   import block instead of suppressing the rule.
+- `make lint-py` no longer turns red on an unrelated ruff release: CI pins
+  the version it installs (`RUFF_VERSION`) instead of taking the newest one
+  from PyPI, and the stale `# noqa: E402` that made the pinned ruff reject
+  `scripts/test_telnet_text_decoding.py` is gone.
 - The telnet console password no longer appears in error messages or logs.
 - The telnet socket is released on every close path, and the server smoke
   logs are bounded.

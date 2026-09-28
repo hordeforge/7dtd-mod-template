@@ -24,8 +24,16 @@ jobs:
       # timezone-independent by contract
       LC_ALL: C
       TZ: UTC
+      # Pinned: ruff resolves the mod's rule set, and a release that changes
+      # one of them turns the gate red for every open PR. Bump it here and
+      # run `make lint-py` in a scaffolded mod before committing the bump.
+      RUFF_VERSION: "0.16.4"
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          # nothing in this job pushes, and the job's own token grant is
+          # contents: read
+          persist-credentials: false
       - name: Scaffold a throwaway mod
         run: |
           # ci/smoke.conf is the one smoke config (a local run uses it
@@ -39,7 +47,7 @@ jobs:
       - name: Shellcheck
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-shell
       - name: Install ruff
-        run: pipx install ruff
+        run: pipx install "ruff==$RUFF_VERSION"
       - name: Ruff
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" lint-py
       - name: Shellcheck the scaffolder

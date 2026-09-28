@@ -27,6 +27,12 @@ on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.
 
+`ruff.toml` names the rule set, not a ruff version. A newer ruff resolves
+those rules differently, so run the gate with the version the template's CI
+pins (`RUFF_VERSION` in the template repo's `.github/workflows/ci.yml`) rather
+than whatever is on PATH, and expect a version bump to surface as gate
+failures worth reading before they are accepted.
+
 `make package` is reproducible: entries go in sorted order with
 `SOURCE_DATE_EPOCH` timestamps, so the same source yields the same bytes
 regardless of build path, locale, or timezone. Export `SOURCE_DATE_EPOCH` to
