@@ -84,6 +84,21 @@ def expected_elements() -> dict[str, int]:
     return counts
 
 
+def read_dump(path: str) -> str:
+    """Read one dump file, or report which file is unreadable.
+
+    A dump the engine wrote under a permissions change or a half-copied
+    world turns into a bare OSError traceback here, which reads as a crash
+    instead of "this file could not be read" and loses every other file's
+    counts.
+    """
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            return handle.read()
+    except OSError as exc:
+        raise VerifyError(f"cannot read {path}: {exc}") from exc
+
+
 def applied_elements(dump_dir: str) -> dict[str, int]:
     """Count elements the dump attributes to this mod, per file."""
     counts: dict[str, int] = {}
@@ -91,8 +106,8 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
     # XUi_InGame/windows.xml), so the scan must descend too or every nested
     # patch reads as missing.
     for path in sorted(glob.glob(os.path.join(dump_dir, "**", "*.xml"), recursive=True)):
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
-            hits = sum(1 for name in APPENDED_BY.findall(handle.read()) if name == MOD_NAME)
+        hits = sum(1 for name in APPENDED_BY.findall(read_dump(path))
+                   if name == MOD_NAME)
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
     return counts
@@ -111,21 +126,20 @@ def check_containers(dump_dir: str) -> list[str]:
         wrong_parent = None
         parent_re = re.compile(rf'<{parent_tag} name="([^"]+)"')
         target_re = re.compile(pattern)
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                match = parent_re.search(line)
-                if match:
-                    current = match.group(1)
-                if target_re.search(line):
-                    if current == parent_name:
-                        found = True
-                        break
-                    # One item may be appended under several parents by
-                    # design (the timed nuke unlocks at Explosives 65 and
-                    # Electrician 45), so keep scanning for the expected one
-                    # and only report the first wrong parent if none matches.
-                    if wrong_parent is None:
-                        wrong_parent = current
+        for line in read_dump(path).splitlines():
+            match = parent_re.search(line)
+            if match:
+                current = match.group(1)
+            if target_re.search(line):
+                if current == parent_name:
+                    found = True
+                    break
+                # One item may be appended under several parents by
+                # design (the timed nuke unlocks at Explosives 65 and
+                # Electrician 45), so keep scanning for the expected one
+                # and only report the first wrong parent if none matches.
+                if wrong_parent is None:
+                    wrong_parent = current
         if found:
             continue
         # wrong_parent is set only where the target matched, so its absence
@@ -159,7 +173,10 @@ def find_dump(game_dir: str, save_name: str) -> str:
             f"no ConfigsDump found under {saves}. Load a world first — the engine "
             "writes the dump on game start."
         )
-    return max(candidates, key=os.path.getmtime)
+    try:
+        return max(candidates, key=os.path.getmtime)
+    except OSError as exc:
+        raise VerifyError(f"cannot stat the ConfigsDump directories under {saves}: {exc}") from exc
 
 
 def main() -> int:

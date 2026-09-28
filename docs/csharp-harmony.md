@@ -76,6 +76,9 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
   not read; `<mod> reload` re-reads immediately
 - a reload **resets to shipped defaults, then applies the file**; a broken
   save keeps the current values and logs the error
+- a file the engine cannot stat or open is **logged with the underlying
+  cause, once per cause** — the watch polls several times a second, so a
+  swallowed read failure would leave the mod on defaults forever, silently
 - the console command's `set` shares one name/value grammar with the file
   via `ModSettings.TrySet`, and changes the session only until the file is
   re-read

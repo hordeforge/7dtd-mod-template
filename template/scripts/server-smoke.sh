@@ -36,18 +36,19 @@ fi
 "$SCRIPT_DIR/deploy-server.sh"
 mkdir -p "$LOG_DIR"
 
-# Every run writes its own log and nothing else removes them, so the server
-# install's logs/ would grow by one file per smoke run forever. Keep the newest
-# KEEP_LOGS and drop the rest; the game's own logs are a different prefix and
-# are never touched.
-prune_smoke_logs "$LOG_DIR" "$KEEP_LOGS"
-
 echo "Launching dedicated server for ${RUN_FOR_SECONDS}s."
 set +e
 timeout --signal=TERM --kill-after=10 "$RUN_FOR_SECONDS" \
 	"$SERVER_BIN" -configfile="$SERVER_CONFIG" >"$LOG_FILE" 2>&1
 SERVER_STATUS=$?
 set -e
+
+# Every run writes its own log and nothing else removes them, so the server
+# install's logs/ would grow by one file per smoke run forever. Keep the newest
+# KEEP_LOGS and drop the rest; the game's own logs are a different prefix and
+# are never touched. Pruned after the boot so this run's log counts toward the
+# quota: pruning first left KEEP_LOGS+1 behind every time.
+prune_smoke_logs "$LOG_DIR" "$KEEP_LOGS"
 
 if (( SERVER_STATUS != 124 )); then
 	echo "ERROR: dedicated server exited before the ${RUN_FOR_SECONDS}s smoke-test timeout (status $SERVER_STATUS)." >&2

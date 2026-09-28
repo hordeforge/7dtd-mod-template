@@ -38,6 +38,10 @@ TYPEOF = re.compile(r"typeof\(\s*([\w.]+)\s*\)")
 QUOTED = re.compile(r'"([^"]+)"')
 PATCH_METHOD = re.compile(r"^\s*(?:[A-Za-z_]\w*\s+)*static\s+(?!class\b)")
 
+# A decompile of one engine type must not hang the gate; the timeout surfaces
+# as a failed check for that target, not as a killed run.
+DECOMPILE_TIMEOUT_SECONDS = 300
+
 
 def is_method_signature(line: str) -> bool:
     """Whether a line starts a static *method* declaration.
@@ -301,9 +305,19 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
 
 def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
     if type_name not in cache:
-        result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
-                                capture_output=True, text=True, check=False,
-                                timeout=300)
+        try:
+            result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
+                                    capture_output=True, text=True, check=False,
+                                    timeout=DECOMPILE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            # One slow type must fail its own check, not the run: the caller
+            # only handles RuntimeError, and a bare TimeoutExpired here would
+            # print a traceback and skip every target after this one.
+            raise RuntimeError(
+                f"ilspycmd timed out after {DECOMPILE_TIMEOUT_SECONDS}s "
+                f"decompiling {type_name}") from None
+        except OSError as exc:
+            raise RuntimeError(f"ilspycmd could not run for {type_name}: {exc}") from exc
         if result.returncode != 0:
             raise RuntimeError(f"ilspycmd failed for {type_name}: {result.stderr.strip()}")
         cache[type_name] = result.stdout.splitlines()
@@ -325,6 +339,26 @@ def editor_version_key(path: Path) -> tuple:
     return (tokens, path.parts)
 
 
+ILSPY_PROBE_TIMEOUT_SECONDS = 60
+
+
+def probe_ilspy() -> tuple[int | None, str]:
+    """`ilspycmd --version` as (returncode, output); returncode None = could not run.
+
+    A tool that cannot be launched at all is a broken environment, not a
+    non-zero version check, and the two want different advice.
+    """
+    try:
+        result = subprocess.run(["ilspycmd", "--version"], capture_output=True,
+                                text=True, check=False,
+                                timeout=ILSPY_PROBE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return None, f"ilspycmd --version did not answer within {ILSPY_PROBE_TIMEOUT_SECONDS}s"
+    except OSError as exc:
+        return None, f"ilspycmd could not be launched: {exc}"
+    return result.returncode, (result.stderr.strip() or result.stdout.strip())
+
+
 def ensure_ilspy_runtime() -> str | None:
     """Make the installed ilspycmd runnable without a manual DOTNET_ROOT.
 
@@ -333,9 +367,8 @@ def ensure_ilspy_runtime() -> str | None:
     versioned fallback. It is sufficient for this read-only verifier and is
     preferred over silently treating every target as missing.
     """
-    probe = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                           text=True, check=False, timeout=60)
-    if probe.returncode == 0:
+    code, output = probe_ilspy()
+    if code == 0:
         return None
 
     hub_editors = Path.home() / "Unity" / "Hub" / "Editor"
@@ -350,17 +383,18 @@ def ensure_ilspy_runtime() -> str | None:
         original_root = os.environ.get("DOTNET_ROOT")
         os.environ["DOTNET_ROOT"] = str(runtime_root)
         os.environ["PATH"] = str(runtime_root) + os.pathsep + os.environ.get("PATH", "")
-        retry = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                               text=True, check=False, timeout=60)
-        if retry.returncode == 0:
+        code, retry_output = probe_ilspy()
+        if code == 0:
             print(f"ILSPY_RUNTIME {runtime_root}")
             return None
         if original_root is None:
             os.environ.pop("DOTNET_ROOT", None)
         else:
             os.environ["DOTNET_ROOT"] = original_root
+        if code is None:
+            output = retry_output
 
-    return probe.stderr.strip() or probe.stdout.strip() or "unknown ilspycmd runtime error"
+    return output or "unknown ilspycmd runtime error"
 
 
 def declared_signatures(body: list[str], method: str) -> list[str]:

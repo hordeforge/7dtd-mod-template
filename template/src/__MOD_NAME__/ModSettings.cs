@@ -38,6 +38,7 @@ namespace __MOD_NAME__
 		public const float FileReloadDebounceSeconds = 0.35f;
 
 		static string watchedPath;
+		static string lastReadFailure;
 		static DateTime appliedWriteUtc;
 		static long appliedLength = -1;
 		static string appliedText;
@@ -118,9 +119,15 @@ namespace __MOD_NAME__
 
 			DateTime writeUtc;
 			long length;
-			if (!TryStamp(watchedPath, out writeUtc, out length))
+			string failure;
+			if (!TryStamp(watchedPath, out writeUtc, out length, out failure))
 			{
-				message = "could not stat " + RelativePath + ".";
+				// A file the engine cannot even stat is unreadable for every
+				// poll until it is fixed, and the poll path below returns
+				// without logging: without this the mod would run on defaults
+				// forever and say nothing about why.
+				ReportReadFailure("cannot read " + RelativePath + ": " + failure);
+				message = "could not stat " + RelativePath + ": " + failure;
 				return false;
 			}
 
@@ -141,8 +148,9 @@ namespace __MOD_NAME__
 			}
 
 			string text;
-			if (!TryReadText(watchedPath, out text))
+			if (!TryReadText(watchedPath, out text, out failure))
 			{
+				ReportReadFailure("cannot read " + RelativePath + ": " + failure);
 				if (startup)
 				{
 					LogCurrent("defaults (unreadable " + RelativePath + ")");
@@ -177,6 +185,7 @@ namespace __MOD_NAME__
 			}
 
 			ResetToDefaults();
+			lastReadFailure = null;
 			for (var i = 0; i < entries.Count; i++)
 			{
 				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage))
@@ -199,10 +208,27 @@ namespace __MOD_NAME__
 			ExampleEnabled = ExampleEnabledDefault;
 		}
 
-		static bool TryStamp(string path, out DateTime writeUtc, out long length)
+		/// <summary>
+		/// Log why the settings file could not be read, once per distinct cause.
+		/// <see cref="Poll"/> retries every <see cref="FilePollIntervalSeconds"/>,
+		/// so a file the engine cannot open (deleted mid-read, a permission
+		/// change) would print the same line several times a second and still
+		/// never name the cause.
+		/// </summary>
+		static void ReportReadFailure(string reason)
+		{
+			if (reason == lastReadFailure)
+				return;
+			lastReadFailure = reason;
+			Debug.LogError("[__MOD_NAME__] " + reason);
+		}
+
+		static bool TryStamp(string path, out DateTime writeUtc, out long length,
+			out string failure)
 		{
 			writeUtc = default(DateTime);
 			length = -1;
+			failure = null;
 			try
 			{
 				writeUtc = SdFile.GetLastWriteTimeUtc(path);
@@ -210,15 +236,17 @@ namespace __MOD_NAME__
 					length = stream.Length;
 				return true;
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				failure = ex.Message;
 				return false;
 			}
 		}
 
-		static bool TryReadText(string path, out string text)
+		static bool TryReadText(string path, out string text, out string failure)
 		{
 			text = null;
+			failure = null;
 			try
 			{
 				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
@@ -226,8 +254,9 @@ namespace __MOD_NAME__
 					text = reader.ReadToEnd();
 				return true;
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				failure = ex.Message;
 				return false;
 			}
 		}

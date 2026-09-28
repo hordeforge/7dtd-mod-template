@@ -115,7 +115,18 @@ run_parallel() {
 	wait
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
-		read -r status secs < "$tmpdir/$name.status"
+		# A worker killed outright (OOM, a signal) never writes its status
+		# file. An unset `status` would abort the whole report under `set -u`
+		# and lose the results of every test that did run, so the missing
+		# file is itself the failure.
+		status=125
+		secs=0
+		if ! read -r status secs < "$tmpdir/$name.status"; then
+			printf 'FAIL %s (no status file: the worker exited before reporting)\n' "$name"
+			failed+=("$name")
+			ran=$((ran + 1))
+			continue
+		fi
 		ran=$((ran + 1))
 		elapsed=""
 		(( timings )) && elapsed=" (${secs}s)"

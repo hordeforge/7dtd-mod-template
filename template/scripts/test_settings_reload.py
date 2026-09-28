@@ -4,7 +4,9 @@
 The mod's runtime settings are Config/<Mod>.toml, read by the DLL itself:
 applied at InitMod, re-read on save without a restart (UnityUpdate watch,
 debounced), reset-to-defaults-then-apply, and a broken save keeps the
-current values. The console command shares the value grammar via TrySet.
+current values. A file the engine cannot read at all is logged with its
+cause, not swallowed. The console command shares the value grammar via
+TrySet.
 This gate holds those source-level contracts so a refactor cannot quietly
 drop one; the live behavior itself is proven in game.
 
@@ -56,6 +58,11 @@ def main() -> int:
           and '"reload " + RelativePath' in settings)
     check("a failed re-read keeps the current values",
           "keeping current settings" in settings)
+    check("an unreadable settings file names its cause instead of failing silently",
+          "ReportReadFailure" in settings
+          and "out string failure" in settings
+          and "catch (Exception ex)" in settings
+          and "ex.Message" in settings)
 
     return report()
 

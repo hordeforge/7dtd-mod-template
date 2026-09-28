@@ -41,6 +41,19 @@ def game_dir() -> str:
     return str(found)
 
 
+def parse(path: str) -> ET.Element:
+    """Parse `path` or exit naming it: a bare ET.ParseError says where the
+    syntax broke, never which of the two files being compared broke, and a
+    traceback out of a validation gate is not a usable report.
+    """
+    try:
+        return ET.parse(path).getroot()
+    except ET.ParseError as exc:
+        sys.exit(f"ERROR: {path} is not well-formed XML: {exc}")
+    except OSError as exc:
+        sys.exit(f"ERROR: cannot read {path}: {exc}")
+
+
 def find(root: ET.Element, xpath: str) -> bool | None:
     """True/False = resolvable; None = beyond ET's XPath subset."""
     # strip the vanilla root element name: /items/item/... -> ./item/...
@@ -84,7 +97,7 @@ def main() -> int:
         print("no Config/ directory; nothing to validate")
         return 0
     for name in patch_files(mod_config):
-        patch = ET.parse(os.path.join(mod_config, name)).getroot()
+        patch = parse(os.path.join(mod_config, name))
         if patch.tag != "configs":
             continue
         vanilla_path = os.path.join(config_dir, *name.split("/"))
@@ -92,7 +105,7 @@ def main() -> int:
             print(f"SKIP {name}: no vanilla counterpart (new file)")
             skips += 1
             continue
-        vanilla = ET.parse(vanilla_path).getroot()
+        vanilla = parse(vanilla_path)
         for op in patch:
             xpath = op.get("xpath")
             if xpath is None:
