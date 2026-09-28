@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate import check
@@ -25,6 +26,7 @@ from gate import main as report
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD_NAME = os.path.basename(MOD_DIR)
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
+SRC_PATH = Path(SRC)
 
 
 def main() -> int:
@@ -33,16 +35,27 @@ def main() -> int:
         return 0
 
     def read(name: str) -> str:
-        path = os.path.join(SRC, name)
-        if not os.path.isfile(path):
-            return ""
-        with open(path, encoding="utf-8-sig") as handle:
-            return handle.read()
+        """The mod's `name` source, wherever it sits under src/<Mod>/.
+
+        The search is recursive: a mod that files its reader one directory
+        down is held to the same contract as one that keeps it at the root,
+        instead of being read as an empty file and failing every check for a
+        reason the report never names.
+        """
+        matches = sorted(SRC_PATH.rglob(name))
+        for path in matches:
+            if path.read_text(encoding="utf-8-sig"):
+                return path.read_text(encoding="utf-8-sig")
+        return ""
 
     settings = read("ModSettings.cs")
     api = read("ModApi.cs")
     toml_path = os.path.join(MOD_DIR, "Config", MOD_NAME + ".toml")
 
+    check("ModSettings.cs is in src/", bool(settings),
+          f"no {os.path.join('src', MOD_NAME, 'ModSettings.cs')} to read")
+    check("ModApi.cs is in src/", bool(api),
+          f"no {os.path.join('src', MOD_NAME, 'ModApi.cs')} to read")
     check("the shipped settings TOML exists beside its reader",
           os.path.isfile(toml_path))
     check("ModSettings reads the TOML through the shared TrySet grammar",

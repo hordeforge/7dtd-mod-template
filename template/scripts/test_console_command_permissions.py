@@ -268,6 +268,18 @@ def main() -> int:
     check("negative control: a command in a comment or string is not found",
           list(commented) == ["Real"], repr(sorted(commented)))
 
+    # The level is usually a named constant, so a resolver that only read
+    # literals would call every real command undeclared.
+    named = ("const int AdminLevel = 0;\n"
+             "public class X : ConsoleCmdAbstract { public override int "
+             "DefaultPermissionLevel => AdminLevel; }")
+    check("a level named by a const int in the same file resolves",
+          resolve_level(named) == ADMIN_LEVEL, repr(resolve_level(named)))
+    undeclared = ("public class X : ConsoleCmdAbstract { public override int "
+                  "DefaultPermissionLevel => SomeOther; }")
+    check("a level naming a constant the file does not declare does not resolve",
+          resolve_level(undeclared) is None, repr(resolve_level(undeclared)))
+
     return report()
 
 

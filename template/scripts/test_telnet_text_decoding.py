@@ -23,6 +23,8 @@ import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from game_telnet import READY_MARKERS, GameTelnet
+from gate import check
+from gate import main as report
 
 LINE = "café \U0001F9F9 naïve"
 BANNER = b"Pr\xc3\xa9t. " + READY_MARKERS[0].encode() + b"\r\n"
@@ -30,16 +32,6 @@ FLAGS = "\U0001F1E9\U0001F1EA"
 # Half a character left behind by a session that was closed before the rest
 # of it arrived.
 STALE = b"\xc3"
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def split_at(data: bytes, index: int) -> str:
@@ -123,8 +115,7 @@ def main() -> int:
     check("a new session does not open with the previous one's partial character",
           ok, detail)
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return report()
 
 
 if __name__ == "__main__":

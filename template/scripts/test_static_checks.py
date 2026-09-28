@@ -34,10 +34,23 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NON_PATCH_CONFIG_XML: dict[str, str] = {}
 
 
+SKIP_DIRS = {".git", "dist", "bin", "obj", "__pycache__"}
+
+
+def all_files() -> list[str]:
+    """Every tracked-tree file, relative and sorted, whatever its extension."""
+    found = []
+    for base, dirs, files in os.walk(MOD_DIR):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        for f in sorted(files):
+            found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
+    return found
+
+
 def xml_files() -> list[str]:
     found = []
     for base, dirs, files in os.walk(MOD_DIR):
-        dirs[:] = sorted(d for d in dirs if d not in {".git", "dist", "bin", "obj", "__pycache__"})
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for f in sorted(files):
             if f.endswith(".xml"):
                 found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
@@ -139,12 +152,11 @@ def main() -> int:
     check("localization-inside-config",
           not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
           "move it to Config/Localization.csv; the engine ignores a root-level file")
-    stray_localization = "Localization.txt" if os.path.isfile(
-        os.path.join(MOD_DIR, "Localization.txt")) else ""
+    stray_localization = sorted(
+        rel_f for rel_f in all_files() if os.path.basename(rel_f) == "Localization.txt")
     check("no-localization-txt",
-          not any(rel_f.endswith("Localization.txt")
-                  for rel_f in [*files, stray_localization]),
-          "V3 uses Localization.csv")
+          not stray_localization,
+          "V3 uses Localization.csv; " + repr(stray_localization))
 
     check("no-legacy-xui-dir",
           not os.path.isdir(os.path.join(MOD_DIR, "Config", "XUi")),

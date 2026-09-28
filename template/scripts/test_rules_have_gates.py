@@ -34,6 +34,9 @@ SELF = os.path.abspath(__file__)
 # Each re-run is a separate interpreter, so the win is concurrency, not raw
 # cores; the cap matches run-offline-tests.sh so one knob bounds both.
 MAX_DETERMINISM_JOBS = 8
+# Generous next to any gate in this suite (the slowest runs in seconds), and
+# short enough that a wedged interpreter is a reported failure.
+GATE_TIMEOUT_SECONDS = 120
 
 INCIDENT = re.compile(
     r"\b(?:Written|Decided|Added|Corrected)\s+(?:on\s+)?20\d\d-\d\d-\d\d\b"
@@ -55,13 +58,25 @@ def sections(path: str) -> list[tuple[str, str]]:
 
 
 def twice(gate: str) -> tuple[bool, str]:
-    """Run one gate two times on the unchanged tree; did both agree?"""
+    """Run one gate two times on the unchanged tree; did both agree?
+
+    A gate that wedges must fail this one rather than hang the suite that is
+    checking it, so each run is bounded and a timeout is reported as the
+    disagreement it is.
+    """
     path = os.path.join(SCRIPTS, gate)
-    runs = [subprocess.run([sys.executable, path], capture_output=True, check=False)
-            for _ in range(2)]
+    runs = []
+    for _ in range(2):
+        try:
+            runs.append(subprocess.run([sys.executable, path], capture_output=True,
+                                      check=False, timeout=GATE_TIMEOUT_SECONDS))
+        except subprocess.TimeoutExpired:
+            return False, f"{gate} did not finish within {GATE_TIMEOUT_SECONDS}s"
     same = (runs[0].stdout == runs[1].stdout
             and runs[0].returncode == runs[1].returncode)
-    return same, "two runs on an unchanged tree differed"
+    detail = ("two runs on an unchanged tree differed: "
+              f"first={runs[0].stdout!r} second={runs[1].stdout!r}")
+    return same, detail
 
 
 def main() -> int:

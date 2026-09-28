@@ -84,9 +84,11 @@ def main() -> int:
             raise exception
         return run
 
-    def timed_out(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(
-            args=["ilspycmd"], returncode=0, stdout="", stderr="")
+    def decompiles(body: str) -> Callable[..., subprocess.CompletedProcess[str]]:
+        def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=["ilspycmd"], returncode=0, stdout=body, stderr="")
+        return run
 
     def exits_with(code: int, stderr: str) -> Callable[..., subprocess.CompletedProcess[str]]:
         def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -129,15 +131,30 @@ def main() -> int:
         check(name + " is a handled RuntimeError naming the type", ok, detail)
         check(name + " leaves the decompile cache unpolluted", cache == {}, repr(cache))
 
-    # A type that decompiles fine must still cache and return its lines.
+    # A type that decompiles fine must return the lines ilspycmd wrote and
+    # cache them. An empty stand-in stdout would pass a decompile that
+    # dropped its body on the floor, so the fixture carries real lines.
+    WORLD_BODY = "\tpublic class World\n\t{\n\t}\n"
     cache = {}
-    verifier.subprocess.run = timed_out
+    verifier.subprocess.run = decompiles(WORLD_BODY)
     try:
         body = verifier.decompile(verifier.Path(ASSEMBLY), "World", cache)
     finally:
         verifier.subprocess.run = real_run
-    check("a successful decompile caches and returns its body",
-          body == [] and cache == {"World": []}, repr(cache))
+    check("a successful decompile returns the type's own lines",
+          body == WORLD_BODY.splitlines(), repr(body))
+    check("a successful decompile caches them under the type name",
+          cache == {"World": WORLD_BODY.splitlines()}, repr(cache))
+    # A cache that is written but never read pays for ilspycmd twice per type
+    # and hides a type that decompiles differently the second time. A stand-in
+    # that refuses to run at all proves the second call never reaches it.
+    verifier.subprocess.run = raising(RuntimeError("the cache was not consulted"))
+    try:
+        again = verifier.decompile(verifier.Path(ASSEMBLY), "World", cache)
+    finally:
+        verifier.subprocess.run = real_run
+    check("a cached type is not decompiled a second time",
+          again == WORLD_BODY.splitlines(), repr(again))
 
     # Decoded as UTF-8 whatever the locale is, so a C-locale gate (this
     # repository's own build.sh and package.sh export LC_ALL=C) still reads a

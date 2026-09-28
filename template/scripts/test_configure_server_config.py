@@ -9,7 +9,9 @@ the derivation) and the server lane then fails on a config no rerun will
 rewrite. The write is staged and renamed, and this gate holds that, together
 with the plain idempotency of the derivation itself: the same source run twice
 produces byte-identical output, so a rerun after a fixed source converges
-instead of drifting.
+instead of drifting. The documented exit statuses (0 written, 1 the source
+cannot be used, 2 wrong arguments) are held too: nothing derives them from
+each other, so a caller reading the wrong one is caught only here.
 
 No game install and no server: the script takes a source and a target path,
 and this gate supplies both in a temporary directory.
@@ -97,6 +99,28 @@ def main() -> int:
         gate.check("a source with no EACEnabled property is refused",
               refused.returncode == 1 and not (root / "never.xml").exists(),
               refused.stderr)
+
+        # The script's exit statuses are a contract the server lane and any
+        # caller read: 2 for wrong arguments, 1 for a source that cannot be
+        # used, 0 for a help request. Nothing derives them from each other, so
+        # a wrong code is only visible here.
+        missing = run(str(root / "absent.xml"), str(root / "never.xml"))
+        gate.check("a source that does not exist is refused and named",
+              missing.returncode == 1 and "absent.xml" in missing.stderr
+              and not (root / "never.xml").exists(),
+              f"exit={missing.returncode} stderr={missing.stderr!r}")
+
+        for label, args in (("none", []), ("source only", [str(source)]),
+                            ("one too many", [str(source), str(target), "extra"])):
+            wrong = run(*args)
+            gate.check(f"wrong arguments ({label}) exit 2 with usage",
+                  wrong.returncode == 2 and "usage:" in wrong.stderr,
+                  f"args={args!r} exit={wrong.returncode} stderr={wrong.stderr!r}")
+
+        helped = run("--help")
+        gate.check("--help exits 0 and prints the usage contract",
+              helped.returncode == 0 and "SOURCE_CONFIG TARGET_CONFIG" in helped.stdout,
+              f"exit={helped.returncode} stdout={helped.stdout!r}")
 
     return gate.main()
 

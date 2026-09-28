@@ -36,7 +36,12 @@ PROBE = ('source "$1"; load_local_env "$2"; '
 
 
 def load(root: str, preset: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    env = dict(os.environ)
+    # The probe reports two keys, so both are cleared from the inherited
+    # environment first: a host that exports DOTNET_ROOT (any machine with a
+    # dotnet SDK does) or SEVEN_DAYS_TO_DIE_DIR would answer the "a missing
+    # file is not an error" case with a value the test never wrote.
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("DOTNET_ROOT", "SEVEN_DAYS_TO_DIE_DIR")}
     env.update(preset or {})
     return subprocess.run(
         ["bash", "-c", PROBE, "bash", SERVER_COMMON, root],
@@ -57,7 +62,9 @@ def main() -> int:
               done.stdout + done.stderr)
 
         done = load(root, {"SEVEN_DAYS_TO_DIE_DIR": "/from/env"})
-        check("the environment wins over the file", done.stdout == "/from/env|unset\n", done.stdout)
+        check("the environment wins over the file",
+              done.returncode == 0 and done.stdout == "/from/env|unset\n",
+              done.stdout + done.stderr)
 
     with tempfile.TemporaryDirectory() as root:
         write(root, 'SEVEN_DAYS_TO_DIE_DIR="/srv/7dtd"\nDOTNET_ROOT=""\n', newline="\r\n")
