@@ -90,7 +90,8 @@ def resolve(
     The walk is iterative and tracks the names it has already visited: a
     mod-authored `Extends` cycle (`a` extends `b`, `b` extends `a`) is
     malformed input, and a recursive walk turned it into a RecursionError
-    that killed the offline gate instead of reporting the bad patch. An
+    that killed the offline gate instead of reporting the bad patch. The
+    entry that closes the cycle raises `ExtendsCycle` naming the chain. An
     entry that extends *itself* is not a cycle — the engine reads it as
     "inherit nothing" — so that case still resolves.
     """

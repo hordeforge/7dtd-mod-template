@@ -93,6 +93,41 @@ behavior; when clients need the values, sync them explicitly (AtomicDoomsday
 pushes them through player CVars — its ADR 0012 pattern).
 `scripts/test_settings_reload.py` holds the source-level contract offline.
 
+### Who may run a console command
+
+A `ConsoleCmdAbstract` subclass is a privileged surface: every connected
+player can type it. Two members of the command decide what happens, and
+neither is checked inside `Execute`.
+
+**`DefaultPermissionLevel`** is the required level, where **0 is the most
+privileged** and a larger number is less privileged (an unlisted player is
+`Constants.cDefaultUserPermissionLevel`, 1000). The engine enforces it
+*upstream* of `Execute`:
+
+| Caller | Gate |
+|---|---|
+| connected client (`NetPackageConsoleCmdServer`) | `ConnectionManager.ServerConsoleCommand` → `AdminTools.CommandAllowedFor`: allowed when the caller's level is at or below the command's; denied callers get the engine's permission error |
+| web dashboard Command API | the same `CommandAllowedFor` call, for the bound web user |
+| dedicated telnet, stdin, the in-game local console | none; these are the operator's own channels |
+
+`ServerConsoleCommand` checks the level *before* anything else runs, so a
+command that is admin-level is unreachable from a player client however it
+is written. The base class returns 0, so a command that overrides nothing is
+admin-only by default; state the level anyway, because the base class is the
+game's and a mod's permission should not depend on it. State a larger number
+only for a command that is safe for any player, and say why in the help text.
+
+**`IsExecuteOnClient`** decides *where* it runs, not who may run it. A
+client-executable command is forwarded to the caller and executed in that
+caller's own process, so on a dedicated server it edits the caller's copy of
+anything it writes, not the server's. A command that reads or writes
+server-authoritative state is `false`.
+
+Both are held at the source level by
+`scripts/test_console_command_permissions.py`; the live behavior is proven in
+game. The engine's side is catalogued in
+`hordeforge/7dtd-engine-research` `docs/admin/console-commands.md`.
+
 ### Comments are the settings UI
 
 Wrench (`hordeforge/7dtd-mod-settings`) renders every installed mod's

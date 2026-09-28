@@ -19,7 +19,7 @@ a dedicated server.
 | 2 | `.local.env` is `source`d as shell under `set -a`; anything that can write it runs as code on the next `make` | machine to build | `template/scripts/build.sh:20`, `template/scripts/server-common.sh:11` | High |
 | 3 | Mod DLL executes with full game/server process authority, and a server config with EAC off is the shipped lane | build to runtime | `template/src/__MOD_NAME__/ModApi.cs:10`, `template/scripts/server-smoke.sh:30` | High |
 | 4 | Sibling tool checkouts are cloned and then executed by `make` targets | tool chain to build | `new-mod.sh:65-76`, `template/Makefile:57-68` | Medium-High |
-| 5 | Mod console command has no permission gate: any connected client can rewrite live server settings | player to server process | `template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:40` | Medium |
+| 5 | Mod console command is admin-level and server-side; a player's own in-game console still runs it locally, mutating that client's copy of the settings | player to client process | `template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:25` | Low |
 | 6 | Telnet console client has no peer authentication; the console password and every command go in cleartext to whatever answers on the port | network to tooling | `template/scripts/lib/game_telnet.py:60`, `:83` | Medium |
 | 7 | `.local.env` is gitignored, and the scaffolder's `git add -A` runs after it is written, so machine paths and any future secret stay out of history | build to VCS | `new-mod.sh:192`, `template/.gitignore:5` | Controlled |
 | 8 | `deploy-server.sh` runs `rm -rf` on a path built from an env-sourced directory; a wrong or hostile `SEVEN_DAYS_TO_DIE_SERVER_DIR` destroys a server tree | env to filesystem | `template/scripts/deploy-server.sh:30-45` | Medium |
@@ -84,7 +84,7 @@ Entry points, all with the file that creates them.
   (`test_static_checks.py:22`, `validate-xml-targets.py:44`).
 - `Config/<Mod>.toml` inside the installed mod folder, re-read on a 0.25 s poll
   (`ModSettings.cs:37`, `:66`).
-- console command arguments (`ConsoleCmd__MOD_NAME__.cs:40`).
+- console command arguments (`ConsoleCmd__MOD_NAME__.cs:65`).
 - the game install's managed assemblies, decompiled during target validation
   (`verify-patch-targets.py:203`).
 
@@ -119,8 +119,13 @@ because audit is disabled (`__MOD_NAME__.csproj:10`).
 invoke. They are trusted code with no pinning.
 
 **Player to server process.** The console command surface is reachable by any
-client that can issue a command; there is no permission check in the template's
-command class.
+client that can issue a command, and the engine decides which of those
+callers are allowed: `ConnectionManager.ServerConsoleCommand` applies
+`AdminTools.CommandAllowedFor` before dispatch, and the template's command
+states the admin level (0) itself rather than inheriting one, so a connected
+player is refused. Telnet, stdin and the local in-game console skip that
+gate by design, so what is left is a player running the command in their own
+client process.
 
 **Developer to network.** SteamCMD, GitHub and NuGet see the developer's IP and
 credentials; the telnet client sends a console password in cleartext.
@@ -177,15 +182,23 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
   (`ModSettings.cs:37-42`), so write access to the install changes running server
   behavior without a restart and without a log line naming the writer.
 - *Information disclosure:* `Describe()` prints every setting and current value
-  to the console, which the telnet console returns to any client that can run the
-  command (`ConsoleCmd__MOD_NAME__.cs:46-49`).
+  to the console (`ConsoleCmd__MOD_NAME__.cs:69-74`). The operator channels
+  (telnet, stdin) return it, and so does a player's own in-game console, which
+  runs the command in that client's process with no level check; a client
+  arriving over the network is refused by the permission level.
 
 **Player to server process (STRIDE)**
-- *Elevation of privilege:* `ConsoleCmd__MOD_NAME__` sets `IsExecuteOnClient` to
-  true (`:12`) and performs no permission check in `Execute` (`:40`). Any connected
-  client can run `set` and `reload`, changing server-wide settings. The shipped
-  setting is a boolean, so today's impact is low; the class ships into every
-  generated mod, where settings are likely to be more sensitive.
+- *Elevation of privilege:* the engine's permission check runs before a
+  networked client's command is dispatched, and the command declares the admin
+  level, so `set` and `reload` are refused for a connected player. The
+  command is not client-executable (`:34`), so an admin who runs it from a
+  client gets the server's values back rather than editing their own. The
+  remaining path is the client's own local console, where the same command
+  edits that client's copy of the settings; that reaches server behavior only
+  through a mod whose own code reads the settings on the client. The shipped
+  setting is a boolean and no shipped patch reads it, so today's impact is
+  low; the class ships into every generated mod, where settings are likely to
+  be more sensitive and client-side readers more likely.
 - *Repudiation:* a settings change made through the console is not attributable to
   a player; the log line the mod emits carries the value, not the sender.
 
@@ -238,31 +251,35 @@ Controls that exist in the code, with what each one actually covers.
 | shellcheck over every tracked script, and the incident-to-gate harness | `lint-shell.sh`, `test_rules_have_gates.py` | Catches shell defects and rules that were written as prose only. |
 | ruff over every tracked Python script under the shipped `ruff.toml`, blocking in CI | `lint-py.sh`, `ruff.toml` | Catches Python defects in the mod's own build-time tooling, which is the only code a mod author edits before any game code exists. |
 | Deterministic gate harness: every AGENTS.md incident names a `test_*.py` | `test_rules_have_gates.py:29-35` | Keeps written rules from rotting into unenforceable prose. |
+| Mod console command states the admin level and is not client-executable, with a gate over both | `ConsoleCmd__MOD_NAME__.cs:25`, `:34`, `test_console_command_permissions.py` | `AdminTools.CommandAllowedFor` refuses a connected player before dispatch, and an admin's run edits the server's settings rather than their own. |
 
 Gaps, ranked by exploitability then impact. These are recorded here; the fixes
 belong to code review, not to this document.
 
-1. **No permission gate on the mod console command** (`ConsoleCmd__MOD_NAME__.cs:40`).
-   Any client can rewrite live server settings. Highest-impact gap in the template
-   because it is copied into every generated mod.
-2. **Sourced-as-code conf and `.local.env`** (`new-mod.sh:31`, `build.sh:20`,
+1. **Sourced-as-code conf and `.local.env`** (`new-mod.sh:31`, `build.sh:20`,
    `server-common.sh:11`). No format validation, no ownership or mode check on
    `.local.env`, no warning that it is executed rather than parsed.
-3. **No peer authentication or TLS in the telnet client** (`game_telnet.py:60`,
+2. **No peer authentication or TLS in the telnet client** (`game_telnet.py:60`,
    `:83`). The password is sent to whoever answered the port, and the returned
    text is trusted as game truth.
-4. **Dependency substitution is unobserved**: `NuGetAudit=false`
+3. **Dependency substitution is unobserved**: `NuGetAudit=false`
    (`__MOD_NAME__.csproj:10`), no `packages.lock.json`, and the compile-time
    reference set is DLLs read out of a game install (`build.sh:28-34`).
 5. **Destructive delete on an env-derived path** (`deploy-server.sh:30-45`). The path
    is only checked for being absolute, never for being a server directory that
    contains `7DaysToDieServer.x86_64` under the target `Mods/` subpath.
-6. **Sibling checkouts execute without pinning** (`new-mod.sh:65-76`,
+5. **Sibling checkouts execute without pinning** (`new-mod.sh:65-76`,
    `Makefile:56-60`). A moved branch or a compromised repository runs on the
    developer's machine.
 7. **CI action not pinned to a commit** (`.github/workflows/ci.yml:23`).
 8. **Unbounded XML entity expansion** on locally trusted files
    (`configure-server-config.py:14`, `test_static_checks.py:22`).
+8. **A player's own in-game console runs any console command in their client
+   process** (`ConsoleCmd__MOD_NAME__.cs:65`). The engine's level check covers
+   the networked and web paths only; telnet, stdin and the local console are
+   operator channels by design. A player can therefore rewrite their own
+   copy of a mod's settings, which reaches server behavior only through a mod
+   that reads them on the client.
 9. **No audit trail for security-relevant events.** `server-smoke.sh` writes a
    server log, and the mod writes `[<Mod>] InitMod` to the game log
    (`ModApi.cs:15`), but there is no record of who deployed a package
@@ -270,7 +287,7 @@ belong to code review, not to this document.
    changed a setting.
 
 Single points of failure worth naming: the shell execution of `.local.env`
-carries threats 2, 5 and 8 at once, and one line there reaches every `make`
+carries threats 1, 4 and 7 at once, and one line there reaches every `make`
 target. The mod DLL is the single artifact whose compromise yields full server
 control.
 

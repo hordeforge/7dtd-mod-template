@@ -143,6 +143,14 @@ save, reset-then-apply, broken save keeps current values, console
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
 
+The command is admin-only (`DefaultPermissionLevel => 0`) and server-side
+(`IsExecuteOnClient => false`): it edits the server's copy of the settings,
+so a client-executable one would edit the caller's instead. Any new
+`ConsoleCmdAbstract` class states its own level rather than inheriting the
+game base class's — `scripts/test_console_command_permissions.py` holds
+both, and "Who may run a console command" in
+`docs/reference/csharp-harmony.md` has the engine's side.
+
 The TOML's comments are player-facing: Wrench
 (`hordeforge/7dtd-mod-settings`) renders this file in the options menu,
 shows the comment block directly above each key as its help text, and an

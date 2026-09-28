@@ -6,17 +6,17 @@ is whatever a mod author put in `Config/*.xml`: a chain longer than anyone
 planned, a name that points at nothing, a self-reference, or a cycle
 (`a` extends `b`, `b` extends `a`). Every one of those is a patch file, not
 an attack, and all of them have to come back as a resolved entry, as empty, or
-as the `ExtendsCycle` that names the chain, never as a traceback that kills
-the offline gate before it can report the bad patch.
+as a named `ExtendsCycle` that says which chain closed, never as a traceback
+that kills the offline gate before it can report the bad patch.
 
 No fuzzing engine is available on the host (atheris and hypothesis are
 absent and nothing installs them here), so this generates the input grammar
 directly and asserts the three properties a coverage-guided fuzzer cannot
 check on its own:
 
-- **termination** — every chain comes back, cycles included, and a cycle comes
-  back as `ExtendsCycle` naming the entry that closed it, never as a walk that
-  runs away;
+- **termination** — every chain comes back, cycles included; a cyclic
+  entry is the one input with no resolved result, and it must be the named
+  `ExtendsCycle`, never a `RecursionError`;
 - **own properties win** — a property the entry declares itself is never
   lost, whatever the chain above it does;
 - **`param1` excludes** — a name the entry's `Extends` refuses to inherit is
@@ -122,12 +122,14 @@ def main() -> int:
             try:
                 scalars, classes = xml_extends.resolve(name, pool)
             except xml_extends.ExtendsCycle as exc:
-                # A cycle is malformed input, and the only acceptable answer
-                # is the named error: an untraceable walk fails the gate the
-                # same way a traceback does.
+                # A closed chain is malformed input with no resolved form.
+                # It must name the walk and the name that closed it, or it
+                # is the crash this gate exists to prevent, wearing a name.
                 cycles += 1
-                if not str(exc).startswith(name + " -> "):
-                    fail("cycle", f"{name} was not named first: {exc}")
+                chain = str(exc).split(" -> ")
+                if (chain[0] != name or len(chain) < 3
+                        or chain[-1] not in chain[:-1]):
+                    fail("cycle", f"{name}: {exc} does not name a closed chain")
                 continue
             except RecursionError:
                 fail("resolve", f"{name} did not terminate")
@@ -148,7 +150,12 @@ def main() -> int:
 
             parent_name, excluded = xml_extends.parent_of(pool[name])
             if parent_name in pool and parent_name != name:
-                inherited, _ = xml_extends.resolve(parent_name, pool)
+                try:
+                    inherited, _ = xml_extends.resolve(parent_name, pool)
+                except xml_extends.ExtendsCycle:
+                    # The parent is the cyclic entry; its result is the
+                    # error, not a set of inherited values to compare with.
+                    continue
                 for excluded_name in excluded:
                     if excluded_name in declared["scalars"]:
                         continue

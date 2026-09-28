@@ -5,11 +5,33 @@ namespace __MOD_NAME__
 	/// <summary>
 	/// The mod's console command (auto-discovered via ConsoleCmdAbstract):
 	/// list settings, change one for this session, or re-read the TOML now.
-	/// Works in the in-game console and over dedicated-server telnet.
+	/// Reached over dedicated-server telnet/stdin (the trusted operator
+	/// channels), and by an admin from a connected client or the web Command
+	/// API, which the engine gates through AdminTools.CommandAllowedFor at
+	/// this command's <see cref="DefaultPermissionLevel"/>.
 	/// </summary>
 	public class ConsoleCmd__MOD_NAME__ : ConsoleCmdAbstract
 	{
-		public override bool IsExecuteOnClient => true;
+		/// <summary>
+		/// Admin-only. In the 7DTD permission convention 0 is the highest
+		/// level and a larger number is less privileged, so CommandAllowedFor
+		/// admits a caller whose level is 0 and denies everybody else. Stated
+		/// here rather than inherited: the base returns 0 today, and a mod
+		/// command that reads its own level from a base class is one game
+		/// update away from being open.
+		/// </summary>
+		private const int AdminPermissionLevel = 0;
+
+		public override int DefaultPermissionLevel => AdminPermissionLevel;
+
+		/// <summary>
+		/// Server-side, never the issuing client's. The settings this command
+		/// writes are the server's authoritative copy (docs/reference/
+		/// csharp-harmony.md), and a client-executable command is forwarded
+		/// to the caller instead of run in the server process, so a remote
+		/// admin would only be editing their own client.
+		/// </summary>
+		public override bool IsExecuteOnClient => false;
 
 		public override string[] getCommands()
 		{
@@ -31,6 +53,9 @@ namespace __MOD_NAME__
 				+ "     is re-read.\n"
 				+ "  __MOD_NAME_LOWER__ reload\n"
 				+ "     Re-read " + ModSettings.RelativePath + " now.\n"
+				+ "\n"
+				+ "Admin only: a connected player is refused by the server's\n"
+				+ "permission check before this runs.\n"
 				+ "\n"
 				+ "Saving " + ModSettings.RelativePath + " in the installed mod\n"
 				+ "folder applies without a restart. reload does that immediately.\n"
