@@ -198,6 +198,19 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- The static gate's two memoized answers were keyed without the tree they
+  were read from: the walk was cached under an empty key and each parse under
+  its relative path, both of which are relative to `MOD_DIR`. A caller that
+  repointed the gate at a second tree (`test_xml_gates.py` drives it over a
+  fixture tree) kept being answered from the first one's walk and parse, so a
+  fixture's `Config/items.xml` was checked against another fixture's
+  document. The root is part of both keys now, and
+  `scripts/test_static_check_caches.py` holds it by walking and parsing two
+  trees in one process.
+- `verify-patch-targets.py` cached a decompiled type under its type name
+  alone while taking the assembly as an argument, so a second game install
+  sharing a cache was answered with the first one's source for every type it
+  had in common. The assembly is part of the key.
 - The scaffolder cut the mod browser's 200 code-point description inside a
   character whenever the purpose was written in a script where one character
   is several code points: a Devanagari matra, a Thai vowel sign or a flag's

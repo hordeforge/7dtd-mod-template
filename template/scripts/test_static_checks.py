@@ -41,20 +41,26 @@ SKIP_DIRS = {".git", "dist", "bin", "obj", "__pycache__"}
 
 
 @functools.cache
-def tree_files() -> tuple[list[str], list[str]]:
+def tree_files(mod_dir: str) -> tuple[list[str], list[str]]:
     """(every file, the XML among them), relative and sorted.
 
     One walk, both lists, walked once: the gate needs the whole tree for the
     stray localization check and the XML subset for everything else, so
     walking the mod separately per list, and again for the `Extends` pass,
     traversed a small tree three times to answer one question.
+
+    `mod_dir` is a parameter, so it is part of the cache key. Keyed on
+    nothing, the first root walked answered every later question, and a
+    caller that repointed `MOD_DIR` at another tree (test_xml_gates.py
+    drives this gate over a fixture tree) kept being told about the first
+    one's files.
     """
     found: list[str] = []
     xml: list[str] = []
-    for base, dirs, files in os.walk(MOD_DIR):
+    for base, dirs, files in os.walk(mod_dir):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for f in sorted(files):
-            rel = os.path.relpath(os.path.join(base, f), MOD_DIR)
+            rel = os.path.relpath(os.path.join(base, f), mod_dir)
             found.append(rel)
             if f.endswith(".xml"):
                 xml.append(rel)
@@ -63,12 +69,12 @@ def tree_files() -> tuple[list[str], list[str]]:
 
 def all_files() -> list[str]:
     """Every tracked-tree file, relative and sorted, whatever its extension."""
-    return tree_files()[0]
+    return tree_files(MOD_DIR)[0]
 
 
 def xml_files() -> list[str]:
     """Every tracked-tree `*.xml`, relative and sorted."""
-    return tree_files()[1]
+    return tree_files(MOD_DIR)[1]
 
 
 def check_release_version(version: str) -> None:
@@ -91,26 +97,33 @@ def check_release_version(version: str) -> None:
           first.endswith(" " + version), f"{first!r} does not end with {version!r}")
 
 
-# relative path -> (parsed root, the error that stopped it, or None)
-PARSED: dict[str, tuple[ET.Element | None, str | None]] = {}
+# (tree root, relative path) -> (parsed root, the error that stopped it, or None)
+PARSED: dict[tuple[str, str], tuple[ET.Element | None, str | None]] = {}
 
 
 def parsed_root(rel: str) -> tuple[ET.Element | None, str | None]:
     """`(root, parse error)` for a tracked XML file, parsed at most once.
 
-    Memoized per relative path: ModInfo.xml is read by the field checks, by
+    Memoized per tree and path: ModInfo.xml is read by the field checks, by
     the changelog check and by `declared_version`, and each Config patch file
     is parsed once for its root tag and again for the `Extends` walk, so the
     same document was built from disk two or three times per run.
+
+    The tree is part of the key because the path is relative to it. Keyed on
+    the relative path alone, a caller that repointed `MOD_DIR` at another
+    tree (test_xml_gates.py drives this gate over a fixture tree) was handed
+    the first tree's document for the second tree's file name.
     """
-    if rel not in PARSED:
+    entry = PARSED.get((MOD_DIR, rel))
+    if entry is None:
         try:
-            PARSED[rel] = (ET.parse(os.path.join(MOD_DIR, rel)).getroot(), None)
+            entry = (ET.parse(os.path.join(MOD_DIR, rel)).getroot(), None)
         except ET.ParseError as err:
-            PARSED[rel] = (None, str(err))
+            entry = (None, str(err))
         except OSError as err:
-            PARSED[rel] = (None, str(err))
-    return PARSED[rel]
+            entry = (None, str(err))
+        PARSED[(MOD_DIR, rel)] = entry
+    return entry
 
 
 def check_release_notes() -> None:
@@ -179,7 +192,7 @@ def declared_version() -> str:
 
 
 def main() -> int:
-    every, files = tree_files()
+    every, files = tree_files(MOD_DIR)
     roots: dict[str, str] = {}
     for rel in files:
         root, error = parsed_root(rel)

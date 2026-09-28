@@ -107,7 +107,7 @@ def main() -> int:
         ("the runtime probe cannot be launched",
          raising(OSError("Permission denied")), "launched", None),
     ):
-        cache: dict[str, list[str]] = {}
+        cache: dict[tuple[str, str], list[str]] = {}
         verifier.subprocess.run = patch
         try:
             if subject is None:
@@ -143,8 +143,8 @@ def main() -> int:
         verifier.subprocess.run = real_run
     check("a successful decompile returns the type's own lines",
           body == WORLD_BODY.splitlines(), repr(body))
-    check("a successful decompile caches them under the type name",
-          cache == {"World": WORLD_BODY.splitlines()}, repr(cache))
+    check("a successful decompile caches them under the assembly and type name",
+          cache == {(ASSEMBLY, "World"): WORLD_BODY.splitlines()}, repr(cache))
     # A cache that is written but never read pays for ilspycmd twice per type
     # and hides a type that decompiles differently the second time. A stand-in
     # that refuses to run at all proves the second call never reaches it.
@@ -155,6 +155,19 @@ def main() -> int:
         verifier.subprocess.run = real_run
     check("a cached type is not decompiled a second time",
           again == WORLD_BODY.splitlines(), repr(again))
+
+    # The same type name in another assembly is another body, so it is
+    # another entry. Keyed by the name alone, the second install was answered
+    # from the first one's decompile and every target in it was checked
+    # against the wrong engine version's source.
+    OTHER_BODY = "\tpublic class World { /* v2 */ }\n"
+    verifier.subprocess.run = decompiles(OTHER_BODY)
+    try:
+        other = verifier.decompile(verifier.Path("Other/Assembly-CSharp.dll"), "World", cache)
+    finally:
+        verifier.subprocess.run = real_run
+    check("the same type in another assembly is decompiled again",
+          other == OTHER_BODY.splitlines(), repr(other))
 
     # Decoded as UTF-8 whatever the locale is, so a C-locale gate (this
     # repository's own build.sh and package.sh export LC_ALL=C) still reads a

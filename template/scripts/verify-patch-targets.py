@@ -333,8 +333,13 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     return targets, patch_classes
 
 
-def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
-    """The decompiled body of `type_name` as lines, cached per type.
+def decompile(assembly: Path, type_name: str, cache: dict[tuple[str, str], list[str]]) -> list[str]:
+    """The decompiled body of `type_name` in `assembly`, cached per assembly
+    and type.
+
+    The assembly is part of the key because the answer is: the same type name
+    in a second game install is a different body, and a cache keyed by the
+    name alone answers every later install from the first one's decompile.
 
     ilspycmd writes UTF-8 regardless of the environment it is launched in, so
     the output is decoded as UTF-8 here rather than with the locale encoding.
@@ -344,7 +349,8 @@ def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> li
     problems instead of tracebacks.
     """
 
-    if type_name not in cache:
+    key = (str(assembly), type_name)
+    if key not in cache:
         try:
             result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
                                     capture_output=True, encoding="utf-8",
@@ -361,8 +367,8 @@ def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> li
             raise RuntimeError(f"ilspycmd could not run for {type_name}: {exc}") from exc
         if result.returncode != 0:
             raise RuntimeError(f"ilspycmd failed for {type_name}: {result.stderr.strip()}")
-        cache[type_name] = result.stdout.splitlines()
-    return cache[type_name]
+        cache[key] = result.stdout.splitlines()
+    return cache[key]
 
 
 # A version directory name split into digit and non-digit runs.
@@ -565,7 +571,7 @@ def main(argv: list[str]) -> int:
     print(f"TARGETS   {len(targets)} attributes across {len(patch_classes)} patch classes")
     print()
 
-    cache: dict[str, list[str]] = {}
+    cache: dict[tuple[str, str], list[str]] = {}
     failures = 0
 
     for target in sorted(targets, key=lambda item: (item.declaring_type, item.method)):
