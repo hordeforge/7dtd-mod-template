@@ -41,11 +41,18 @@ make check                  # scaffolds and runs every gate CI runs
 `make check` is `.github/workflows/ci.yml` step for step: it re-scaffolds
 `ci/smoke.conf` into the gitignored `.scratch/` (so a stale tree never makes
 the gates pass), then runs the generated mod's `make test`, `make lint-shell`
-and `make lint-py`, shellchecks `new-mod.sh` itself, and proves `make package`
+and `make lint-py`, asserts what the scaffold made of that config's text with
+`ci/check-smoke-mod.py`, shellchecks `new-mod.sh` itself, runs the modlet's
+ruff rules over `ci/`, and proves `make package`
 produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. `make preflight`
 names any missing host tool first. `make scaffold` alone, then working inside
 `.scratch/anvil-smoke/CiSmoke`, is the loop for iterating on one gate. Never
 mark template work done on inspection alone.
+
+`ci/smoke.conf` carries text that is hostile on purpose (`&`, `<`, a quote in
+the display name and author, an accented letter, a CJK sentence end), and
+`ci/check-smoke-mod.py` pins what the substitution owes ModInfo.xml. Change
+either and the checker fails, by design.
 
 `new-mod.sh` is re-runnable in the same sense: it builds the mod in a staging
 directory and moves it into place as its last step, so an interrupted run

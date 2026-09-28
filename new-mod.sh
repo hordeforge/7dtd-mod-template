@@ -260,7 +260,7 @@ export ANVIL_NAME="$name" ANVIL_DISPLAY="$display_name" ANVIL_AUTHOR="$author" \
 	ANVIL_PURPOSE="$purpose" ANVIL_SKIP_EAC="$skip_eac" \
 	ANVIL_CSHARP="$csharp" ANVIL_ASSETS="$assets"
 python3 - "$MOD_DIR" <<'PYEOF'
-import html, os, re, sys
+import html, os, re, sys, unicodedata
 import xml.etree.ElementTree as ET
 mod_dir = sys.argv[1]
 purpose = os.environ["ANVIL_PURPOSE"].strip()
@@ -285,18 +285,57 @@ TRAILING_JOINER = re.compile(
     "(?:[\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20F0"
     "\uFE00-\uFE0F\U0001F3FB-\U0001F3FF\U0001F1E6-\U0001F1FF]"
     "|[\u200C\u200D\uFEFF])+$")
-short = TRAILING_JOINER.sub("", re.split(r"(?<=[.!?])\s", purpose)[0][:200])
+# Where a sentence ends, per script. A Latin sentence closes on `.`, `!` or
+# `?` and writes whitespace or nothing after it; a CJK or Devanagari one
+# closes on its own stop character and writes nothing after it at all, so an
+# ASCII-only rule reads a Japanese purpose as one long sentence and leaves
+# the mod browser's description holding two of them, cut mid-phrase.
+ASCII_STOP = ".!?"
+OTHER_STOP = "。！？｡؟۔।॥"
+
+
+def first_sentence(text):
+    """`text` up to its first sentence end, or all of it when it has none.
+
+    A stop is not an end where a digit (`v1.2`) or a lone capital (the `A.`
+    of an initial) precedes it, and an ASCII stop is one only where
+    whitespace or the end of the text follows it.
+    """
+    for index, char in enumerate(text):
+        if char not in ASCII_STOP + OTHER_STOP:
+            continue
+        if char in ASCII_STOP and index + 1 < len(text) and not text[index + 1].isspace():
+            continue
+        before = text[:index].rstrip()
+        if before and char in ASCII_STOP and (before[-1].isdigit()
+                                              or (before[-1].isupper() and len(before) == 1)):
+            continue
+        return text[:index + 1]
+    return text
+
+# The description is the mod browser's one line: 200 code points, whatever
+# the script, not bytes and not grapheme clusters.
+DESCRIPTION_LIMIT = 200
+short = TRAILING_JOINER.sub("", first_sentence(purpose)[:DESCRIPTION_LIMIT])
+
+# The author token names the Harmony id, a lowercase ASCII string. Decomposing
+# first turns an accented name into its base letters, so Müller and its
+# decomposed spelling both reduce to muller rather than mller.
+author_id = re.sub(r"[^a-z0-9]", "",
+                   unicodedata.normalize("NFKD", os.environ["ANVIL_AUTHOR"]).lower())
 tokens = {
     "__MOD_NAME__": os.environ["ANVIL_NAME"],
     "__MOD_NAME_LOWER__": os.environ["ANVIL_NAME"].lower(),
     "__MOD_DISPLAY_NAME__": os.environ["ANVIL_DISPLAY"],
     "__MOD_AUTHOR__": os.environ["ANVIL_AUTHOR"],
-    "__MOD_AUTHOR_LOWER__": re.sub(r"[^a-z0-9]", "", os.environ["ANVIL_AUTHOR"].lower()) or "author",
+    "__MOD_AUTHOR_LOWER__": author_id or "author",
     "__MOD_PURPOSE__": purpose,
-    "__MOD_PURPOSE_SHORT__": html.escape(short, quote=True),
+    "__MOD_PURPOSE_SHORT__": short,
     "__MOD_VERSION__": version,
     "__SKIP_WITH_ANTI_CHEAT__": os.environ["ANVIL_SKIP_EAC"],
 }
+xml_tokens = {token: html.escape(value, quote=True)
+              for token, value in tokens.items()}
 
 CSHARP = ("<!-- ANVIL:CSHARP-BEGIN -->", "<!-- ANVIL:CSHARP-END -->")
 ASSETS = ("# ANVIL:ASSETS-BEGIN", "# ANVIL:ASSETS-END")
@@ -345,7 +384,13 @@ for base, dirs, files in os.walk(mod_dir):
             if drop_block:
                 out = strip_block(out, begin, end)
             out = strip_markers(out, begin, end)
-        for token, value in tokens.items():
+        # ModInfo.xml is the one file here whose values land in an XML
+        # attribute, where a bare `&`, `<` or `"` ends the attribute and
+        # leaves the file the game cannot parse. Every other consumer (a C#
+        # string, a markdown file) takes the text as it stands, so escaping
+        # belongs to that one file, applied to every value alike.
+        here = xml_tokens if base == mod_dir and f == "ModInfo.xml" else tokens
+        for token, value in here.items():
             out = out.replace(token, value)
         if out != text:
             with open(path, "w", encoding="utf-8", newline="") as handle:

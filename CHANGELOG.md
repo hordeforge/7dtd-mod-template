@@ -19,6 +19,13 @@ modlet's contract rather than add to it.
 
 ### Added
 
+- `ci/check-smoke-mod.py` pins what the scaffolder makes of the smoke
+  config's text: the ModInfo fields a reader of `ci/smoke.conf` expects, the
+  full purpose still reaching the mod, and the Harmony id the author name
+  produces. `ci/smoke.conf` carries text hostile on purpose (`&`, `<`, a
+  quote, an accented letter, a CJK sentence end) so the check is a real one.
+  `make check` and CI both run it, and CI also runs the modlet's ruff rules
+  over `ci/`.
 - `make lint-py` gates the modlet's Python under the shipped `ruff.toml`, and
   CI installs ruff and runs it as a blocking step. **Breaking for a mod
   scaffolded before this:** that mod has no `lint-py` target and no
@@ -129,6 +136,19 @@ modlet's contract rather than add to it.
   session held its whole output in memory for the length of the session.
   `scripts/test_telnet_no_retention.py` drives a session over a real socket
   pair and fails if any per-instance state grows with it.
+- A scaffold writes `ModInfo.xml`'s free text as XML. A display name or
+  author holding `&`, `<` or a quote (a typographic name, an ampersand, a
+  name in a non-Latin script) went into the attribute raw and left a file
+  the game cannot parse, and the generated mod's own xml-parses gate red.
+- A purpose is cut at the sentence end its script writes. Only `.!?`
+  counted, and only where whitespace followed, so a Japanese or Devanagari
+  purpose was one long sentence and the mod-browser description held two
+  of them, cut mid-phrase. A digit or a lone capital before a stop is an
+  initial or a version, not an end.
+- The author token behind the Harmony id is normalized before it is
+  reduced to lowercase ASCII, so an accented name keeps its base letters
+  (`Müller` becomes `muller`, not `mller`) whether it is stored composed or
+  decomposed.
 - A scaffolder prompt is asked again until the answer is usable, and the
   re-ask spells out what a usable answer looks like. An empty or malformed
   answer used to end the run with a message naming the rule but not its

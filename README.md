@@ -70,7 +70,11 @@ make help       # the targets above, and what they need
 `zip` and `unzip` on `PATH`; `make preflight` names whichever is missing before
 the first step runs. Nothing is installed for you and no game install or .NET SDK is
 needed, because the smoke config ([`ci/smoke.conf`](ci/smoke.conf)) sets
-`clone="no"` and the package step proves the XML-only path. To iterate on a
+`clone="no"` and the package step proves the XML-only path. That config also
+carries a display name and author full of `&`, `<` and quotes, an accented
+letter and a Japanese first sentence, so
+[`ci/check-smoke-mod.py`](ci/check-smoke-mod.py) proves the scaffold writes
+them into `ModInfo.xml` intact on every run. To iterate on a
 single gate, `make scaffold` once and then work inside
 `.scratch/anvil-smoke/CiSmoke` with its own `make help` (`make test TF=<substring>`
 runs one test).

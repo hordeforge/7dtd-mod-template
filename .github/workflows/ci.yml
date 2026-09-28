@@ -42,6 +42,11 @@ jobs:
             -e "s#^hordeforge_root=.*#hordeforge_root=\"$RUNNER_TEMP/hordeforge\"#" \
             ci/smoke.conf > "$RUNNER_TEMP/anvil-smoke.conf"
           ./new-mod.sh "$RUNNER_TEMP/anvil-smoke.conf"
+      - name: Scaffolded text
+        # the values new-mod.sh substituted into ModInfo.xml: the smoke
+        # config's characters that are XML-hostile, accented, or CJK have
+        # to arrive intact rather than break the file
+        run: python3 ci/check-smoke-mod.py "$RUNNER_TEMP/anvil-smoke/CiSmoke" ci/smoke.conf
       - name: Offline gates
         run: make -C "$RUNNER_TEMP/anvil-smoke/CiSmoke" test
       - name: Shellcheck
@@ -56,6 +61,11 @@ jobs:
         # new-mod.sh is not copied into the modlet, so lint-shell never sees
         # it; gate it here or it is the one unchecked shell script in the repo.
         run: shellcheck -x --severity=style new-mod.sh
+      - name: Ruff over this repo's own python
+        # ci/ is not copied into the modlet either, so the mod's lint-py
+        # never sees it; the modlet's rule set is the one this repo writes
+        # against.
+        run: ruff check --config template/ruff.toml ci/
       - name: Package layout (no game install -> XML-only package)
         run: |
           cd "$RUNNER_TEMP/anvil-smoke/CiSmoke"

@@ -63,9 +63,15 @@ check: preflight scaffold
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" test
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-shell
 	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-py
+	# what the scaffolder made of the smoke config's text: XML-hostile
+	# characters, an accented author name, a CJK sentence end
+	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
 	# new-mod.sh is not copied into the modlet, so the mod's own lint-shell
 	# never sees it; it is the one unchecked shell script in this repo.
 	shellcheck -x --severity=style new-mod.sh
+	# likewise ci/: the mod's lint-py runs over the mod's scripts, not over
+	# this repo's. The modlet's rule set is the one this repo writes against.
+	ruff check --config template/ruff.toml ci/
 	# The packaging path without a game install: the DLL build needs one, so
 	# drop src/ and prove dist/<Name>.zip still extracts to Mods/<Name>/.
 	rm -rf "$(SMOKE_MOD)/src"
