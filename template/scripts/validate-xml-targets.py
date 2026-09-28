@@ -113,7 +113,13 @@ def find(root: ET.Element, xpath: str) -> bool | None:
     parts = xpath.split("/")
     if len(parts) < 2 or parts[0] != "":
         return None
-    rel = "./" + "/".join(parts[2:]) if len(parts) > 2 else "."
+    # A leading `//` is a descendant search from anywhere, not a child path:
+    # dropping its empty segment with the root name turned it into a child
+    # search, so a real match was reported as a miss. Only a leading `//`
+    # keeps that segment; a mid-path one already survives the join.
+    rest = parts[1:]
+    tail = rest if rest[0] == "" else rest[1:]
+    rel = "./" + "/".join(tail) if tail else "."
     if rel.endswith("/"):
         return None
     # attribute target: check the owning element
@@ -128,13 +134,15 @@ def find(root: ET.Element, xpath: str) -> bool | None:
 
 def main() -> int:
     parse_args(sys.argv[1:])
-    config_dir = os.path.join(game_dir(), "Data", "Config")
     failures = 0
     skips = 0
     mod_config = os.path.join(MOD_DIR, "Config")
     if not os.path.isdir(mod_config):
         print("no Config/ directory; nothing to validate")
         return 0
+    # Only once there is a Config/ to check: a mod with none has its answer
+    # already, and the game install is needed only to resolve an xpath.
+    config_dir = os.path.join(game_dir(), "Data", "Config")
     for name in config_files.patch_files(mod_config):
         patch = parse(os.path.join(mod_config, name))
         if patch.tag != "configs":

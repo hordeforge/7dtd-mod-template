@@ -465,6 +465,25 @@ shape above, so the search cannot quietly stop matching.
   only when the key it needs is unset. `build.sh`, `playtest.sh` and the
   server lane each had that shape once, which dropped every other key in the
   file whenever that one was already exported.
+- `verify-patch-targets.py` no longer drops array and generic argument types.
+  `typeof(int[])`, `typeof(List<ItemClass>)` and
+  `typeof(Dictionary<string, ItemClass>)` were parsed as nothing, so the
+  attribute's type list was shorter than the overload it named: a correct
+  patch was reported as unbindable, and a patch Harmony refuses to bind was
+  reported OK when the type happened to declare a shorter overload. A
+  method-level `[HarmonyPatch]` that names no declaring type is also no
+  longer checked against a type a previous method in the same class named.
+- `make validate-xml` reports "no Config/ directory; nothing to validate"
+  before asking for a game install. A leading `//` in an xpath stays a
+  descendant search: joining the path positionally turned it into a child
+  search and reported a real match as a miss.
+- `make package` fails loud, naming the link, when the staged modlet holds a
+  symlink. A link is neither a file nor a directory, so it reached neither
+  entry list and the archive silently shipped less than the mod that was
+  built.
+- `GameTelnet.connect()` clears the flag that says the server hung up. One
+  session that ended in a read error left every later `close()` on the same
+  instance skipping the farewell.
 - `make lint-py` passes on a current ruff. Three test scripts carried
   `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
   scaffold; the two that did need it now put their path constants after the

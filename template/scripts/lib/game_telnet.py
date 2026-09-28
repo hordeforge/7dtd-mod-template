@@ -183,6 +183,10 @@ class GameTelnet:
         # from a previous connection would open the first line with a
         # replacement character.
         self._decoder.reset()
+        # And with a server that has not hung up yet: one session that ended
+        # in a read error otherwise left every later close() on this instance
+        # skipping the farewell.
+        self.closed_by_server = False
         while self._now() < deadline:
             try:
                 self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)

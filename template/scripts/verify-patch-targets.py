@@ -38,7 +38,16 @@ ASSEMBLY_NAME = "Assembly-CSharp.dll"
 
 PATCH_ATTRIBUTE = re.compile(r"\[HarmonyPatch\((?P<args>.*)\)\]\s*$")
 CLASS_DECLARATION = re.compile(r"^\s*(?:static\s+|internal\s+|public\s+|sealed\s+)*class\s+(\w+)")
-TYPEOF = re.compile(r"typeof\(\s*([\w.]+)\s*\)")
+# A C# type expression, not just a dotted name: an argument type is routinely
+# an array or a generic (`typeof(int[])`, `typeof(List<ItemClass>)`,
+# `typeof(Dictionary<string, ItemClass>)`), and `[\w.]` stopped at the `[` or
+# `<`, so those entries were dropped from the list and the overload taking them
+# matched a shorter signature.
+_C_TYPE = (r"[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*"  # List, System.Collections.Generic.List
+           r"(?:\s*\?)?"
+           r"(?:\s*<[^<>]*(?:<[^<>]*>[^<>]*)*>)*"     # <T>, <K, V>, <K, List<V>>
+           r"(?:\s*\[\s*,?\s*\])*")                   # [], [,]
+TYPEOF = re.compile(rf"typeof\(\s*({_C_TYPE})\s*\)")
 QUOTED = re.compile(r'"([^"]+)"')
 PATCH_METHOD = re.compile(r"^\s*(?:[A-Za-z_]\w*\s+)*static\s+(?!class\b)")
 # The explicit argument-type array of `[HarmonyPatch(typeof(X), "M",
@@ -286,14 +295,15 @@ def without_default(entry: str) -> str:
 def strip_namespace(type_text: str) -> str:
     """`Game.World` -> `World`, leaving dotted names inside generics alone."""
     depth = 0
+    last_dot = -1
     for index, character in enumerate(type_text):
         if character in OPENERS:
             depth += 1
         elif character in CLOSERS:
             depth -= 1
         elif character == "." and depth == 0:
-            return type_text[index + 1:].strip()
-    return type_text.strip()
+            last_dot = index
+    return type_text[last_dot + 1:].strip()
 
 
 def parameter_names(signature: str) -> list[str]:
@@ -360,11 +370,20 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
                 # an already-opened patch class.
                 if class_name is not None:
                     patch_classes.add(class_name)
+                # Only a class-level attribute supplies the type that later
+                # methods inherit. Attributes stacked on one method merge, as
+                # Harmony merges them, but a type named on one method must not
+                # carry into the next method's attributes: that verified an
+                # attribute naming no type against a type its author never
+                # wrote for it.
+                batch_type = class_type
                 for entry in pending:
-                    class_type = entry[1] or class_type
-                    target = make_target(source, entry, lines, class_name, class_type)
+                    batch_type = entry[1] or batch_type
+                    target = make_target(source, entry, lines, class_name, batch_type)
                     if target is not None:
                         targets.append(target)
+                if declaration:
+                    class_type = batch_type
                 pending = []
 
     return targets, patch_classes
@@ -673,8 +692,12 @@ def main(argv: list[str]) -> int:
             continue
 
         if target.argument_types is not None:
-            wanted = [entry.split(".")[-1] for entry in target.argument_types]
-            matched = [entry for entry in signatures if parameter_types(entry) == wanted]
+            # Spacing inside a generic is the author's (`<string,Item>`) on one
+            # side and the decompiler's (`<string, Item>`) on the other.
+            wanted = ["".join(strip_namespace(entry).split())
+                      for entry in target.argument_types]
+            matched = [entry for entry in signatures
+                       if ["".join(kind.split()) for kind in parameter_types(entry)] == wanted]
             if not matched:
                 print(f"FAIL      {target.label()} — no overload with those argument types")
                 for signature in signatures:

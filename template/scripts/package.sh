@@ -115,6 +115,17 @@ rm -f "$ARCHIVE"
 mapfile -d '' -t DIRS < <(cd "$STAGE" && find . -mindepth 1 -type d -print0 | sort -z)
 mapfile -d '' -t FILES < <(cd "$STAGE" && find . -mindepth 1 -type f -print0 | sort -z)
 
+# A symlink is neither a directory nor a file, so it is in neither list and
+# was never named to zip: the archive silently shipped a smaller modlet than
+# the one just built. Resolving links at staging time would follow one, so the
+# link is refused here instead, where the report can name it.
+LINK="$(cd "$STAGE" && find . -mindepth 1 -type l -print -quit)"
+if [[ -n "$LINK" ]]; then
+	echo "ERROR: $STAGE/${LINK#./} is a symlink; zip would leave it out of $ARCHIVE." >&2
+	echo "       Replace it with the file it points at, then re-run." >&2
+	exit 1
+fi
+
 set_mtime() { # set_mtime <epoch>; GNU touch first, BSD date -r after
 	local epoch="$1" stamp
 	if find . -mindepth 1 -exec touch -h -d "@$epoch" -- {} + 2>/dev/null; then
