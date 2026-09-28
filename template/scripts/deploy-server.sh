@@ -16,6 +16,8 @@ OPTIONS
 
 ENVIRONMENT
   SEVEN_DAYS_TO_DIE_SERVER_DIR  the server install to deploy into
+  SEVEN_DAYS_TO_DIE_SERVER_CONFIG  mod-owned serverconfig; defaults to
+                                   <SERVER_DIR>/serverconfig.__MOD_NAME_LOWER__.xml
 
 EXIT STATUS
   0  the modlet is deployed

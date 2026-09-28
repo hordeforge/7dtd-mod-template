@@ -40,10 +40,11 @@ namespace __MOD_NAME__
 		// Seconds, as double: both deadlines below are differences of
 		// Time.unscaledTime readings, and a float there loses the sub-second
 		// resolution they need once a long-running server's uptime makes the
-		// quantum larger than the interval itself (0.25s at about 60 days,
-		// 1.0s at about 120). Past that the poll interval collapses to "every
-		// frame" and the debounce delta reads 0.0, so a saved file is never
-		// applied and the reload the console command promises stops working.
+		// quantum larger than the interval itself (0.25s at about 49 days,
+		// 0.35s at about 98). Past the first the poll interval collapses to
+		// "every frame"; past the second the debounce delta reads 0.0 and the
+		// poll never applies a saved file. ReloadNow forces past both, so the
+		// console `reload` keeps working either way.
 		public const double FilePollIntervalSeconds = 0.25;
 		public const double FileReloadDebounceSeconds = 0.35;
 

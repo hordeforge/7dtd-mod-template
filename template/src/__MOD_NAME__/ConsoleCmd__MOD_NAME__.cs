@@ -46,6 +46,8 @@ namespace __MOD_NAME__
 		public override string getHelp()
 		{
 			return "Usage:\n"
+				+ "  __MOD_NAME_LOWER__\n"
+				+ "     Same as `settings`, the default when no subcommand is given.\n"
 				+ "  __MOD_NAME_LOWER__ settings\n"
 				+ "     List every setting and its current value.\n"
 				+ "  __MOD_NAME_LOWER__ set <name> <value>\n"

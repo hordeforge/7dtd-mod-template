@@ -3,7 +3,8 @@
 Anvil is a scaffolder plus a template, so a change to `new-mod.sh`, to
 `template/`, or to `ci/` is proven by scaffolding a throwaway mod and running
 that mod's gates. `make check` does exactly that, step for step in the order
-`.github/workflows/ci.yml` runs them, and takes about 25s on a warm tree.
+`.github/workflows/ci.yml` runs them, and takes well under two minutes on a
+warm tree with nothing else competing for the CPU.
 
 ## Before you start
 

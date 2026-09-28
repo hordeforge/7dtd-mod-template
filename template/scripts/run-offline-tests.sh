@@ -58,7 +58,6 @@ ENVIRONMENT
 EXIT STATUS
   0  every test that ran passed
   1  a test failed, or no test matched the filters
-  2  wrong arguments
 HELP
 }
 

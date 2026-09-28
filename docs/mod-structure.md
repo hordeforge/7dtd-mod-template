@@ -34,7 +34,7 @@ MyMod/
 | `Author` | Free text. |
 | `Version` | Version string in four numeric segments, e.g. `1.0.0.0`. The game reads this and nothing else for a mod's version, so it is the value to bump and to echo on the release readme's first line. |
 | `Website` | Optional URL. |
-| `SkipWithAntiCheat` | `true` marks the mod as safe to still load when EAC is enabled (only true for cosmetic/non-cheating mods; most gameplay/content/code mods should leave this `false` or omit it). |
+| `SkipWithAntiCheat` | `true` keeps the mod loading when EAC is enabled. The scaffolder sets it from the `csharp` key: a DLL mod gets `true`, a pure-config mod gets `false`. A code mod is not what EAC flags on its own, so a mod that ships one normally opts in. |
 
 ## Larger mod: conventional subfolders
 
@@ -63,8 +63,9 @@ declaration field; ordering is folder-name based.
 
 ## EAC (EasyAntiCheat)
 
-Most non-cosmetic mods require EAC to be disabled in the launcher (see
+Most mods require EAC to be disabled in the launcher (see
 `environment.md`). `SkipWithAntiCheat="true"` in `ModInfo.xml` is how a mod
-opts in to still being loaded when EAC *is* enabled — only appropriate for
-mods that don't touch anything EAC would flag (e.g. pure client-side
-tweaks with no gameplay-affecting code).
+opts in to still being loaded when EAC *is* enabled. A DLL mod sets it: the
+engine's own Harmony and the server DLLs ship with it on, and shipping code
+without it means the mod silently does not load on an EAC launcher. A
+pure-config mod has nothing EAC would flag and leaves it `false`.

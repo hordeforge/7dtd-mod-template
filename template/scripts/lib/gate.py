@@ -2,11 +2,13 @@
 
 One definition of `check` so a gate cannot drift from its neighbours: a PASS
 line on stdout, a FAIL line on stderr, and a non-zero exit from `main`. The
-gates that keep their own bookkeeping (the fuzz gates, which report a
-seed and a case count with each result, and the two gates whose result depends
-on state `FAILURES` cannot hold) print in the same shape but do not import
-this. Import it by putting this directory on the path; a caller in `scripts/`
-does:
+gates that keep their own bookkeeping do not import this. The three fuzz gates
+report an iteration count and a per-kind counter instead of one line per
+assertion; `test_decompile_failures.py` collects its failures and prints them
+at the end; `test_local_path_inventory.py`, `test_configure_server_config.py`
+and `test_script_cli.py` each print a single aggregate line. All of them keep
+the PASS-on-stdout, FAIL-on-stderr, non-zero-exit shape. Import it by putting
+this directory on the path; a caller in `scripts/` does:
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
     from gate import check, main as report

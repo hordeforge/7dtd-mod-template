@@ -9,9 +9,10 @@ namespace __MOD_NAME__
 
         public void InitMod(Mod _modInstance)
         {
-            // Fast and defensive: log, never throw if recoverable. One
-            // failing Harmony target must not kill the whole mod — prefer
-            // per-patch try/catch when patches become optional.
+            // InitMod is unguarded: whether one failing Harmony target takes
+            // the whole mod down is decided by Harmony's own handling, not
+            // here. A patch that must not be able to do that has to guard
+            // its own body.
             Log.Out($"{LogPrefix} InitMod");
             ModSettings.Load(_modInstance);
             // Re-reads Config/__MOD_NAME__.toml when it is saved, via the

@@ -58,7 +58,8 @@ build (`7DaysToDie.exe`), not native. Key subfolders:
 The game install is **read-only reference**. All mod content is authored in
 the mod repo and copied or symlinked out; never write anything under the
 install directory. When checking reference mods, inspect only the directory
-named exactly `Mods/` — not backups, `Mods.DF/`, or other collections.
+named exactly `Mods/` — not backup or leftover copies, and not a sibling
+install's `Mods/`.
 
 ## Dedicated server
 

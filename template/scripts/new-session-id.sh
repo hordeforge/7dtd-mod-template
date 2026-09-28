@@ -16,7 +16,7 @@ USAGE
   scripts/new-session-id.sh --help
 
 PREFIX
-  Lowercase agent-family name: e.g. claude, codex.
+  Lowercase agent-family name, e.g. builder, reviewer.
 
 OUTPUT
   PREFIX-UTC_TIMESTAMP-RANDOM_SUFFIX, on stdout.

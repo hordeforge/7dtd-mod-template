@@ -48,8 +48,9 @@ CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
 # Ops whose children are new elements the engine attributes to this mod, so
-# they are counted as "shipped". `set`/`remove`/`csv` change a matched node
-# instead of adding one and contribute no new element to the dump.
+# they are counted as "shipped". The other known ops (`setattribute`, `set`,
+# `remove`, `removeattribute`, `csv`) change a matched node instead of adding
+# one and contribute no new element to the dump.
 INSERT_OPS = frozenset({"append", "insertBefore", "insertAfter"})
 
 
@@ -164,6 +165,14 @@ def check_containers(dump_dir: str) -> list[str]:
 
 
 def find_dump(game_dir: str, save_name: str) -> str:
+    """Newest ConfigsDump directory for the save, by mtime.
+
+    The saves root is SEVEN_DAYS_TO_DIE_SAVES_DIR. Without it the path is
+    derived from the Steam install `game_dir` sits in, so the derivation only
+    holds for a Steam-managed client install running through Proton: the
+    "/steamapps/common/" guard is what makes the split valid, and AppID 251570
+    is 7 Days to Die.
+    """
     # Through the shared reader, not os.environ: the key is documented as a
     # .local.env key, and reading the process environment alone silently
     # ignored a value recorded in that file, falling back to the derived
@@ -240,8 +249,10 @@ def main() -> int:
         print("  that a clean log cannot give you.")
         return 1
     total = sum(applied.values())
-    print(f"  PASS: all {total} shipped patch elements are present in the running")
-    print("        game's own configuration, in their intended parents.")
+    print(f"  PASS: all {total} shipped patch elements are present in the running"
+          " game's own configuration.")
+    if CONTAINER_EXPECTATIONS:
+        print("        Every placement-sensitive patch landed in its intended parent.")
     return 0
 
 

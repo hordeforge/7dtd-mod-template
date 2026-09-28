@@ -48,12 +48,15 @@ MOD_NAME="__MOD_NAME__"
 ARCHIVE="$ROOT/dist/$MOD_NAME.zip"
 KEPT="$ROOT/dist/$MOD_NAME.pinned.zip"
 
-# what build.sh stages, plus the scripts that stage it, the sources, and the
-# machine-local path inventory the C# build reads. .git and dist are left out
-# on purpose: the third pass must be a tree with no commit to read a timestamp
-# from, which is what an exported source tree looks like.
-TREE=(ModInfo.xml README.txt CHANGELOG.md .local.env Config Prefabs Resources
-	UIAtlases WebMod src scripts)
+# every input build.sh and package.sh read: the files it stages, global.json
+# (the SDK pin build.sh refuses to build without), src/, the scripts that do
+# the staging, and the machine-local path inventory the C# build reads. An
+# entry missing here is an input the third pass does not see, so the compare
+# reports a difference that is a missing file rather than a real one. .git and
+# dist are left out on purpose: the third pass must be a tree with no commit to
+# read a timestamp from, which is what an exported source tree looks like.
+TREE=(ModInfo.xml README.txt CHANGELOG.md global.json .local.env Config
+	Prefabs Resources UI UIAtlases WebMod src scripts)
 
 if command -v sha256sum >/dev/null 2>&1; then
 	digest() { sha256sum "$1" | cut -d' ' -f1; }
@@ -72,7 +75,10 @@ else
 fi
 
 # One staging + zip pass in the environment the caller set. The environment is
-# never defaulted here: pass 1 has to see SOURCE_DATE_EPOCH unset. Each step is
+# never defaulted here, and pass 1 runs with SOURCE_DATE_EPOCH unset from the
+# environment; package.sh still reads .local.env, which is a documented key and
+# can supply one, so a tree that sets it makes pass 1 an explicit-epoch run
+# rather than a git-fallback one. Each step is
 # checked rather than left to errexit, which a command substitution does not
 # carry into the subshell this runs in: an unchecked failure would go on to
 # hash an archive that was never written.
@@ -104,7 +110,7 @@ for entry in "${TREE[@]}"; do
 	fi
 done
 
-from_git="$(variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback')" ||
+from_git="$(env -u SOURCE_DATE_EPOCH variant "$ROOT" 'SOURCE_DATE_EPOCH unset, git fallback')" ||
 	{ echo "ERROR: a packaging pass failed; nothing was compared." >&2; exit 1; }
 
 from_pinned="$(SOURCE_DATE_EPOCH="$COMMIT_EPOCH" variant "$ROOT" "SOURCE_DATE_EPOCH=$COMMIT_EPOCH")" ||
@@ -138,6 +144,8 @@ if [[ "$from_git" != "$from_pinned" ]]; then
 	echo "FAIL: the git timestamp fallback does not match SOURCE_DATE_EPOCH=$COMMIT_EPOCH" >&2
 	echo "      git fallback: $from_git" >&2
 	echo "      explicit:     $from_pinned" >&2
+	echo "      a non-empty SOURCE_DATE_EPOCH in .local.env makes the first pass an" >&2
+	echo "      explicit-epoch run, which is a misconfiguration, not a drift." >&2
 	fail=1
 fi
 if [[ "$from_pinned" != "$from_elsewhere" ]]; then

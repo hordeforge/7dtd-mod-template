@@ -37,7 +37,12 @@ DOM) supports operations along these lines:
   sibling relative to the matched node.
 - `<set xpath="..." value="...">` (or with child content) — replace an
   attribute value or a node's content.
-- `<remove xpath="..."/>` — delete the matched node/attribute.
+- `<setattribute xpath="..." name="..." value="..."/>` — create or change an
+  attribute by name, where `set` needs the attribute to exist already.
+- `<remove xpath="..."/>` / `<removeattribute xpath="..."/>` — delete the
+  matched node, or the matched attribute.
+- `<csv xpath="..." value="..."/>` — add one tagged entry to a delimited
+  list attribute.
 - `xpath` can target attributes too, e.g.
   `xpath="/items/item[@name='thrownGrenade']/@name"`.
 
@@ -66,7 +71,8 @@ entries under a container element — `crafting_skill` lives at
 `/progression/crafting_skills/crafting_skill`, not `/progression/crafting_skill`
 — and an `xpath` that omits the container matches nothing and applies
 silently rather than erroring. Confirm the real path in the vanilla file
-before trusting a patch, and check the log (step 3 below) to see it landed.
+before trusting a patch, and prove it landed with the offline gates
+(step 3 below).
 
 ## `Extends`
 
@@ -92,5 +98,11 @@ a vanilla one and a second mod entry on top of that.
 2. Write a *patch* file under the mod's `Config/` with the same filename,
    using a `<configs>` root + xpath ops rather than a full override, unless
    a complete replacement is actually intended.
-3. Check the game log (`environment.md`) on load — the patcher logs XPath
-   errors (node not found, malformed expression) at startup.
+3. Prove it landed, offline: `make validate-xml` resolves every op's xpath
+   against the installed game's own file, and `make verify-patched-config`
+   counts every element this mod inserts in a loaded world's `ConfigsDump`. A
+   clean game log is not that proof: the patcher logs outright XPath errors
+   (malformed expression, unreadable file) at startup, and a patch that
+   matches nothing is not an error. In game, `set`/`remove`/`csv` change a
+   matched node and insert no element, so the dump cannot see them either —
+   check those by hand.

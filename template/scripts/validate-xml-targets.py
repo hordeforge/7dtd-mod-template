@@ -12,8 +12,9 @@ stdlib ElementTree speaks a useful XPath subset (child paths, wildcards,
 [@attr='value'] predicates). An xpath it cannot parse is reported as SKIP
 for manual verification, never silently passed.
 
-Ops that create content (`append` to an existing parent, `setattribute`)
-are checked against their parent path; `set`/`remove`/`csv` must match.
+Every known op is checked the same way: the op's own xpath is resolved against
+vanilla. An `@attr` target is resolved against the element that owns the
+attribute rather than against an element of that name.
 
 Usage:
     scripts/validate-xml-targets.py [-h | --help]

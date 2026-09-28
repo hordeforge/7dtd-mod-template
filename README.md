@@ -62,7 +62,7 @@ exactly what CI does. `make check` is that workflow, step for step, so a green
 local run is a green CI run.
 
 ```bash
-make check      # scaffold + every gate + the package layout check (~25s)
+make check      # scaffold + every gate + the package layout check (about a minute)
 make help       # the targets above, and what they need
 ```
 
@@ -137,7 +137,7 @@ core.
 - **Offline gates**: `make test` runs every `scripts/test_*.py` — XML
   well-formedness and patch conventions, packaging layout, a stdlib Python
   defect-class gate over the mod's own scripts, the rules-have-gates
-  meta-gate (incident rules name their gate; every gate runs twice,
+  meta-gate (incident rules name their gate; every other gate runs twice,
   byte-identical), the session-id gate, the decision-record gate behind
   `docs/adr/`, and the upstream-tooling scan that
   stops the mod re-implementing what sibling hordeforge repos own.

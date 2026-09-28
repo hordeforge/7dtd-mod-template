@@ -10,7 +10,7 @@
 # you say "the default", not how you say nothing.
 
 # Required
-name=""              # modlet id: alphanumeric, becomes the directory and ModInfo Name
+name=""              # modlet id: a letter, then letters/digits/underscores; becomes the directory and ModInfo Name
 author=""
 purpose=""           # a sentence or paragraph: what the mod is for; seeded into README/design/TODO.
                      # Its first sentence, capped at 200 characters and cut at the

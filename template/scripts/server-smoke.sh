@@ -17,6 +17,8 @@ OPTIONS
 
 ENVIRONMENT
   SEVEN_DAYS_TO_DIE_SERVER_DIR        the server install to boot
+  SEVEN_DAYS_TO_DIE_SERVER_CONFIG      serverconfig to boot; defaults to
+                                       <SERVER_DIR>/serverconfig.__MOD_NAME_LOWER__.xml
   SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS  boot window, 90 by default
   SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS    smoke logs kept, 5 by default
 

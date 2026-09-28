@@ -73,12 +73,12 @@ check: preflight scaffold
 	# the tree afterwards could not tell a cache the scaffolder shipped from
 	# one the run just made.
 	LC_ALL=C TZ=UTC python3 ci/check-smoke-mod.py "$(SMOKE_MOD)" "$(SMOKE_CONF)"
-	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" test
-	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-shell
-	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-py
 	# the release contract of this repo's own notes, which no scaffolded mod
 	# can check: the file a tag is cut from
 	LC_ALL=C TZ=UTC python3 ci/check-changelog.py CHANGELOG.md
+	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" test
+	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-shell
+	LC_ALL=C TZ=UTC make -C "$(SMOKE_MOD)" lint-py
 	# new-mod.sh and ci/*.sh are not copied into the modlet, so the mod's own
 	# lint-shell never sees them; they are this repo's unchecked shell scripts.
 	shellcheck -x --severity=style new-mod.sh ci/*.sh

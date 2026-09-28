@@ -29,6 +29,22 @@ namespace __MOD_NAME__
 			}
 		}
 
+		/// <summary>Parse settings TOML into flat key/value entries.</summary>
+		/// <remarks>
+		/// The bool is the only success signal: on failure `entries` holds
+		/// whatever parsed before the error and has to be ignored, and
+		/// `error` is a message ready to print, prefixed with "line N:". A
+		/// duplicate key is an error, not last-one-wins, so a value cannot be
+		/// silently overridden. `error` is null on success.
+		/// </remarks>
+		/// <summary>Parse settings TOML into flat key/value entries.</summary>
+		/// <remarks>
+		/// The bool is the only success signal: on failure `entries` holds
+		/// whatever parsed before the error and has to be ignored, and
+		/// `error` is a message ready to print, prefixed with "line N:". A
+		/// duplicate key is an error, not last-one-wins, so a value cannot be
+		/// silently overridden. `error` is null on success.
+		/// </remarks>
 		public static bool TryRead(string text, out List<Entry> entries, out string error)
 		{
 			entries = new List<Entry>();

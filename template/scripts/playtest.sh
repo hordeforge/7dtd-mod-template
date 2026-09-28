@@ -13,7 +13,7 @@
 #        scripts/playtest.sh --help
 #
 # Exit status: 0 the suite passed, 1 the run or its prerequisites failed,
-# 2 no suite was named or the command line was wrong.
+# 2 no suite was named.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -96,7 +96,11 @@ fi
 args=(--suite "$suite")
 # A suite of this mod's own is a JSON file beside it; without this the run
 # would fall back to the upstream built-ins and report a suite it never ran.
-if [[ -z "${PLAYTEST_SUITE_FILE:-}" && -f "$ROOT/suites/$suite.json" ]]; then
+# A PLAYTEST_SUITE_FILE in .local.env overrides that lookup, so a mod whose
+# suites live outside this repo names its own file.
+if [[ -n "${PLAYTEST_SUITE_FILE:-}" ]]; then
+	args+=(--suite-file "$PLAYTEST_SUITE_FILE")
+elif [[ -f "$ROOT/suites/$suite.json" ]]; then
 	args+=(--suite-file "$ROOT/suites/$suite.json")
 fi
 

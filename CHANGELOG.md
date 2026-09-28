@@ -41,7 +41,7 @@ shape above, so the search cannot quietly stop matching.
   full purpose still reaching the mod, and the Harmony id the author name
   produces. `ci/smoke.conf` carries text hostile on purpose (`&`, `<`, a
   quote, an accented letter, a CJK sentence end) so the check is a real one.
-  `make check` and CI both run it, and CI also runs the modlet's ruff rules
+  `make check` and CI both run it, and both run the modlet's ruff rules
   over `ci/`.
 - `ci/scaffolder-hostile-text.sh`, beside `ci/scaffolder-encoding.sh`: a
   scaffold from a config whose values carry a quote, a backslash, a tab, a
@@ -342,10 +342,9 @@ shape above, so the search cannot quietly stop matching.
   `Time.unscaledTimeAsDouble` and are `double` constants. Both are differences
   of clock readings, and a `float` there loses the sub-second resolution they
   need once a long-running server's uptime makes the quantum larger than the
-  interval itself (0.25s at about 60 days, 1.0s at about 120). Past that the
-  poll collapsed to "every frame" and the debounce delta read 0.0, so a saved
-  file was never applied and the reload the console command promises stopped
-  working.
+  interval itself (0.25s at about 49 days, 0.35s at about 98). Past the first
+  the poll collapsed to "every frame" and past the second the debounce delta
+  read 0.0, so a saved file was never applied on the poll.
 - `make package` rejects a `SOURCE_DATE_EPOCH` outside 315532800
   (1980-01-01T00:00:00Z) through 4354819198 (2107-12-31T23:59:58Z), the range
   a zip entry's 32-bit DOS date can hold. Info-ZIP wraps an out-of-range mtime

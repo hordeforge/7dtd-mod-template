@@ -39,11 +39,12 @@ gh repo clone hordeforge/<repo> "$HORDEFORGE_ROOT/<repo>"
 
 ## Banned in a mod's scripts (the gate scans for these)
 
-Screenshot/window tools (`spectacle`, `grim`, KWin/`qdbus`, `xdotool`),
-audio recorders (`parec`, `pw-record`), `pactl` mute loops, a local
-`playtest_lock.py` or any second lock path, OCR menu drivers,
-`steam -applaunch` suite launchers, `pgrep`-on-the-runtime waits, forks of a
-sibling's script under the same basename.
+The gate scans its own scripts' text for these: screenshot/window tools
+(`spectacle`, `grim`, KWin/`qdbus`, `xdotool`), audio recorders (`parec`,
+`pw-record`), `pactl` mute loops, the shared lock's own `playtest_running`
+path, `tesseract` and `uinput` (both removed upstream), and `steam
+-applaunch` suite launchers. A local `playtest_lock.py` at another path is
+covered by the shared rule above, not by a needle.
 
 ## When a capability is general, put it upstream
 
