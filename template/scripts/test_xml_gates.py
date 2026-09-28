@@ -27,12 +27,13 @@ import sys
 import tempfile
 from types import ModuleType
 
-SCRIPTS = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(SCRIPTS, "lib"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-import xml_extends  # noqa: E402  (the lib directory is on sys.path above)
-from gate import check  # noqa: E402
-from gate import main as report  # noqa: E402
+import xml_extends
+from gate import check
+from gate import main as report
+
+SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_validator() -> ModuleType:

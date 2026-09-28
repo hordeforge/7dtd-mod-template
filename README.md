@@ -53,6 +53,27 @@ The config file is always passed as an argument — nothing is hardcoded, so
 several configs can coexist (a committed `configs/` presets directory is the
 natural later addition). Missing keys are prompted for interactively.
 
+## Changing Anvil
+
+This repo has no build of its own: a change to `new-mod.sh` or `template/` is
+proven by scaffolding a throwaway mod and running that mod's gates, which is
+exactly what CI does. `make check` is that workflow, step for step, so a green
+local run is a green CI run.
+
+```bash
+make check      # scaffold + every gate + the package layout check (~10s)
+make help       # the targets above, and what they need
+```
+
+`make check` needs `bash`, `make`, `git`, `python3`, `shellcheck`, `ruff`,
+`zip` and `unzip` on `PATH`; `make preflight` names whichever is missing before
+the first step runs. Nothing is installed for you and no game install or .NET SDK is
+needed, because the smoke config ([`ci/smoke.conf`](ci/smoke.conf)) sets
+`clone="no"` and the package step proves the XML-only path. To iterate on a
+single gate, `make scaffold` once and then work inside
+`.scratch/anvil-smoke/CiSmoke` with its own `make help` (`make test TF=<substring>`
+runs one test).
+
 ## Versions and releases
 
 Anvil's version is a git tag on `main`, and
@@ -74,6 +95,7 @@ and both are gated against the mod's `CHANGELOG.md` by `make test`.
 ├── template/        # the modlet skeleton new-mod.sh instantiates
 ├── new-mod.sh       # the scaffolder
 ├── newmod.conf.example
+├── Makefile         # `make check`: this repo's gates, which are CI's
 └── CHANGELOG.md     # what each tag changed for a mod scaffolded from an older one
 ```
 

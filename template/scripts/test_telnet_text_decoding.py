@@ -22,7 +22,7 @@ import sys
 import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from game_telnet import READY_MARKERS, GameTelnet  # noqa: E402
+from game_telnet import READY_MARKERS, GameTelnet
 
 LINE = "café \U0001F9F9 naïve"
 BANNER = b"Pr\xc3\xa9t. " + READY_MARKERS[0].encode() + b"\r\n"

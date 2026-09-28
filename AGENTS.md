@@ -35,13 +35,17 @@ with a concrete value inside `template/`.
 Any change to `template/` or `new-mod.sh` is proven by scaffolding:
 
 ```bash
-./new-mod.sh ci/smoke.conf   # scaffolds into the gitignored .scratch/, clone=no
+make check                  # scaffolds and runs every gate CI runs
 ```
 
-Then, in the generated mod: `make test`, `make lint-shell` and `make lint-py`
-must pass, and `make package` must produce a zip that extracts to
-`Mods/<Name>/ModInfo.xml`. CI runs exactly this. Never mark template work
-done on inspection alone.
+`make check` is `.github/workflows/ci.yml` step for step: it re-scaffolds
+`ci/smoke.conf` into the gitignored `.scratch/` (so a stale tree never makes
+the gates pass), then runs the generated mod's `make test`, `make lint-shell`
+and `make lint-py`, shellchecks `new-mod.sh` itself, and proves `make package`
+produces a zip that extracts to `Mods/<Name>/ModInfo.xml`. `make preflight`
+names any missing host tool first. `make scaffold` alone, then working inside
+`.scratch/anvil-smoke/CiSmoke`, is the loop for iterating on one gate. Never
+mark template work done on inspection alone.
 
 `new-mod.sh` is re-runnable in the same sense: it builds the mod in a staging
 directory and moves it into place as its last step, so an interrupted run

@@ -17,12 +17,13 @@ import tempfile
 from pathlib import Path
 from types import ModuleType
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+
+from gate import check
+from gate import main as report
+
 SCRIPTS = Path(__file__).resolve().parent
 MODULE = SCRIPTS / "verify-patch-targets.py"
-
-sys.path.insert(0, str(SCRIPTS / "lib"))
-from gate import check  # noqa: E402
-from gate import main as report  # noqa: E402
 
 FIXTURE = """using HarmonyLib;
 

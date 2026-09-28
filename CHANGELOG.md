@@ -36,6 +36,10 @@ modlet's contract rather than add to it.
   disagree. The changelog ships in the package next to `README.txt`.
 - The dedicated-server lane provisions with a mod-owned EAC-off
   `serverconfig`, and the server smoke boot is bounded.
+- A `Makefile` at the template repo root: `make check` runs the whole CI
+  workflow locally, step for step, after a `make preflight` that names any
+  missing host tool. It proves a change to `new-mod.sh` or `template/` without
+  a contributor having to reconstruct the CI job by hand.
 
 ### Changed
 
@@ -62,6 +66,10 @@ modlet's contract rather than add to it.
 
 ### Fixed
 
+- `make lint-py` passes on a current ruff. Three test scripts carried
+  `# noqa: E402` directives ruff no longer needs, and RUF100 failed every
+  scaffold; the two that did need it now put their path constants after the
+  import block instead of suppressing the rule.
 - The telnet console password no longer appears in error messages or logs.
 - The telnet socket is released on every close path, and the server smoke
   logs are bounded.
