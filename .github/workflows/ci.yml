@@ -32,7 +32,7 @@ jobs:
       # Pinned by commit, not by tag: a tag is mutable, so a moved one swaps the
       # code this job runs for whatever an attacker or a mistake put there.
       # Dependabot opens the bump PR for the new tag's commit.
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # nothing in this job pushes, and the job's own token grant is
           # contents: read
