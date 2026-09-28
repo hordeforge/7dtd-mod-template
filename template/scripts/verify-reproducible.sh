@@ -102,7 +102,7 @@ from_elsewhere="$(
 	export LC_ALL="$FOREIGN_LOCALE" TZ="$FOREIGN_TZ" SOURCE_DATE_EPOCH="$COMMIT_EPOCH"
 	variant "$elsewhere/$MOD_NAME" "$elsewhere, no git, $FOREIGN_LOCALE / $FOREIGN_TZ"
 )" ||
-	{ echo "ERROR: a packaging pass failed; nothing was compared." >&2; exit 1; } || { echo "ERROR: a packaging pass failed; nothing was compared." >&2; exit 1; }
+	{ echo "ERROR: a packaging pass failed; nothing was compared." >&2; exit 1; }
 
 fail=0
 if [[ "$from_git" != "$from_pinned" ]]; then
