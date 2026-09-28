@@ -188,7 +188,9 @@ This directory itself is the modlet — the deployable unit. Mod content
 `src/` (C# source), `scripts/`, `docs/`, `AGENTS.md`, `CLAUDE.md`,
 `TODO.md` are build-time only and excluded from the package. `make build`
 stages the deployable modlet under `dist/__MOD_NAME__/`; `make package`
-zips it so extraction yields `Mods/__MOD_NAME__/ModInfo.xml`. Never nest
+zips it with `scripts/package.sh`, which fixes entry order, timestamps
+(`SOURCE_DATE_EPOCH`, else the last commit), and permissions, so the same
+source always produces the same archive. Never nest
 deployable content under a further subfolder.
 
 ## XML conventions

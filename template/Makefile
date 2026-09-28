@@ -4,6 +4,9 @@ ROOT := $(CURDIR)
 # a machine without a game install or a dotnet SDK.
 .DEFAULT_GOAL := help
 
+# a recipe that dies mid-way must not leave a half-written target behind
+.DELETE_ON_ERROR:
+
 .PHONY: help build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
 
 help:
@@ -53,10 +56,10 @@ build:
 	$(ROOT)/scripts/build.sh
 
 # Zip dist/__MOD_NAME__/ so extracting into Mods/ yields
-# Mods/__MOD_NAME__/ModInfo.xml immediately.
+# Mods/__MOD_NAME__/ModInfo.xml immediately. Reproducible: sorted entry order,
+# SOURCE_DATE_EPOCH timestamps, no uid/gid extra fields.
 package: build
-	cd $(ROOT)/dist && rm -f __MOD_NAME__.zip && zip -qr __MOD_NAME__.zip __MOD_NAME__
-	@echo "OK -> dist/__MOD_NAME__.zip"
+	$(ROOT)/scripts/package.sh
 
 # Every Config/**/*.xml xpath checked against the installed game's vanilla
 # files (needs .local.env; not part of the offline suite).

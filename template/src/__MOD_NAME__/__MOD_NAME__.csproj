@@ -7,6 +7,10 @@
     <AssemblyName>__MOD_NAME__</AssemblyName>
     <RootNamespace>__MOD_NAME__</RootNamespace>
     <DebugType>none</DebugType>
+    <!-- same source, same bytes: stable MVID, and no build-host path
+         (a DLL built under /home/a and under /srv/ci must be identical) -->
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)=/_/</PathMap>
     <NuGetAudit>false</NuGetAudit>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

@@ -26,6 +26,13 @@ on PATH, `dotnet --list-sdks` prints one) for C# mods, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane. `make help` lists every target.
 
+`make package` is reproducible: entries go in sorted order with
+`SOURCE_DATE_EPOCH` timestamps, so the same source yields the same bytes
+regardless of build path, locale, or timezone. Export `SOURCE_DATE_EPOCH` to
+override the default (last git commit, else a fixed constant). The C# project
+pins the SDK floor in `global.json` and maps build paths out of the DLL
+(`PathMap`), so the DLL does not change with the build directory.
+
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.
 

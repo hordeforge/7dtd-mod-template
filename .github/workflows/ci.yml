@@ -6,13 +6,18 @@ on:
 
 jobs:
   scaffold-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The job only checks out and builds; it never writes back or reads a
     # secret. Anything beyond read access is an unused grant.
     permissions:
       contents: read
+    env:
+      # make lint-shell and the packaging step are locale- and
+      # timezone-independent by contract
+      LC_ALL: C
+      TZ: UTC
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Scaffold a throwaway mod
         run: |
           cat > ci-smoke.conf <<CONF

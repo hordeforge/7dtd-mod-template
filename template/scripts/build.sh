@@ -3,6 +3,11 @@
 # when src/ exists (requires SEVEN_DAYS_TO_DIE_DIR via env or .local.env).
 set -euo pipefail
 
+# Sorting and any date formatting in staging and packaging must not follow
+# the builder's locale or timezone.
+export LC_ALL=C
+export TZ=UTC
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MOD_NAME="__MOD_NAME__"
 OUT="$ROOT/dist/$MOD_NAME"

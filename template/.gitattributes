@@ -6,6 +6,8 @@
 *.cs text eol=lf
 Makefile text eol=lf
 *.mk text eol=lf
+*.csproj text eol=lf
+global.json text eol=lf
 
 # Shipped binaries must never be guessed at or converted.
 *.png binary
