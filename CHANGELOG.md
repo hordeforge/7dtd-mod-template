@@ -137,6 +137,22 @@ modlet's contract rather than add to it.
 
 ### Fixed
 
+- Nine scripts under `template/scripts/` dropped every argument they were
+  given: `scripts/build.sh --help` staged a modlet, `--dry-run` ran the full
+  build and looked accepted, and `scripts/playtest.sh --help` forwarded the
+  flag to the upstream runner as a suite id. Every script in that directory
+  now answers `-h`/`--help` with its usage on stdout and exit 0, and refuses
+  an argument it does not take with the usage on stderr and exit 2
+  (reserved for the command line, so a caller can tell "I asked wrongly"
+  from "the work failed"). `scripts/lib/args.sh` holds the two shared
+  entry points and `scripts/test_script_cli.py` holds the contract for every
+  script that has a command line.
+- `validate-xml-targets.py` read no argument of its own, so a mistyped flag
+  ran the whole check over a tree the caller believed they had narrowed
+  down. It now takes `--help` and refuses anything else with exit 2.
+- `configure-server-config.py` printed a lowercase two-line `usage:` on
+  stderr, where every other entry point prints the same `USAGE` /
+  `OPTIONS` / `EXIT STATUS` block its siblings do.
 - `validate-xml-targets.py` caught only `SyntaxError` around
   `ElementTree`'s `find`, which answers `text()` and a bare `()` with a
   `KeyError` and an unclosed predicate with a `TypeError`. Both are the same

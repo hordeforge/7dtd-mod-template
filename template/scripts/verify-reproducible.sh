@@ -14,7 +14,7 @@
 # mismatch names the differing hashes and, when diffoscope is installed, what
 # differs inside the two archives.
 #
-# Usage: scripts/verify-reproducible.sh
+# Usage: scripts/verify-reproducible.sh [--help]
 set -euo pipefail
 
 export LC_ALL=C
@@ -22,6 +22,28 @@ export TZ=UTC
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+usage() {
+	cat <<'HELP'
+Build and zip the modlet three times and require byte-identical archives.
+
+USAGE
+  scripts/verify-reproducible.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+EXIT STATUS
+  0  the three archives are byte-identical
+  1  a packaging pass failed, or the archives differ
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 MOD_NAME="__MOD_NAME__"
 ARCHIVE="$ROOT/dist/$MOD_NAME.zip"
 KEPT="$ROOT/dist/$MOD_NAME.pinned.zip"

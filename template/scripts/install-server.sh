@@ -5,6 +5,32 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+	cat <<'HELP'
+Provision the 7 Days To Die dedicated server into SEVEN_DAYS_TO_DIE_SERVER_DIR.
+
+USAGE
+  scripts/install-server.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_SERVER_DIR  where the server is installed
+  SEVEN_DAYS_TO_DIE_SERVER_APP_ID  Steam app id, 294420 by default
+
+EXIT STATUS
+  0  the server is installed and its config has EAC disabled
+  1  provisioning failed, or the configured path is unusable
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
 

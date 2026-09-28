@@ -319,6 +319,33 @@ game. Live suites, when this mod grows them, go through
 `hordeforge/7dtd-playtest` (an `IScenarioProvider` + thin wrapper), never a
 private launcher.
 
+## Every script answers --help and refuses what it does not take
+
+`scripts/` is this mod's CLI, and one command line covers all of it:
+`-h`/`--help` prints the script's usage on stdout and exits 0 without
+starting any work, and an argument the script does not take is a usage
+error on stderr with exit 2. A script that ignores its arguments cannot
+answer a question about them: `scripts/build.sh --help` staged a modlet
+instead of printing help, and `scripts/playtest.sh --help` forwarded the
+flag to the upstream runner as a suite id. A mistyped flag a tool
+silently drops is worse than one it refuses, because the run then reports
+success over work nobody asked for.
+
+Exit 2 is reserved for the command line, exit 1 for a step that ran and
+failed, so a caller can tell "I asked wrongly" from "the work failed"
+without parsing a message. Status lines go to stdout, diagnostics and
+usage errors to stderr, so a redirected run keeps its output.
+
+A script with no arguments of its own calls `parse_no_args usage "$@"`
+from `scripts/lib/args.sh`; one that takes positionals calls
+`help_only usage "$@"` and validates the rest itself. A new executable
+script in `scripts/` is added to `NO_ARGUMENT_SCRIPTS` or
+`POSITIONAL_SCRIPTS` in `scripts/test_script_cli.py`, which holds the
+contract for every one of them.
+
+Corrected 2026-09-28: nine scripts under `scripts/` took no arguments at
+all and dropped every one of them.
+
 ## Setup and deploy targets are re-runnable
 
 A setup or deploy target runs again whenever a step failed, a lane was

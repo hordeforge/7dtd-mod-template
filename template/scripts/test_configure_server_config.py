@@ -114,12 +114,14 @@ def main() -> int:
                             ("one too many", [str(source), str(target), "extra"])):
             wrong = run(*args)
             gate.check(f"wrong arguments ({label}) exit 2 with usage",
-                  wrong.returncode == 2 and "usage:" in wrong.stderr,
+                  wrong.returncode == 2 and "USAGE" in wrong.stderr
+                  and wrong.stdout == "",
                   f"args={args!r} exit={wrong.returncode} stderr={wrong.stderr!r}")
 
         helped = run("--help")
         gate.check("--help exits 0 and prints the usage contract",
-              helped.returncode == 0 and "SOURCE_CONFIG TARGET_CONFIG" in helped.stdout,
+              helped.returncode == 0 and "SOURCE_CONFIG TARGET_CONFIG" in helped.stdout
+              and "EXIT STATUS" in helped.stdout and helped.stderr == "",
               f"exit={helped.returncode} stdout={helped.stdout!r}")
 
     return gate.main()

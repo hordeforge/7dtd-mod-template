@@ -4,6 +4,33 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+	cat <<'HELP'
+Deploy, boot the dedicated server briefly, and prove the mod loaded from its log.
+
+USAGE
+  scripts/server-smoke.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_SERVER_DIR        the server install to boot
+  SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS  boot window, 90 by default
+  SEVEN_DAYS_TO_DIE_SERVER_KEEP_LOGS    smoke logs kept, 5 by default
+
+EXIT STATUS
+  0  the server booted and reported the mod loaded
+  1  the run or one of its prerequisites failed
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
 

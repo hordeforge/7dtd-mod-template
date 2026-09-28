@@ -19,7 +19,30 @@ set -euo pipefail
 source "$(dirname "$0")/lib/require-bash.sh"
 require_bash
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+usage() {
+	cat <<'HELP'
+Zip dist/<Name>/ into dist/<Name>.zip, byte for byte reproducible.
+
+USAGE
+  scripts/package.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+EXIT STATUS
+  0  the archive is written
+  1  packaging failed, or the timestamp source is unusable
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 MOD_NAME="__MOD_NAME__"
 STAGE="$ROOT/dist/$MOD_NAME"
 ARCHIVE="$ROOT/dist/$MOD_NAME.zip"

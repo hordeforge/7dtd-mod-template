@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """Derive a mod-owned serverconfig.xml with EAC off, for DLL testing.
 
-Usage:
-    scripts/configure-server-config.py SOURCE_CONFIG TARGET_CONFIG
-
 Copies the dedicated server's own serverconfig.xml and forces
 EACEnabled=false, so a mod's Harmony patch is exercised rather than refused
 by the anti-cheat. The source must already carry an EACEnabled property;
 a vanilla serverconfig that does not is an error, not something to invent.
-
-Exit status: 0 written, 1 the source cannot be used, 2 wrong arguments.
 """
 
 import os
@@ -17,15 +12,31 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import TextIO
+
+
+def usage(stream: TextIO = sys.stdout) -> None:
+    print("Derive a mod-owned serverconfig.xml with EAC off, for DLL testing.", file=stream)
+    print(file=stream)
+    print("USAGE", file=stream)
+    print("  configure-server-config.py SOURCE_CONFIG TARGET_CONFIG", file=stream)
+    print(file=stream)
+    print("OPTIONS", file=stream)
+    print("  -h, --help  show this help and exit", file=stream)
+    print(file=stream)
+    print("EXIT STATUS", file=stream)
+    print("  0  the target is written", file=stream)
+    print("  1  the source cannot be used, or the target cannot be written", file=stream)
+    print("  2  wrong arguments", file=stream)
 
 
 def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] in ("-h", "--help"):
-        print(__doc__.strip())
+        usage()
         return 0
     if len(sys.argv) != 3:
-        print("usage: configure-server-config.py SOURCE_CONFIG TARGET_CONFIG", file=sys.stderr)
-        print("       (scripts/configure-server-config.py --help)", file=sys.stderr)
+        print("ERROR: wrong arguments.", file=sys.stderr)
+        usage(sys.stderr)
         return 2
 
     source = Path(sys.argv[1])

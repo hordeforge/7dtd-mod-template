@@ -5,6 +5,8 @@
 #        scripts/new-session-id.sh --help
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 usage() {
 	cat <<'HELP'
 Generate a unique parallel-session ID.
@@ -28,12 +30,9 @@ session; it does not replace the task's [-] ownership marker.
 HELP
 }
 
-case "${1:-}" in
--h | --help)
-	usage
-	exit 0
-	;;
-esac
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+help_only usage "$@"
 
 if (($# != 1)); then
 	usage >&2

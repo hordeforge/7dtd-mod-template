@@ -14,6 +14,12 @@ for manual verification, never silently passed.
 
 Ops that create content (`append` to an existing parent, `setattribute`)
 are checked against their parent path; `set`/`remove`/`csv` must match.
+
+Usage:
+    scripts/validate-xml-targets.py [-h | --help]
+
+Exit status: 0 every xpath resolved, 1 a patch failed or the game install is
+unusable, 2 the command line was wrong.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import TextIO
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import config_files
@@ -32,6 +39,40 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Ops the check understands; anything else is reported, never silently passed.
 KNOWN_OPS = {"append", "insertBefore", "insertAfter", "setattribute",
              "set", "remove", "removeattribute", "csv"}
+
+
+def usage(stream: TextIO = sys.stdout) -> None:
+    print("USAGE", file=stream)
+    print("  validate-xml-targets.py [-h | --help]", file=stream)
+    print(file=stream)
+    print("Check every xpath in Config/**/*.xml against the installed game's", file=stream)
+    print("own Data/Config files. The client install comes from the environment's", file=stream)
+    print("SEVEN_DAYS_TO_DIE_DIR or .local.env.", file=stream)
+    print(file=stream)
+    print("OPTIONS", file=stream)
+    print("  -h, --help  show this help and exit", file=stream)
+    print(file=stream)
+    print("EXIT STATUS", file=stream)
+    print("  0  every xpath resolved (a SKIP needs manual verification)", file=stream)
+    print("  1  a patch's xpath matched nothing, or the game install is unusable", file=stream)
+    print("  2  the command line was wrong", file=stream)
+
+
+def parse_args(argv: list[str]) -> None:
+    """Exit 0 for help, exit 2 for anything this script does not take.
+
+    It reads no argument of its own, so an unrecognized one is a mistake in
+    the command line and nothing more: running the full check over a tree the
+    caller believed they had narrowed down reports a result about a different
+    question than the one they asked.
+    """
+    for arg in argv:
+        if arg in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        print(f"ERROR: unknown argument: {arg}", file=sys.stderr)
+        usage(sys.stderr)
+        sys.exit(2)
 
 
 def game_dir() -> str:
@@ -85,6 +126,7 @@ def find(root: ET.Element, xpath: str) -> bool | None:
 
 
 def main() -> int:
+    parse_args(sys.argv[1:])
     config_dir = os.path.join(game_dir(), "Data", "Config")
     failures = 0
     skips = 0

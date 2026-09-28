@@ -3,6 +3,31 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+	cat <<'HELP'
+Replace the server install's Mods/__MOD_NAME__/ with the staged package.
+
+USAGE
+  scripts/deploy-server.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_SERVER_DIR  the server install to deploy into
+
+EXIT STATUS
+  0  the modlet is deployed
+  1  the server install is unusable, or the deploy failed
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
 

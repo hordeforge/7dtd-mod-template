@@ -32,6 +32,36 @@ require_bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 
+usage() {
+	cat <<'HELP'
+Run every scripts/test_*.py; each must exit 0.
+
+USAGE
+  scripts/run-offline-tests.sh [filter ...]
+  make test [TF=<filter ...>]
+
+ARGUMENTS
+  [filter ...]       run only the tests whose file name contains one of these
+                     substrings, e.g. telnet
+
+OPTIONS
+  -h, --help         show this help and exit
+
+ENVIRONMENT
+  OFFLINE_TEST_JOBS=1     run serially instead of concurrently
+  OFFLINE_TEST_TIMINGS=1 append per-test elapsed seconds (not reproducible)
+
+EXIT STATUS
+  0  every test that ran passed
+  1  a test failed, or no test matched the filters
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+help_only usage "$@"
+
 # Read one key out of .local.env without exporting it. OFFLINE_TEST_JOBS and
 # OFFLINE_TEST_TIMINGS are documented .local.env keys, so they have to be
 # settable there, but this runner spawns every gate: load_local_env would put

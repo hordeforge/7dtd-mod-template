@@ -10,13 +10,53 @@
 #
 # Usage: make playtest SUITE=<one-id> [EXTRA_ARGS=<playtest_run.py flags>]
 #        scripts/playtest.sh <one-id> [extra playtest_run.py flags]
+#        scripts/playtest.sh --help
 #
 # Exit status: 0 the suite passed, 1 the run or its prerequisites failed,
-# 2 no suite was named.
+# 2 no suite was named or the command line was wrong.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
+	cat <<'HELP'
+Run one live suite through hordeforge/7dtd-playtest.
+
+USAGE
+  scripts/playtest.sh SUITE [extra playtest_run.py flags]
+  make playtest SUITE=<id> [EXTRA_ARGS=<playtest_run.py flags>]
+
+ARGUMENTS
+  SUITE                       one suite id. One invocation is one concern;
+                              a comma-list of unrelated features is refused
+                              unless PLAYTEST_CONCERN_SUITES holds the same
+                              tokens, so unrelated features are separate runs.
+  [extra flags]               forwarded to the upstream playtest_run.py,
+                              e.g. --headed
+
+OPTIONS
+  -h, --help                  show this help and exit
+
+ENVIRONMENT
+  SUITE                       used when no SUITE argument is given
+  PLAYTEST_ROOT               the 7dtd-playtest checkout, from .local.env or
+                              the environment
+  PLAYTEST_SUITE_FILE         suite JSON to run instead of the built-ins
+
+EXIT STATUS
+  0  the suite passed
+  1  the run or one of its prerequisites failed
+  2  no suite was named
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+# Before the suite is read: --help as an argument is the upstream runner's
+# business only once a suite has been named, and a request for help must
+# never start a run.
+help_only usage "$@"
 
 # .local.env holds PLAYTEST_ROOT, PLAYTEST_SUITE and PLAYTEST_SUITE_FILE, so
 # it is loaded before any of them is read and unconditionally: loading is
@@ -33,7 +73,8 @@ if (($#)); then
 	shift
 fi
 if [[ -z "$suite" ]]; then
-	echo "usage: make playtest SUITE=<one-id> [EXTRA_ARGS=<playtest_run.py flags>]" >&2
+	echo "ERROR: no suite named; give one as an argument, or set SUITE." >&2
+	usage >&2
 	exit 2
 fi
 

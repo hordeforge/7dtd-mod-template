@@ -10,6 +10,28 @@ export TZ=UTC
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
+	cat <<'HELP'
+Stage the deployable modlet under dist/<Name>/.
+
+USAGE
+  scripts/build.sh
+
+OPTIONS
+  -h, --help  show this help and exit
+
+EXIT STATUS
+  0  dist/<Name>/ is staged
+  1  the build failed
+  2  wrong arguments
+HELP
+}
+
+# shellcheck source=lib/args.sh
+source "$SCRIPT_DIR/lib/args.sh"
+parse_no_args usage "$@"
+
 MOD_NAME="__MOD_NAME__"
 OUT="$ROOT/dist/$MOD_NAME"
 SRC="$ROOT/src/$MOD_NAME"
