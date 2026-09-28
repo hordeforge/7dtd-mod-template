@@ -4,7 +4,7 @@ ROOT := $(CURDIR)
 # a machine without a game install or a dotnet SDK.
 .DEFAULT_GOAL := help
 
-.PHONY: help build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets
+.PHONY: help build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets playtest
 
 help:
 	@echo "Offline gates (no game install needed; run these before every commit):"
@@ -84,6 +84,13 @@ deploy-server:
 
 server-smoke:
 	$(ROOT)/scripts/server-smoke.sh
+
+# One live suite through hordeforge/7dtd-playtest. One invocation is one
+# concern: SUITE takes a single id, never a comma-list of unrelated features.
+# PLAYTEST_ROOT comes from the ignored .local.env.
+SUITE ?=
+playtest:
+	$(ROOT)/scripts/playtest.sh "$(SUITE)" $(EXTRA_ARGS)
 
 # ANVIL:ASSETS-BEGIN
 # Asset bundle build/validation via shamway (hordeforge/7dtd-asset-pipeline).

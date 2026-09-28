@@ -114,6 +114,7 @@ is the defect. Sibling repos are separate checkouts found via
 `HORDEFORGE_ROOT` in `.local.env` — never a build input or required
 relative path of this repo.
 
+<!-- ANVIL:ASSETS-BEGIN -->
 ## Asset bundles (when this mod ships them)
 
 The bundle is built by **shamway** (`hordeforge/7dtd-asset-pipeline`); this
@@ -129,6 +130,7 @@ launch — a bundle without a class-142 `AssetBundle` object is always
 rejected at runtime, and a matching UnityFS header is *not* acceptance
 evidence. Acceptance is a fresh client loading the bundle. If a build fails
 a shamway gate, fix the cause — never downgrade the gate.
+<!-- ANVIL:ASSETS-END -->
 
 <!-- ANVIL:CSHARP-BEGIN -->
 ## Runtime settings are TOML

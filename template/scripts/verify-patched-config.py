@@ -46,6 +46,11 @@ CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
+# Ops whose children are new elements the engine attributes to this mod, so
+# they are counted as "shipped". `set`/`remove`/`csv` change a matched node
+# instead of adding one and contribute no new element to the dump.
+INSERT_OPS = frozenset({"append", "insertBefore", "insertAfter"})
+
 
 def configured_game_dir() -> str:
     found = local_env.game_dir(Path(MOD_DIR))
@@ -57,7 +62,7 @@ class VerifyError(RuntimeError):
 
 
 def expected_elements() -> dict[str, int]:
-    """Count the elements this mod's Config/ appends, per target file."""
+    """Count the elements this mod's Config/ inserts, per target file."""
     counts: dict[str, int] = {}
     config_dir = os.path.join(MOD_DIR, "Config")
     # rglob, matching the engine: XmlPatcher loads "<mod>/Config/" + the
@@ -69,7 +74,11 @@ def expected_elements() -> dict[str, int]:
             tree = ET.parse(path)
         except ET.ParseError as exc:
             raise VerifyError(f"{path} is not well-formed XML: {exc}") from exc
-        total = sum(len(list(append)) for append in tree.getroot().iter("append"))
+        total = sum(
+            len(list(op))
+            for op in tree.getroot().iter()
+            if op.tag in INSERT_OPS
+        )
         if total:
             counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
     return counts
@@ -178,7 +187,7 @@ def main() -> int:
         print(f"  {filename:<22} {want:>8} {got:>8}{flag}")
         if want != got:
             failures.append(
-                f"{filename}: Config/ appends {want} element(s) but the running game "
+                f"{filename}: Config/ inserts {want} element(s) but the running game "
                 f"has {got} attributed to {MOD_NAME}"
             )
     print()

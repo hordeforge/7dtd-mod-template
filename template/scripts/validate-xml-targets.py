@@ -87,7 +87,7 @@ def main() -> int:
         patch = ET.parse(os.path.join(mod_config, name)).getroot()
         if patch.tag != "configs":
             continue
-        vanilla_path = os.path.join(config_dir, name)
+        vanilla_path = os.path.join(config_dir, *name.split("/"))
         if not os.path.isfile(vanilla_path):
             print(f"SKIP {name}: no vanilla counterpart (new file)")
             skips += 1

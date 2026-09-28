@@ -113,8 +113,11 @@ if [[ "$assets" == "yes" ]]; then
 	mkdir -p "$MOD_DIR/assets-src"
 	echo "NOTE: run 'shamway init' in the mod to set up the asset pipeline (.shamway.toml + its AGENTS contract)."
 else
-	# strip the shamway targets from the Makefile
+	# strip the shamway targets from the Makefile, and the prose that tells an
+	# agent to run them from the docs, so neither names a target that is gone
 	sed -i '/^# ANVIL:ASSETS-BEGIN$/,/^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
+	sed -i '/<!-- ANVIL:ASSETS-BEGIN -->/,/<!-- ANVIL:ASSETS-END -->/d' \
+		"$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
 fi
 sed -i '/^# ANVIL:ASSETS-BEGIN$/d; /^# ANVIL:ASSETS-END$/d' "$MOD_DIR/Makefile"
 sed -i '/<!-- ANVIL:CSHARP-BEGIN -->/d; /<!-- ANVIL:CSHARP-END -->/d' "$MOD_DIR/README.md" "$MOD_DIR/AGENTS.md"
