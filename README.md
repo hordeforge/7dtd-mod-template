@@ -1,15 +1,16 @@
-# 🔨 Anvil (7DTD Mod Template)
+# 🔨 Anvil (Mod Template)
 
 > **Part of [HordeForge](https://github.com/hordeforge)**: High-Performance Systems Engineering for 7 Days to Die.
 
 ![CI](https://github.com/hordeforge/7dtd-mod-template/actions/workflows/ci.yml/badge.svg)
 ![license](https://img.shields.io/github/license/hordeforge/7dtd-mod-template)
+![release](https://img.shields.io/github/v/release/hordeforge/7dtd-mod-template)
 
 The forge tool every mod gets shaped on: a template for new 7 Days to Die
 mods (XML/XPath modlets, optionally with a C#/Harmony DLL and custom asset
 bundles). A mod scaffolded from Anvil starts with the full structure,
 tooling, offline gates, documentation discipline, and agent working rules
-that the HordeForge modding workspace converged on — with none of any
+that the HordeForge modding workspace converged on, with none of any
 specific mod's content.
 
 Scope is standard 7DTD mods only. ZDTD mods are templated separately;
@@ -36,7 +37,7 @@ produce the deployable modlet; they need the game install recorded in
 One run does the whole setup:
 
 1. Resolves your local hordeforge checkout directory (or asks for one) and
-   clones the missing tool repos the workflow needs — `7dtd-playtest`,
+   clones the missing tool repos the workflow needs: `7dtd-playtest`,
    `7dtd-asset-pipeline`, and `7dtd-engine-research` (set `clone="no"` to
    skip this).
 2. Creates the mod directory from [`template/`](template/) with every
@@ -46,10 +47,10 @@ One run does the whole setup:
    and first `TODO.md` section, so an agent session can start from files
    alone.
 4. Writes the resolved machine-local paths into the mod's ignored
-   `.local.env` — tracked files never carry absolute paths.
+   `.local.env`; tracked files never carry absolute paths.
 5. `git init` + initial commit.
 
-The config file is always passed as an argument — nothing is hardcoded, so
+The config file is always passed as an argument; nothing is hardcoded, so
 several configs can coexist (a committed `configs/` presets directory is the
 natural later addition). Missing keys are prompted for interactively, and a
 prompt is asked again until the answer is usable.
@@ -134,7 +135,7 @@ core.
   `Config/Localization.csv`), a player-facing `README.txt`, optional
   `src/<Name>/` net48 C#, optional shamway-built assets, `dist/` packaging
   that extracts to `Mods/<Name>/ModInfo.xml`.
-- **Offline gates**: `make test` runs every `scripts/test_*.py` — XML
+- **Offline gates**: `make test` runs every `scripts/test_*.py`: XML
   well-formedness and patch conventions, packaging layout, a stdlib Python
   defect-class gate over the mod's own scripts, the rules-have-gates
   meta-gate (incident rules name their gate; every other gate runs twice,
@@ -145,7 +146,7 @@ core.
   over the mod's Python under the shipped `ruff.toml`.
 - **Install-dependent checks**: `make validate-xml` (every Config xpath
   against the installed game), `make verify-patched-config` (every element
-  the mod's `Config/` *inserts* counted in a loaded save's `ConfigsDump` — a
+  the mod's `Config/` *inserts* counted in a loaded save's `ConfigsDump`; a
   patch matching nothing applies silently; `set`/`remove`/`csv` change a
   matched node and contribute no new element, so prove those in game),
   `make validate-patch-targets` (every
@@ -156,16 +157,16 @@ core.
   log proof the mod loaded).
 - **TOML runtime settings** (C# mods): `Config/<Name>.toml` read by the
   DLL from the installed mod folder through a shipped fail-loud TOML
-  subset parser — hot-reloaded on save (debounced UnityUpdate watch,
+  subset parser, hot-reloaded on save (debounced UnityUpdate watch,
   reset-to-defaults-then-apply, broken save keeps current values), with a
   console command (`settings|set|reload`) sharing one value grammar, and
   an `Applied` event for synced values or a future settings UI.
 - **Docs-as-memory**: `TODO.md` task queue with claim markers,
   `docs/design.md` / `docs/architecture.md` / `docs/adr/` decision records,
   and an `AGENTS.md` (+ `CLAUDE.md` importing it) carrying the working
-  discipline — a fresh agent session resumes from files alone.
+  discipline: a fresh agent session resumes from files alone.
 - **Tool integration by reference**: playtesting via `hordeforge/7dtd-playtest`
   (including its machine-wide client lock), asset builds via `shamway`
   (`hordeforge/7dtd-asset-pipeline`), engine facts via
-  `hordeforge/7dtd-engine-research` — never vendored, never a required
+  `hordeforge/7dtd-engine-research`, never vendored, never a required
   relative path.
