@@ -92,20 +92,24 @@ variant() { # variant <mod-root> <label>
 
 # A second tree at a different absolute path, with no .git, built by a caller
 # whose locale and timezone are neither C nor UTC.
-elsewhere="$(mktemp -d)"
+#
 # The scratch tree never outlives this script, so the machine-local path
 # inventory copied into it is removed with it. The signal traps are what make
 # that true: a shell killed by a signal never runs its EXIT trap, so an EXIT
 # trap alone leaves a whole copy of the source tree in the temp directory on
 # every interrupted run. This is the same discipline new-mod.sh uses for its
-# staging directory. They are installed on the line after the mktemp because a
-# run signalled in between has a scratch tree and no trap to remove it: the
-# gate that proves this signals as soon as the directory appears, which is
-# exactly that window.
-trap 'rm -rf "$elsewhere"' EXIT
-trap 'rm -rf "$elsewhere"; exit 129' HUP
-trap 'rm -rf "$elsewhere"; exit 130' INT
-trap 'rm -rf "$elsewhere"; exit 143' TERM
+# staging directory. They are installed before the mktemp: bash defers a
+# trapped signal until the command substitution and its assignment finish, so
+# a signal landing while mktemp runs still finds the path in $elsewhere, where
+# traps installed after it left that window with the default action, which
+# kills the shell and keeps the directory.
+elsewhere=''
+remove_elsewhere() { if [[ -n "$elsewhere" ]]; then rm -rf "$elsewhere"; fi; }
+trap 'remove_elsewhere' EXIT
+trap 'remove_elsewhere; exit 129' HUP
+trap 'remove_elsewhere; exit 130' INT
+trap 'remove_elsewhere; exit 143' TERM
+elsewhere="$(mktemp -d)"
 mkdir -p "$elsewhere/$MOD_NAME"
 for entry in "${TREE[@]}"; do
 	if [[ -e "$ROOT/$entry" ]]; then

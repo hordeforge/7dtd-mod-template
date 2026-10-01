@@ -54,7 +54,11 @@ def stage_mod(root: str) -> str:
             continue
         target = os.path.join(root, entry)
         if os.path.isdir(source):
-            shutil.copytree(source, target)
+            # A gate running beside this one can be writing a bytecode file into
+            # scripts/__pycache__ through a temporary name it renames away, and
+            # a copy that lists the name before the rename fails on it.
+            shutil.copytree(source, target,
+                            ignore=shutil.ignore_patterns("__pycache__"))
         else:
             shutil.copy(source, target)
     staged = os.path.join(root, "dist", MOD_NAME)

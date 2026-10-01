@@ -237,6 +237,12 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- `verify-reproducible.sh` installed its signal traps on the line after
+  `mktemp -d`, so a signal landing while mktemp ran killed the shell with the
+  default action and left the scratch tree behind. The traps go in first, and
+  bash defers a trapped signal until the assignment has finished, so the path
+  is always known to the cleanup. `scripts/test_verify_reproducible.py`
+  signals from a stub `mktemp` to hit that window every run.
 - `scripts/lib/safe_xml.py` refuses a DTD before ElementTree can expand its
   entities, and no script called it: `configure-server-config.py`,
   `validate-xml-targets.py`, `verify-patched-config.py` and

@@ -73,6 +73,16 @@ GIT_ENV = {
     "GIT_COMMITTER_EMAIL": "gate@example.invalid",
 }
 
+# Stands in for `mktemp` on PATH: it makes the directory, prints it, and
+# signals the script before returning. The signal lands while the script waits
+# on the command substitution, the window between the directory existing and
+# its path being assigned, which polling for the directory reaches only by luck.
+SIGNALLING_MKTEMP = """#!/usr/bin/env bash
+dir="$("$REAL_MKTEMP" "$@")" || exit 1
+printf '%s\\n' "$dir"
+kill -TERM "$PPID"
+"""
+
 
 def git_available() -> bool:
     return shutil.which("git") is not None
@@ -90,7 +100,11 @@ def stage_mod(root: str) -> str | None:
             continue
         target = os.path.join(root, entry)
         if os.path.isdir(source):
-            shutil.copytree(source, target)
+            # A gate running beside this one can be writing a bytecode file into
+            # scripts/__pycache__ through a temporary name it renames away, and
+            # a copy that lists the name before the rename fails on it.
+            shutil.copytree(source, target,
+                            ignore=shutil.ignore_patterns("__pycache__"))
         else:
             shutil.copy(source, target)
     commands = (
@@ -153,6 +167,30 @@ def interrupted_run_leaves_nothing(root: str, script: str) -> None:
         )
     finally:
         shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+def signal_during_mktemp_leaves_nothing(root: str, script: str) -> None:
+    real_mktemp = shutil.which("mktemp")
+    if real_mktemp is None:
+        print("mktemp not found; the script makes its scratch tree with it")
+        return
+    with tempfile.TemporaryDirectory() as stubs:
+        stub = os.path.join(stubs, "mktemp")
+        with open(stub, "w", encoding="utf-8") as handle:
+            handle.write(SIGNALLING_MKTEMP)
+        os.chmod(stub, 0o755)
+        scratch_root = os.path.join(stubs, "tmp")
+        os.mkdir(scratch_root)
+        done = subprocess.run(
+            [script], cwd=root, capture_output=True, check=False,
+            timeout=STARTUP_TIMEOUT_SECONDS,
+            env={**os.environ, "TMPDIR": scratch_root, "REAL_MKTEMP": real_mktemp,
+                 "PATH": stubs + os.pathsep + os.environ["PATH"]})
+        left = sorted(os.listdir(scratch_root))
+        check("a signal while mktemp runs ends the run through the trap",
+              done.returncode == 143, f"exit {done.returncode}")
+        check("a signal while mktemp runs leaves no scratch tree behind",
+              not left, f"{left} survived")
 
 
 def tree_entries() -> set[str]:
@@ -225,6 +263,7 @@ def main() -> int:
             print("could not make a committed fixture; nothing to verify")
             return 0
         interrupted_run_leaves_nothing(root, script)
+        signal_during_mktemp_leaves_nothing(root, script)
         three_passes_agree(root, script)
 
     return report()
