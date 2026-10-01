@@ -23,6 +23,10 @@ shape above, so the search cannot quietly stop matching.
 
 ## [0.2.0] - 2026-10-01
 
+### Fixed
+
+- The macOS CI runner installs the Bash version required by the offline harness. Worker cleanup uses an explicit conditional that passes ShellCheck on hosted runners.
+
 ### Added
 
 - `CONTRIBUTING.md` for the human contributor: the `make preflight` setup

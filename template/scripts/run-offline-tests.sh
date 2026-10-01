@@ -163,7 +163,9 @@ cleanup() {
 		# because once the subshell is gone they are reparented and this
 		# cannot find them again.
 		while read -r child; do
-			[[ -n "$child" ]] && kill "$child" 2>/dev/null || true
+			if [[ -n "$child" ]]; then
+				kill "$child" 2>/dev/null || true
+			fi
 		done < <(ps -o pid= --ppid "$worker" 2>/dev/null)
 		kill "$worker" 2>/dev/null || true
 	done < <(jobs -pr)

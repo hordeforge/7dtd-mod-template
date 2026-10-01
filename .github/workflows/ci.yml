@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14]
+        os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     # The job only checks out and builds; it never writes back or reads a
     # secret. Anything beyond read access is an unused grant.
@@ -54,6 +54,11 @@ jobs:
           # nothing in this job pushes, and the job's own token grant is
           # contents: read
           persist-credentials: false
+      - name: Install macOS shell tools
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash shellcheck
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       - name: Scaffold a throwaway mod
         run: |
           # ci/smoke.conf is the one smoke config (a local run uses it
