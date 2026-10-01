@@ -29,52 +29,51 @@ Stated so nobody builds on an assumption that the code does not support.
 **Handled.**
 
 - The mod name is restricted to `^[A-Za-z][A-Za-z0-9_]*` before it reaches
-  any generated script or `Makefile` (`new-mod.sh:182`). `display_name`,
+  any generated script or `Makefile` (`new-mod.sh`). `display_name`,
   `author` and `purpose` are not format-checked; they only reach docs and
   `README.txt`.
 - The config file is not sourced blind: every key it defines is checked
   against the scaffolder's known-key list, and `csharp`, `assets` and `clone`
-  must be `yes` or `no`, before the file is executed (`new-mod.sh:80-120`).
+  must be `yes` or `no`, before the file is executed (`new-mod.sh`).
   This catches a typo. It does not make the file data; the `source` at
-  `new-mod.sh:116` still runs whatever the file contains.
+  `new-mod.sh` still runs whatever the file contains.
 - `.local.env` is gitignored, written `chmod 600`, and the scaffolder's
   `git add -A` runs after it exists, so machine-local paths stay out of a
   generated repository's history and out of reach of other accounts on the
-  machine (`new-mod.sh:484-498`, `:508`, `template/.gitignore:6`).
+  machine (`new-mod.sh`, `template/.gitignore`).
 - The mod's console command states its own admin permission level (0) and is
   not client-executable, so the engine's `AdminTools.CommandAllowedFor`
   refuses a connected player before the command runs, and an admin's run
   edits the server's settings rather than their own
-  (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:25`, `:34`). A gate
+  (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs`). A gate
   holds both properties for every console command the mod declares
   (`template/scripts/test_console_command_permissions.py`).
 - Pull-request CI uses the `pull_request` trigger, so no repository secrets
   are exposed to a fork, and the job holds only `contents: read` with
-  `persist-credentials: false` (`.github/workflows/ci.yml:5`, `:18-19`,
-  `:35-39`).
+  `persist-credentials: false` (`.github/workflows/ci.yml`).
 - The telnet console client refuses to be quiet about a cleartext password
   and redacts it from anything it prints
-  (`template/scripts/lib/game_telnet.py:152-163`, `:104-111`).
+  (`template/scripts/lib/game_telnet.py`).
 
 **Not handled.**
 
 - The config file passed to `new-mod.sh` and the machine-local
   `.local.env` are both executed as shell code, so both are executable
   input. A conf from someone else is a conf that runs on your machine
-  (`new-mod.sh:116`, `template/scripts/lib/server-common.sh:45-50`).
+  (`new-mod.sh`, `template/scripts/lib/server-common.sh`).
 - A player's own in-game console runs any console command in their own
   client process; the engine's level check covers the networked and web
   paths, and telnet, stdin and the local console are operator channels by
-  design (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:65`).
+  design (`template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs`).
 - The dedicated-server lane requires `EACEnabled=false`, so the server
   process in that lane runs with its anti-cheat off by design
-  (`template/scripts/server-smoke.sh:69-70`,
-  `template/scripts/install-server.sh:67-68`).
+  (`template/scripts/server-smoke.sh`,
+  `template/scripts/install-server.sh`).
 - NuGet auditing is disabled and no dependency lockfile is committed
-  (`template/src/__MOD_NAME__/__MOD_NAME__.csproj:17`).
+  (`template/src/__MOD_NAME__/__MOD_NAME__.csproj`).
 - The sibling tool checkouts the build invokes are not pinned at all, and the
   CI runner image is not pinned to a digest; the one action the workflow uses
-  is pinned by commit (`.github/workflows/ci.yml:35`).
+  is pinned by commit (`.github/workflows/ci.yml`).
 
 Do not run this toolchain on a machine whose `.local.env` or config file came
 from someone else, and do not treat the generated mod DLL as anything other than
