@@ -21,6 +21,8 @@ shape above, so the search cannot quietly stop matching.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-01
+
 ### Added
 
 - `CONTRIBUTING.md` for the human contributor: the `make preflight` setup
