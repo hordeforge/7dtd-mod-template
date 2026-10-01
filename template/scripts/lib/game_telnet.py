@@ -46,6 +46,11 @@ CLOSE_SETTLE_SECONDS = 0.2
 # against a settle of well under a second, and short enough that a console
 # printing without pause costs a caller a bounded wait.
 DRAIN_TOTAL_CAP_SECONDS = 30.0
+# The most characters one collection keeps. A console printing without pause
+# for the whole time cap would otherwise grow the result for as long as it
+# talks. What arrives past the cap is read and dropped, so the next command
+# still starts on a drained socket.
+DRAIN_TOTAL_CAP_CHARS = 4_000_000
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
 REDACTED = "<redacted>"
@@ -172,6 +177,11 @@ class GameTelnet:
 
     def connect(self, wait: float = 120.0) -> None:
         """Connect, retrying until the server has opened its listener."""
+        # A timeout of 0 makes the socket non-blocking: every attempt failed
+        # with BlockingIOError until `wait` ran out, reported as a server that
+        # is not running.
+        if self.timeout <= 0:
+            raise ValueError(f"timeout must be positive, not {self.timeout!r}")
         # A reconnect on a live instance would otherwise drop the previous
         # socket on the floor: nothing else releases it.
         self.close()
@@ -288,11 +298,13 @@ class GameTelnet:
         never returned, hanging the oracle session on a stream that was never
         going to stop. DRAIN_TOTAL_CAP_SECONDS bounds the whole collection,
         so a busy console yields everything printed up to the cap and the
-        caller gets its answer instead of no answer at all.
+        caller gets its answer instead of no answer at all. The result keeps
+        at most DRAIN_TOTAL_CAP_CHARS characters, the first ones printed.
         """
         started = self._now()
         end = started + seconds
         chunks: list[str] = []
+        kept = 0
         if self._sock is not None:
             self._sock.settimeout(DRAIN_READ_TIMEOUT_SECONDS)
             while self._now() < end and self._now() - started < DRAIN_TOTAL_CAP_SECONDS:
@@ -306,7 +318,9 @@ class GameTelnet:
                     # everything read so far on every chunk, so draining a long
                     # command's output cost a quadratic number of character
                     # copies before the first byte was returned.
-                    chunks.append(chunk)
+                    if kept < DRAIN_TOTAL_CAP_CHARS:
+                        chunks.append(chunk[:DRAIN_TOTAL_CAP_CHARS - kept])
+                        kept += len(chunks[-1])
                     end = self._now() + seconds
                 else:
                     self._sleep(POLL_INTERVAL_SECONDS)

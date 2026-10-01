@@ -237,6 +237,13 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- `scripts/lib/game_telnet.py` kept every character a console printed during
+  one collection, so a console printing without pause grew the result for the
+  whole 30 s time cap and the join and line split after it outlasted the
+  caller. A collection keeps the first `DRAIN_TOTAL_CAP_CHARS` and drops the
+  rest. `connect()` also refuses a timeout that is not positive: 0 made the
+  socket non-blocking, and every attempt failed until the wait ran out with a
+  message blaming the server. `scripts/test_telnet_drain_bounds.py` holds both.
 - `ci/scaffolder-rerun.sh` shelled out to `sha256sum`, which the BSD userland
   in macOS does not ship, so the gate died on a machine the repo already
   documents as a supported one. It resolves `sha256sum` or `shasum -a 256`

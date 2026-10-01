@@ -106,12 +106,12 @@ def rejects_bad_timeout(timeout: float) -> bool:
 
 
 def main() -> int:
-    ceiling = game_telnet.DRAIN_MAX_TOTAL_SECONDS
-    game_telnet.DRAIN_MAX_TOTAL_SECONDS = FAST_CEILING_SECONDS
+    ceiling = game_telnet.DRAIN_TOTAL_CAP_SECONDS
+    game_telnet.DRAIN_TOTAL_CAP_SECONDS = FAST_CEILING_SECONDS
     try:
         output, elapsed = chatty_under_watchdog()
     finally:
-        game_telnet.DRAIN_MAX_TOTAL_SECONDS = ceiling
+        game_telnet.DRAIN_TOTAL_CAP_SECONDS = ceiling
 
     # `run` drains once before the command and once after, so a read the
     # ceiling ends costs about that per drain, against a quiet window of 5s
@@ -125,7 +125,7 @@ def main() -> int:
         check("a bounded read still returns the output it collected",
               "log line of output" in output, repr(output[-80:]))
         check("a bounded read keeps no more than its cap",
-              len(output) <= game_telnet.DRAIN_MAX_CHARS, str(len(output)))
+              len(output) <= game_telnet.DRAIN_TOTAL_CAP_CHARS, str(len(output)))
 
     check("a zero timeout is refused before a socket is opened",
           rejects_bad_timeout(0), "connect() did not raise ValueError")
