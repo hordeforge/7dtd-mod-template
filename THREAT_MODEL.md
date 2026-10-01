@@ -254,7 +254,7 @@ generated mod's `make test` on a GitHub-hosted runner with no repository secrets
 - *Denial of service:* all XML readers use `template/scripts/lib/safe_xml.py`
   (`parse` / `fromstring`), which rejects DTD and entity declarations before
   `xml.etree.ElementTree` parses a document. A crafted `serverconfig.xml` or
-  `Config/*.xml` cannot reach entity expansion. `test_safe_xml.py` pins this
+  `Config/*.xml` cannot reach entity expansion. `test_xml_dtd_refusal.py` pins this
   refusal and the shared-parser use; the resolver fuzz gates independently
   bound the `Extends` chain, Harmony prefix parser and XPath resolver.
 
@@ -282,9 +282,9 @@ Controls that exist in the code, with what each one actually covers.
 | Deterministic gate harness: every AGENTS.md incident names a `test_*.py` | `test_rules_have_gates.py` | Keeps written rules from rotting into unenforceable prose. |
 | Mod console command states the admin level and is not client-executable, with a gate over both that resolves the class through the mod's own intermediate bases and exempts only the settings members it names read-only | `ConsoleCmd__MOD_NAME__.cs`, `test_console_command_permissions.py` | `AdminTools.CommandAllowedFor` refuses a connected player before dispatch, and an admin's run edits the server's settings rather than their own. |
 | Telnet password redacted from anything the client prints, and a warning before it goes to a non-loopback host | `game_telnet.py` | Keeps the console password out of CI logs and terminal output, and makes the cleartext exposure explicit. Neither authenticates the peer. |
-| XML declarations rejected before parsing | `template/scripts/lib/safe_xml.py` (`parse`, `fromstring`), `template/scripts/test_safe_xml.py` | Prevents entity expansion in every XML-reading gate and server-config reader. |
+| XML declarations rejected before parsing | `template/scripts/lib/safe_xml.py` (`parse`, `fromstring`), `template/scripts/test_xml_dtd_refusal.py` | Prevents entity expansion in every XML-reading gate and server-config reader. |
 | Telnet drain byte cap | `template/scripts/lib/game_telnet.py` (`_drain`) | Bounds the bytes one drain keeps from a flooding console peer. |
-| Fuzz gates over the `Extends` resolver, the Harmony prefix parser and the XPath resolver | `test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py`, `test_fuzz_xpath_targets.py` | Bounds the three recursive, prefix-driven or dialect-driven parsers a mod author feeds from `Config/*.xml` and mod source. Each asserts totality and known answers, so a wrong verdict fails the gate rather than only a crash. The XML entity layer is separately guarded by `safe_xml.py` and `test_safe_xml.py`. |
+| Fuzz gates over the `Extends` resolver, the Harmony prefix parser and the XPath resolver | `test_fuzz_extends_chain.py`, `test_fuzz_harmony_parsers.py`, `test_fuzz_xpath_targets.py` | Bounds the three recursive, prefix-driven or dialect-driven parsers a mod author feeds from `Config/*.xml` and mod source. Each asserts totality and known answers, so a wrong verdict fails the gate rather than only a crash. The XML entity layer is separately guarded by `safe_xml.py` and `test_xml_dtd_refusal.py`. |
 
 Gaps, ranked by exploitability then impact. These are recorded here; the fixes
 belong to code review, not to this document.
