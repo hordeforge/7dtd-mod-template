@@ -65,8 +65,8 @@ HELP
 source "$SCRIPT_DIR/lib/args.sh"
 help_only usage "$@"
 
-# shellcheck source=server-common.sh
-source "$SCRIPT_DIR/server-common.sh"
+# shellcheck source=lib/server-common.sh
+source "$SCRIPT_DIR/lib/server-common.sh"
 
 # OFFLINE_TEST_JOBS and OFFLINE_TEST_TIMINGS are documented .local.env keys, so
 # they have to be settable there, but this runner spawns every gate:

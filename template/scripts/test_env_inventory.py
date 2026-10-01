@@ -44,8 +44,9 @@ PYTHON_KEY = re.compile(r"""environ(?:\.get)?\(?["']([A-Z][A-Z0-9_]*)["']""")
 # An assignment to a key of the file, the way a reader names it.
 EXAMPLE_KEY = re.compile(r"^([A-Z][A-Z0-9_]*)=", re.MULTILINE)
 # Names the process environment owns rather than this mod: a script cannot
-# configure the PATH it inherited, and documenting it here would be noise.
-AMBIENT = frozenset({"PATH", "HOME", "LANG", "TMPDIR", "PWD"})
+# configure the PATH it inherited or the bash it runs under, and documenting
+# either here would be noise.
+AMBIENT = frozenset({"PATH", "HOME", "LANG", "TMPDIR", "PWD", "BASH_VERSION"})
 
 
 def source_files() -> list[Path]:
@@ -53,6 +54,9 @@ def source_files() -> list[Path]:
     files = [p for p in sorted(SCRIPTS_DIR.iterdir())
              if p.suffix in (".sh", ".py") and not p.name.startswith("test_")]
     files += sorted(p for p in SCRIPTS_DIR.glob("lib/*.py") if not p.name.startswith("test_"))
+    # The sourced shell libraries too: a key read only inside one (the server
+    # lane's, in lib/server-common.sh) is still a key the mod reads.
+    files += sorted(SCRIPTS_DIR.glob("lib/*.sh"))
     return files
 
 

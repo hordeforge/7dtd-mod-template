@@ -64,8 +64,8 @@ help_only usage "$@"
 # PLAYTEST_ROOT happened to be unset left the other two documented keys
 # unreachable from the file. Nothing here needs a suite to be named, so a
 # `.local.env` that cannot be parsed is still reported.
-# shellcheck source=server-common.sh
-source "$SCRIPT_DIR/server-common.sh"
+# shellcheck source=lib/server-common.sh
+source "$SCRIPT_DIR/lib/server-common.sh"
 load_local_env "$ROOT"
 
 suite="${1:-${SUITE:-${PLAYTEST_SUITE:-}}}"

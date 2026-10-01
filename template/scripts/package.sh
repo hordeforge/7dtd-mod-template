@@ -59,8 +59,8 @@ FALLBACK_EPOCH=1451606400
 MIN_DOS_EPOCH=315532800
 MAX_DOS_EPOCH=4354819198
 
-# shellcheck source=server-common.sh
-source "$ROOT/scripts/server-common.sh"
+# shellcheck source=lib/server-common.sh
+source "$ROOT/scripts/lib/server-common.sh"
 # SOURCE_DATE_EPOCH is a documented .local.env key, so the file is read before
 # the timestamp is resolved; an already-set value in the environment wins.
 load_local_env "$ROOT"

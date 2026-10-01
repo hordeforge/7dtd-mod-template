@@ -349,7 +349,7 @@ run writes one log into the server install's `logs/` and keeps the newest
 never touched.
 
 A number typed into `.local.env` is parsed as a decimal integer before any
-`$(( ))` sees it (`decimal_uint` in `scripts/server-common.sh`), never with a
+`$(( ))` sees it (`decimal_uint` in `scripts/lib/server-common.sh`), never with a
 `^[0-9]+$` match. A leading zero is an octal prefix to shell arithmetic, so
 `KEEP_LOGS=08` used to fail the expansion and prune nothing, and a digit run
 past 64 bits wraps rather than failing, so an epoch just over 2^64 was
@@ -421,7 +421,7 @@ value="false"` in that order, and the game writes its own serverconfig.xml
 with `value` first. `configure-server-config.py` preserves the order it found,
 so the check refused the very config it had just written, with "must set
 EACEnabled=false" on a file that said exactly that. It is
-`server_eac_disabled` in `scripts/server-common.sh` now: attribute order is
+`server_eac_disabled` in `scripts/lib/server-common.sh` now: attribute order is
 not significant in XML, and it reads either order.
 
 The server lane reads `.local.env` through `load_local_env` on every run, not
@@ -435,7 +435,7 @@ Corrected 2026-09-28: the deploy swap moved the deployed copy aside and then
 moved the new one in, with nothing between the two moves: a Ctrl-C, a SIGTERM
 or a failed second move in that window left no deployed mod at all, and a
 rerun is not the recovery the interrupted run can count on. The swap is now
-`swap_into_place` in `scripts/server-common.sh`, which puts the previous copy
+`swap_into_place` in `scripts/lib/server-common.sh`, which puts the previous copy
 back on any exit before it completes.
 `scripts/test_deploy_swap.py` drives it, including a signal delivered between
 the two moves.

@@ -44,8 +44,8 @@ if [[ -d "$SRC" ]]; then
 	# loaded whether or not the environment already names a game dir:
 	# load_local_env keeps a key the environment set, and skipping the file
 	# when it was set threw away the rest of it.
-	# shellcheck source=server-common.sh
-	source "$SCRIPT_DIR/server-common.sh"
+	# shellcheck source=lib/server-common.sh
+	source "$SCRIPT_DIR/lib/server-common.sh"
 	load_local_env "$ROOT"
 	GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
 	if [[ -z "$GAME_DIR" ]]; then

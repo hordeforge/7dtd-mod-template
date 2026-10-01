@@ -16,7 +16,7 @@ a dedicated server.
 | # | Threat | Boundary | Where | Severity |
 |---|--------|----------|-------|----------|
 | 1 | Config file is `source`d as shell, so a conf from anywhere is arbitrary code execution as the developer | operator to scaffolder | `new-mod.sh:116` | High |
-| 2 | `.local.env` is `source`d as shell under `set -a`; anything that can write it runs as code on the next `make` | machine to build | `template/scripts/build.sh:48`, `template/scripts/server-common.sh:45-50` | High |
+| 2 | `.local.env` is `source`d as shell under `set -a`; anything that can write it runs as code on the next `make` | machine to build | `template/scripts/build.sh:48`, `template/scripts/lib/server-common.sh:45-50` | High |
 | 3 | Mod DLL executes with full game/server process authority, and a server config with EAC off is the shipped lane | build to runtime | `template/src/__MOD_NAME__/ModApi.cs:10`, `template/scripts/server-smoke.sh:69-70` | High |
 | 4 | Sibling tool checkouts are cloned and then executed by `make` targets | tool chain to build | `new-mod.sh:229-233`, `template/Makefile:115`, `:118-126` | Medium-High |
 | 5 | A player's own in-game console runs the admin-level, server-side console command in their own client process, mutating that client's copy of the settings | player to client process | `template/src/__MOD_NAME__/ConsoleCmd__MOD_NAME__.cs:25`, `:34` | Low |
@@ -50,7 +50,7 @@ Entry points, all with the file that creates them.
 - the operator-supplied conf, after its keys are checked against the known-key
   list (`new-mod.sh:80-116`, `new-mod.sh:116`).
 - `.local.env` from the mod root, under `set -a`
-  (`template/scripts/build.sh:48`, `template/scripts/server-common.sh:45-50`),
+  (`template/scripts/build.sh:48`, `template/scripts/lib/server-common.sh:45-50`),
   written by `new-mod.sh:484-498`.
 
 **Environment variables**

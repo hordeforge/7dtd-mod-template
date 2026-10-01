@@ -2,8 +2,8 @@
 # Shared shell helpers: the .local.env readers and the dedicated-server lane.
 # Sourced, not executed.
 
-# shellcheck source=lib/require-bash.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/require-bash.sh"
+# shellcheck source=require-bash.sh
+source "$(dirname "${BASH_SOURCE[0]}")/require-bash.sh"
 require_bash
 
 # load_local_env <mod-root>
@@ -122,7 +122,7 @@ local_env_value() {
 # process environment's. Exits 1 naming the offending value when the server
 # directory is missing, relative, or too shallow to deploy into.
 load_server_environment() {
-	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 	# Loaded unconditionally, not only when the environment has no server
 	# directory: load_local_env keeps a key the environment already set, so a
 	# one-off SEVEN_DAYS_TO_DIE_SERVER_DIR=... overrides that one key, and

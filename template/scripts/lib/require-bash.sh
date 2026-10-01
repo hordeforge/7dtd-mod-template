@@ -6,7 +6,7 @@
 # `#!/usr/bin/env bash` picks up there. Every feature below fails on it in its
 # own way and none of them says why: `mapfile -d` (scripts/package.sh) rejects
 # the option, `wait -n` (scripts/run-offline-tests.sh) is an unknown operand,
-# and `[[ -v var ]]` (scripts/server-common.sh) is a syntax error. A script
+# and `[[ -v var ]]` (scripts/lib/server-common.sh) is a syntax error. A script
 # that uses one of those sources this file and calls require_bash first, so the
 # floor is reported once, in one message, before any work starts.
 #

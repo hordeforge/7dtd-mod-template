@@ -30,7 +30,7 @@ and that therefore does nothing however the file is edited.
 
 An environment variable already set wins over `.local.env`, so a one-off
 `SEVEN_DAYS_TO_DIE_SERVER_DIR=/srv/7dtd make server-smoke` needs no file
-edit. `load_local_env` in `scripts/server-common.sh` is the one reader every
+edit. `load_local_env` in `scripts/lib/server-common.sh` is the one reader every
 shell target uses, and `scripts/lib/local_env.py` is its Python counterpart
 for the three targets written in Python; the two agree on the rule that
 matters (a value already in the environment wins over the file) and differ on

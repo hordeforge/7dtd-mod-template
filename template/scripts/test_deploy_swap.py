@@ -30,7 +30,8 @@ from gate import check
 from gate import main as report
 
 SERVER_COMMON = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "server-common.sh"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "scripts", "lib", "server-common.sh",
 )
 
 SWAP = 'source "$1"\nswap_into_place "$2" "$3" "$4"\n'

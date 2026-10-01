@@ -33,7 +33,7 @@ from gate import check
 from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "server-common.sh")
+SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "lib", "server-common.sh")
 
 
 def mod_name() -> str:

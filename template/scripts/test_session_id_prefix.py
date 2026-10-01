@@ -59,7 +59,11 @@ def negative_controls() -> None:
 def main() -> int:
     negative_controls()
 
+    # lib/ included: a shared library is where a call site lands next, and a
+    # scan that stopped at the top level would let one move out of it.
     scripts = sorted(f for f in os.listdir(SCRIPTS) if f.endswith(".sh"))
+    scripts += sorted(os.path.join("lib", f) for f in os.listdir(os.path.join(SCRIPTS, "lib"))
+                      if f.endswith(".sh"))
     # A scan of nothing is a green run that checked nothing.
     check("the scan read the shell scripts it is meant to scan",
           len(scripts) > 0, "no .sh found in scripts/")

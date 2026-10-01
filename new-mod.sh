@@ -349,7 +349,7 @@ local_env_value() { # local_env_value <value>
 # above spells a quote, a dollar and a backtick, but no escaping can put a line
 # break inside a quoted assignment. One ends the KEY="..." line, and the rest
 # of the value is then the next line of a file every server target sources
-# (`scripts/server-common.sh`), so a path the config carried is read as shell.
+# (`scripts/lib/server-common.sh`), so a path the config carried is read as shell.
 # A path is the one value here that cannot hold a line break for any reason a
 # user would want, so the run stops and says so rather than writing it.
 local_env_line() { # local_env_line <key> <value> [config-key]

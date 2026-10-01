@@ -113,6 +113,13 @@ shape above, so the search cannot quietly stop matching.
 
 ### Changed
 
+- `scripts/server-common.sh` moves to `scripts/lib/server-common.sh`, beside
+  the other sourced shell libraries: every script in `scripts/` is executable
+  and every file in `lib/` is sourced. **Breaking for a mod scaffolded before
+  this:** its copy of `scripts/server-common.sh` stays where it is, and the
+  gates that read it want the new path. The environment-key inventories and
+  the session-prefix scan now read `lib/*.sh` too, so a shared library cannot
+  move a key or a call site out of a gate by changing directory.
 - `scripts/verify-patch-targets.py` pins the decompiler it reads
   signatures out of (`ilspycmd` 11.1.0.9782) instead of telling a reader to
   install whatever is newest, prints the version it ran against, and warns

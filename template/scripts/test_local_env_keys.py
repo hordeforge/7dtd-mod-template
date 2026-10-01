@@ -61,9 +61,11 @@ SHELL_ASSIGNED = re.compile(
     r"^\s*(?:local|export|declare\s+-\w+\s+)?([A-Z][A-Z0-9_]*)=", re.MULTILINE)
 
 # Keys the process environment owns rather than this mod's: a script cannot
-# configure the PATH it inherited, and SOURCE_DATE_EPOCH is the reproducible
-# builds convention every build tool reads.
-AMBIENT = frozenset({"PATH", "HOME", "LANG", "TMPDIR", "PWD", "SOURCE_DATE_EPOCH"})
+# configure the PATH it inherited or the bash it runs under, and
+# SOURCE_DATE_EPOCH is the reproducible builds convention every build tool
+# reads.
+AMBIENT = frozenset({"PATH", "HOME", "LANG", "TMPDIR", "PWD", "BASH_VERSION",
+                    "SOURCE_DATE_EPOCH"})
 
 # Keys a sibling tool reads out of the environment this file loads, not a
 # script in this repository. The parent directory and the per-repo overrides
@@ -88,8 +90,8 @@ def source_files() -> list[Path]:
     """
     files = [p for p in sorted(SCRIPTS_DIR.iterdir())
              if p.suffix in (".sh", ".py") and not p.name.startswith("test_")]
-    return files + sorted(p for p in SCRIPTS_DIR.glob("lib/*.py")
-                          if not p.name.startswith("test_"))
+    files += sorted(p for p in SCRIPTS_DIR.glob("lib/*.py") if not p.name.startswith("test_"))
+    return files + sorted(SCRIPTS_DIR.glob("lib/*.sh"))
 
 
 def read_keys(path: Path) -> set[str]:

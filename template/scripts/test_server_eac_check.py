@@ -31,7 +31,7 @@ from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
-SERVER_COMMON = os.path.join(SCRIPTS, "server-common.sh")
+SERVER_COMMON = os.path.join(SCRIPTS, "lib", "server-common.sh")
 CONFIGURE = os.path.join(SCRIPTS, "configure-server-config.py")
 
 # The order the game's own serverconfig.xml uses.

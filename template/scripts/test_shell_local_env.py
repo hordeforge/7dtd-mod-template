@@ -35,7 +35,7 @@ from gate import check
 from gate import main as report
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "server-common.sh")
+SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "lib", "server-common.sh")
 
 PROBE = ('source "$1"; load_local_env "$2"; '
          'printf "%s|%s\\n" "${SEVEN_DAYS_TO_DIE_DIR:-unset}" "${DOTNET_ROOT:-unset}"')
@@ -99,7 +99,7 @@ def server_lane_keeps_the_rest_of_the_file() -> None:
         done = subprocess.run(
             ["bash", "-c",
              'source "$1"; load_server_environment; printf "%s\\n" "$SERVER_DIR" "$SERVER_CONFIG"',
-             "bash", os.path.join(root, "scripts", "server-common.sh")],
+             "bash", os.path.join(root, "scripts", "lib", "server-common.sh")],
             capture_output=True, text=True, timeout=60, env=env, check=False,
         )
         check("the environment wins for the key it names",

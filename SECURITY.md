@@ -61,7 +61,7 @@ Stated so nobody builds on an assumption that the code does not support.
 - The config file passed to `new-mod.sh` and the machine-local
   `.local.env` are both executed as shell code, so both are executable
   input. A conf from someone else is a conf that runs on your machine
-  (`new-mod.sh:116`, `template/scripts/server-common.sh:45-50`).
+  (`new-mod.sh:116`, `template/scripts/lib/server-common.sh:45-50`).
 - A player's own in-game console runs any console command in their own
   client process; the engine's level check covers the networked and web
   paths, and telnet, stdin and the local console are operator channels by

@@ -31,8 +31,8 @@ HELP
 source "$SCRIPT_DIR/lib/args.sh"
 parse_no_args usage "$@"
 
-# shellcheck source=server-common.sh
-source "$SCRIPT_DIR/server-common.sh"
+# shellcheck source=lib/server-common.sh
+source "$SCRIPT_DIR/lib/server-common.sh"
 
 load_server_environment
 resolve_steamcmd
