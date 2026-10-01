@@ -26,6 +26,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import safe_xml
 import xml_extends
 from gate import check
 from gate import main as report
@@ -117,8 +118,8 @@ def parsed_root(rel: str) -> tuple[ET.Element | None, str | None]:
     entry = PARSED.get((MOD_DIR, rel))
     if entry is None:
         try:
-            entry = (ET.parse(os.path.join(MOD_DIR, rel)).getroot(), None)
-        except ET.ParseError as err:
+            entry = (safe_xml.parse(os.path.join(MOD_DIR, rel)).getroot(), None)
+        except (ET.ParseError, safe_xml.DtdRejected) as err:
             entry = (None, str(err))
         except OSError as err:
             entry = (None, str(err))

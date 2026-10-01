@@ -106,21 +106,24 @@ def _rejects_file(document: str) -> bool:
 
 
 def _direct_parsers() -> dict[str, list[str]]:
-    """Every tracked script that calls ElementTree directly, named by file.
+    """Every script or `lib/` module that calls ElementTree directly, by file.
 
     The templates in this tree are placeholders, so the scan is textual and
-    covers this file's own rule: `safe_xml.py` is the only name exempt.
+    covers this file's own rule: `lib/safe_xml.py` is the only file exempt.
     """
     offenders: dict[str, list[str]] = {}
-    for entry in sorted(os.listdir(SCRIPT_DIR)):
-        if not entry.endswith(".py") or entry == "safe_xml.py":
-            continue
-        with open(os.path.join(SCRIPT_DIR, entry), encoding="utf-8") as handle:
-            hits = [f"{entry}:{number}"
-                    for number, line in enumerate(handle, 1)
-                    if CALLER.search(line) and not line.lstrip().startswith("#")]
-        if hits:
-            offenders[entry] = hits
+    for prefix in ("", "lib/"):
+        directory = os.path.join(SCRIPT_DIR, prefix)
+        for entry in sorted(os.listdir(directory)):
+            name = prefix + entry
+            if not entry.endswith(".py") or name == "lib/safe_xml.py":
+                continue
+            with open(os.path.join(directory, entry), encoding="utf-8") as handle:
+                hits = [f"{name}:{number}"
+                        for number, line in enumerate(handle, 1)
+                        if CALLER.search(line) and not line.lstrip().startswith("#")]
+            if hits:
+                offenders[name] = hits
     return offenders
 
 

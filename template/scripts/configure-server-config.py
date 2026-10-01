@@ -15,6 +15,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TextIO
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import safe_xml
+
 
 def usage(stream: TextIO = sys.stdout) -> None:
     print("Derive a mod-owned serverconfig.xml with EAC off, for DLL testing.", file=stream)
@@ -43,8 +46,8 @@ def main() -> int:
     source = Path(sys.argv[1])
     target = Path(sys.argv[2])
     try:
-        tree = ET.parse(source)
-    except (ET.ParseError, OSError) as exc:
+        tree = safe_xml.parse(source)
+    except (ET.ParseError, safe_xml.DtdRejected, OSError) as exc:
         print(f"ERROR: cannot read {source}: {exc}", file=sys.stderr)
         return 1
     settings = tree.getroot()

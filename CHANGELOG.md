@@ -237,6 +237,14 @@ shape above, so the search cannot quietly stop matching.
 
 ### Fixed
 
+- `scripts/lib/safe_xml.py` refuses a DTD before ElementTree can expand its
+  entities, and no script called it: `configure-server-config.py`,
+  `validate-xml-targets.py`, `verify-patched-config.py` and
+  `scripts/lib/xml_extends.py` still parsed with `ET.parse` / `ET.fromstring`,
+  so a nested-entity `serverconfig.xml` from a SteamCMD install reached an
+  expat with no expansion limit. Every parse goes through it now, a refused
+  document is reported like a malformed one, and
+  `scripts/test_xml_dtd_refusal.py` scans `scripts/lib/` as well as `scripts/`.
 - `scripts/lib/game_telnet.py` kept every character a console printed during
   one collection, so a console printing without pause grew the result for the
   whole 30 s time cap and the join and line split after it outlasted the

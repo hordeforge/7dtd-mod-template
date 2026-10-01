@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+import safe_xml
+
 
 class ExtendsCycle(ValueError):
     """An `Extends` chain re-entered a name, so the walk cannot continue.
@@ -32,7 +34,7 @@ class ExtendsCycle(ValueError):
 
 def entries(xml_text: str, tag: str) -> dict[str, ET.Element]:
     """Every `<tag name=...>` this mod appends, by name."""
-    root = ET.fromstring(xml_text)
+    root = safe_xml.fromstring(xml_text)
     return {
         node.get("name"): node
         for append in root.iter("append")

@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import config_files
 import local_env
+import safe_xml
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ModInfo Name == directory name (enforced by test_static_checks.py)
@@ -80,8 +81,8 @@ def expected_elements() -> dict[str, int]:
     for name in config_files.patch_files(config_dir):
         path = os.path.join(config_dir, *name.split("/"))
         try:
-            tree = ET.parse(path)
-        except ET.ParseError as exc:
+            tree = safe_xml.parse(path)
+        except (ET.ParseError, safe_xml.DtdRejected) as exc:
             raise VerifyError(f"{path} is not well-formed XML: {exc}") from exc
         total = sum(
             1

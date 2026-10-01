@@ -34,6 +34,7 @@ from typing import TextIO
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import config_files
 import local_env
+import safe_xml
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -89,8 +90,8 @@ def parse(path: str) -> ET.Element:
     traceback out of a validation gate is not a usable report.
     """
     try:
-        return ET.parse(path).getroot()
-    except ET.ParseError as exc:
+        return safe_xml.parse(path).getroot()
+    except (ET.ParseError, safe_xml.DtdRejected) as exc:
         sys.exit(f"ERROR: {path} is not well-formed XML: {exc}")
     except OSError as exc:
         sys.exit(f"ERROR: cannot read {path}: {exc}")

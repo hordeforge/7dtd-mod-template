@@ -26,9 +26,9 @@ import os
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import safe_xml
 from gate import check
 from gate import main as report
 
@@ -37,7 +37,7 @@ SERVER_COMMON = os.path.join(MOD_DIR, "scripts", "lib", "server-common.sh")
 
 
 def mod_name() -> str:
-    root = ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
+    root = safe_xml.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     for field in root.findall("Name"):
         value = field.get("value") or ""
         if value:

@@ -45,6 +45,9 @@ import sys
 from types import ModuleType
 from xml.etree import ElementTree as ET
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import safe_xml
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_ITERATIONS = 2000
 SEED = 20260928
@@ -109,7 +112,7 @@ def load_validator() -> ModuleType:
 
 
 def probe() -> ET.Element:
-    return ET.fromstring(PROBE_XML)
+    return safe_xml.fromstring(PROBE_XML)
 
 
 def resolvable_path(rng: random.Random) -> str:
