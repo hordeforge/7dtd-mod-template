@@ -14,30 +14,29 @@ Usage: scripts/test_verify_patched_config.py
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import sys
 import tempfile
+from pathlib import Path
+from types import ModuleType
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate import check
 from gate import main as report
+from script_module import load_script
 
 SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "verify-patched-config.py")
 
 
-def load_verifier():
+def load_verifier() -> ModuleType:
     """The script under test, imported under its own name.
 
     By path rather than by name: the file's name is not an identifier, and the
     mod directory it sits in is the one `make verify-patched-config` runs it
     from.
     """
-    spec = importlib.util.spec_from_file_location("verify_patched_config", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_script(Path(SCRIPT), "verify_patched_config")
 
 
 def make_dump(root: str, name: str, when: float) -> str:
