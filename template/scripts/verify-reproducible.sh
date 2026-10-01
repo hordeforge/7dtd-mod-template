@@ -109,7 +109,7 @@ trap 'remove_elsewhere' EXIT
 trap 'remove_elsewhere; exit 129' HUP
 trap 'remove_elsewhere; exit 130' INT
 trap 'remove_elsewhere; exit 143' TERM
-elsewhere="$(mktemp -d)"
+elsewhere="$(mktemp -d "${TMPDIR:-/tmp}/mod-repro.XXXXXXXX")"
 mkdir -p "$elsewhere/$MOD_NAME"
 for entry in "${TREE[@]}"; do
 	if [[ -e "$ROOT/$entry" ]]; then

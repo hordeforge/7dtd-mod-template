@@ -146,8 +146,8 @@ set_mtime() { # set_mtime <epoch>; GNU touch first, BSD date -r after
 	# thousands of them, which is minutes of fork/exec for a build step that
 	# otherwise takes seconds. The archive bytes are the same either way (same
 	# modes, same mtimes); only the number of processes differs.
-	find . -mindepth 1 -type d -exec chmod 0755 -- {} +
-	find . -mindepth 1 -type f -exec chmod 0644 -- {} +
+	find . -mindepth 1 -type d -exec chmod 0755 {} +
+	find . -mindepth 1 -type f -exec chmod 0644 {} +
 	set_mtime "$SOURCE_DATE_EPOCH"
 
 	cd "$ROOT/dist"

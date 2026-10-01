@@ -166,7 +166,7 @@ cleanup() {
 			if [[ -n "$child" ]]; then
 				kill "$child" 2>/dev/null || true
 			fi
-		done < <(ps -o pid= --ppid "$worker" 2>/dev/null)
+		done < <(ps -A -o pid= -o ppid= | awk -v parent="$worker" '$2 == parent { print $1 }')
 		kill "$worker" 2>/dev/null || true
 	done < <(jobs -pr)
 	if [[ -n "$tmpdir" && -d "$tmpdir" ]]; then
@@ -182,7 +182,7 @@ cleanup() {
 # would put every worker's output at "/<name>.out" and report a wall of FAIL
 # lines instead of the cause.
 make_tmpdir() {
-	if ! tmpdir="$(mktemp -d)"; then
+	if ! tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/offline-tests.XXXXXXXX")"; then
 		tmpdir=""
 		echo "ERROR: could not create a temporary directory for test output." >&2
 		echo "       Check TMPDIR and the free space on its filesystem." >&2
