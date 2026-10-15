@@ -503,15 +503,16 @@ as consecutive steps of one feature (`--concern-suites` /
 
 ## Git workflow
 
-This is a standalone hordeforge repository and the clone may be shared by
-concurrent sessions: never `git checkout` / `git switch` / `git branch -D`
-in it — take a worktree per unit of work
-(`git worktree add /tmp/__MOD_NAME__-<topic> -b <branch> origin/main`).
-Complete the full lifecycle autonomously when unblocked: branch → commit →
-push → PR → merge; never commit directly to the default branch. Stage by
-explicit path. No `Co-Authored-By` or other attribution trailers in commits
-or PRs. If another session is working on something — a dirty file, a live
-branch, an open PR — do not touch it at all.
+This is a standalone hordeforge repository. Trunk-based: commit straight to
+`main`, small and self-contained, and push. Take a worktree per unit of work
+that must not land yet (risky, long-running, or awaiting review) with
+`worktree add <path> -b <short-lived-branch> origin/main`, then merge by
+fast-forward and delete the branch. Each concurrent session uses its own clone
+and never runs `git checkout`, `git switch`, or `git branch -D` in a clone
+another session is using: git refuses two worktrees on one branch, so a shared
+tree means a shared index, and a session once lost another's commit that way.
+Stage by explicit path. No `Co-Authored-By` or other attribution trailers in
+commits or PRs.
 
 ## Scope
 

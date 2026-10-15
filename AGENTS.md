@@ -70,9 +70,9 @@ scaffolding, killing the run, and scaffolding again.
 
 ## Git workflow
 
-Standard hordeforge lifecycle: this clone is shared, so never
-`git checkout` / `git switch` / `git branch -D` in it — take a worktree per
-unit of work (`git worktree add /tmp/7dtd-mod-template-<topic> -b <branch>
-origin/main`), then branch → commit → push → PR → merge. Never commit
-directly to `main`. No `Co-Authored-By` or other attribution trailers in
-commits or PRs.
+Trunk-based: commit straight to `main`, small and self-contained, and push.
+Take a worktree on a short-lived branch only for work that must not land yet
+(risky, long-running, or awaiting review), then merge by fast-forward and
+delete the branch. Concurrent sessions each use their own clone: git refuses
+two worktrees on one branch, so a shared tree means a shared index. No
+`Co-Authored-By` or other attribution trailers in commits or PRs.
