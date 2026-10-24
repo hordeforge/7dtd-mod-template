@@ -21,6 +21,8 @@ shape above, so the search cannot quietly stop matching.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
 ### Changed
 
 - The vendored `docs/best-practices.md` moves to the V3.3.0 (b18) guide, and
