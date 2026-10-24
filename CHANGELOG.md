@@ -21,6 +21,12 @@ shape above, so the search cannot quietly stop matching.
 
 ## [Unreleased]
 
+### Changed
+
+- The vendored `docs/best-practices.md` moves to the V3.3.0 (b18) guide, and
+  `template/README.txt` names V3.3, so a scaffolded mod starts with the
+  current game pin.
+
 ## [0.2.0] - 2026-10-01
 
 ### Fixed
